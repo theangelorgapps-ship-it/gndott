@@ -1,5 +1,6 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { getSessionUser } from '../lib/api'
 
 export const ADMIN_URL = 'https://gndottadmin.theangelorgapps.workers.dev'
 
@@ -14,6 +15,10 @@ const LINKS = [
 
 export function AccountShell({ title, children }: { title: string; children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const [isAdmin, setIsAdmin] = useState(false)
+  useEffect(() => {
+    getSessionUser().then((u: any) => setIsAdmin(u?.user_type === 'admin')).catch(() => {})
+  }, [])
   return (
     <div className="account-shell">
       <aside className="account-side">
@@ -23,10 +28,12 @@ export function AccountShell({ title, children }: { title: string; children: Rea
             {l.label}
           </Link>
         ))}
-        <a href={ADMIN_URL} target="_blank" rel="noopener">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2a7 7 0 0 0-7 7c0 2.4 1.2 4.5 3 5.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3c1.8-1.2 3-3.3 3-5.7a7 7 0 0 0-7-7zm-2 19a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-1h-4z" /></svg>
-          Admin Panel
-        </a>
+        {isAdmin && (
+          <a href={ADMIN_URL} target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2a7 7 0 0 0-7 7c0 2.4 1.2 4.5 3 5.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3c1.8-1.2 3-3.3 3-5.7a7 7 0 0 0-7-7zm-2 19a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-1h-4z" /></svg>
+            Admin Panel
+          </a>
+        )}
       </aside>
       <div className="account-main">
         <h1 className="account-title">{title}</h1>

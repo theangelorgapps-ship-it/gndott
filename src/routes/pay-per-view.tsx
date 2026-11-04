@@ -1,0 +1,53 @@
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useState } from 'react'
+import { getPayPerView } from '../lib/api'
+import { img } from '../components/Poster'
+
+export const Route = createFileRoute('/pay-per-view')({
+  loader: async () => await getPayPerView(),
+  component: PayPerView,
+})
+
+type Kind = 'all' | 'movie' | 'video' | 'episode'
+
+function RentCard({ item, to }: { item: any; to: string }) {
+  return (
+    <Link to={to as any} className="p-card">
+      <span className="p-poster" style={{ backgroundImage: `url(${img(item.poster_url)})` }}>
+        {item.price != null && <span className="price-chip">$ {Number(item.price).toFixed(1)}</span>}
+        <span className="rent-badge">RENT</span>
+      </span>
+      <span className="p-name">{item.name}</span>
+    </Link>
+  )
+}
+
+function PayPerView() {
+  const { movies, videos, episodes } = Route.useLoaderData() as any
+  const [kind, setKind] = useState<Kind>('all')
+  const items: { item: any; to: string; kind: Exclude<Kind, 'all'> }[] = [
+    ...movies.map((m: any) => ({ item: m, to: `/movie/${m.id}`, kind: 'movie' as const })),
+    ...videos.map((v: any) => ({ item: v, to: `/video/${v.id}`, kind: 'video' as const })),
+    ...episodes.map((e: any) => ({ item: e, to: `/tv-show/${e.entertainment_id}`, kind: 'episode' as const })),
+  ]
+  const shown = kind === 'all' ? items : items.filter((i) => i.kind === kind)
+
+  return (
+    <div>
+      <h1 className="page-title-center" style={{ marginTop: 30 }}>Pay Per View</h1>
+      <div className="filter-pills">
+        {(['all', 'movie', 'video', 'episode'] as Kind[]).map((k) => (
+          <button key={k} className={`filter-pill${kind === k ? ' active' : ''}`} onClick={() => setKind(k)}>
+            {k === 'all' ? 'All' : k[0].toUpperCase() + k.slice(1)}
+          </button>
+        ))}
+      </div>
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="grid" style={{ padding: 0 }}>
+          {shown.map(({ item, to, kind }) => <RentCard key={`${kind}-${item.id}`} item={item} to={to} />)}
+        </div>
+        {shown.length === 0 && <div className="empty">No rentable content in this category.</div>}
+      </section>
+    </div>
+  )
+}

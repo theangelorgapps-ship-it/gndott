@@ -6,15 +6,15 @@
   "r2_buckets": [
     {
       "binding": "MEDIA",
-      "bucket_name": "streamit-media"
+      "bucket_name": "halobox-migrated-media-20261105"
     }
   ],
   "main": "@tanstack/react-start/server-entry",
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "streamit",
-      "database_id": "e5502cd6-d9f0-49d2-b4ce-e9dffb0217d7"
+      "database_name": "halobox-migrated-20261105",
+      "database_id": "3bc8aa15-6d59-42be-93df-23397c737c56"
     }
   ]
 }

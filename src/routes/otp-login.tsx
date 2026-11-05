@@ -1,18 +1,37 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { AuthShell } from './login'
+import { requestOtp, verifyOtp } from '../lib/api'
 
 export const Route = createFileRoute('/otp-login')({
   component: OtpLogin,
 })
 
 function OtpLogin() {
-  const [mobile, setMobile] = useState('')
+  const [contact, setContact] = useState('')
+  const [code, setCode] = useState('')
   const [sent, setSent] = useState(false)
+  const [devCode, setDevCode] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const router = useRouter()
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSend(e: React.FormEvent) {
     e.preventDefault()
-    setSent(true)
+    setBusy(true); setMsg(null)
+    const res: any = await requestOtp({ data: { contact } })
+    setBusy(false)
+    if (res?.ok) { setSent(true); setDevCode(res.devCode ?? null) }
+    else setMsg(res?.error ?? 'Could not send OTP.')
+  }
+
+  async function onVerify(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setMsg(null)
+    const res: any = await verifyOtp({ data: { contact, code } })
+    setBusy(false)
+    if (res?.ok) { router.navigate({ to: '/' }); router.invalidate() }
+    else setMsg(res?.error ?? 'Invalid code.')
   }
 
   return (
@@ -20,22 +39,47 @@ function OtpLogin() {
       {sent ? (
         <>
           <p style={{ color: 'var(--muted)', fontSize: 14.5, lineHeight: 1.6, textAlign: 'center' }}>
-            SMS delivery is not configured on this deployment, so no OTP was sent.
-            Use email sign-in instead.
+            Enter the 6-digit code we sent to <strong>{contact}</strong>.
           </p>
-          <div className="auth-alt"><Link to="/login">Back to Sign In</Link></div>
+          {devCode && (
+            <p className="form-msg" style={{ textAlign: 'center' }}>
+              Demo code (no SMS provider configured): <strong style={{ letterSpacing: 3 }}>{devCode}</strong>
+            </p>
+          )}
+          <form onSubmit={onVerify}>
+            <div className="field">
+              <input
+                placeholder="6-digit code"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputMode="numeric"
+                required
+                autoFocus
+                style={{ textAlign: 'center', letterSpacing: 6, fontSize: 20 }}
+              />
+            </div>
+            {msg && <p className="form-msg">{msg}</p>}
+            <button className="btn btn-primary auth-btn" disabled={busy || code.length !== 6}>
+              {busy ? 'Verifying…' : 'Verify & Sign In'}
+            </button>
+          </form>
+          <div className="auth-alt">
+            <button className="linklike" onClick={() => { setSent(false); setCode(''); setMsg(null) }}>Use a different number/email</button>
+          </div>
         </>
       ) : (
         <>
           <p style={{ color: 'var(--muted)', fontSize: 14.5, lineHeight: 1.6, textAlign: 'center', marginTop: 0 }}>
-            Enter your registered mobile number to receive a one-time passcode.
+            Enter your registered email or mobile number to receive a one-time passcode.
           </p>
-          <form onSubmit={onSubmit}>
-            <div className="field field-phone">
-              <span className="phone-prefix">+91</span>
-              <input placeholder="e.g. 9723454740" value={mobile} onChange={(e) => setMobile(e.target.value)} inputMode="tel" required autoFocus />
+          <form onSubmit={onSend}>
+            <div className="field">
+              <input placeholder="Email or mobile number" value={contact} onChange={(e) => setContact(e.target.value)} required autoFocus />
             </div>
-            <button className="btn btn-primary auth-btn">Send OTP</button>
+            {msg && <p className="form-msg">{msg}</p>}
+            <button className="btn btn-primary auth-btn" disabled={busy || !contact.trim()}>
+              {busy ? 'Sending…' : 'Send OTP'}
+            </button>
           </form>
           <div className="auth-alt">
             <Link to="/login">Sign in with email</Link>

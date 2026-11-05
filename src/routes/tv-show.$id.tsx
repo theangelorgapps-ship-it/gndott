@@ -5,7 +5,7 @@ import {
   PosterCard, CircleCard, Rail, img,
   IconPlay, IconPlus, IconShare, IconCalendar, IconGlobe, IconStar,
 } from '../components/Poster'
-import { TrailerPlayer, DetailTabs, ReviewCard, ClipsRail } from '../components/Detail'
+import { DetailTabs, ReviewCard, ClipsRail, WatchSection, WatchlistButton, ReviewForm } from '../components/Detail'
 
 export const Route = createFileRoute('/tv-show/$id')({
   loader: async ({ params }) => await getTvShow({ data: Number(params.id) }),
@@ -17,7 +17,7 @@ function TvShowDetail() {
   const [tab, setTab] = useState('episodes')
   const [seasonIdx, setSeasonIdx] = useState(0)
   if (!data) return <div className="empty">Show not found.</div>
-  const { show, seasons, episodes, genres, cast, reviews, clips, similar } = data
+  const { show, seasons, episodes, genres, cast, reviews, clips, similar, bunnyLibraryId, ads, inWatchlist, myReview, viewerId } = data
   const rating = show.IMDb_rating ?? show.imdb_rating
   const actors = cast.filter((c: any) => c.type !== 'director')
   const directors = cast.filter((c: any) => c.type === 'director')
@@ -35,7 +35,19 @@ function TvShowDetail() {
   return (
     <div>
       <div className="detail-player">
-        <TrailerPlayer url={show.trailer_url} poster={show.thumbnail_url || show.poster_url} title={show.name} />
+        <WatchSection
+          contentType="tvshow"
+          contentId={show.id}
+          title={show.name}
+          poster={show.thumbnail_url || show.poster_url}
+          ads={ads}
+          bunnyLibraryId={bunnyLibraryId}
+          bunnyVideoId={show.bunny_video_url}
+          trailerUrl={show.trailer_url}
+          movieAccess={show.movie_access}
+          price={show.price}
+          viewerId={viewerId}
+        />
       </div>
 
       <div className="detail-info">
@@ -54,9 +66,9 @@ function TvShowDetail() {
           {rating && <span><IconStar /> {rating} (IMDb)</span>}
         </div>
         <div className="hero-actions">
-          <button className="btn btn-primary"><IconPlay /> Watch now</button>
-          <button className="btn btn-dark btn-circle" aria-label="Add to watchlist"><IconPlus /></button>
-          <button className="btn btn-dark btn-circle" aria-label="Share"><IconShare /></button>
+          <button className="btn btn-primary" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><IconPlay /> Watch now</button>
+          <WatchlistButton entertainmentId={show.id} initialAdded={!!inWatchlist} viewerId={viewerId} />
+          <button className="btn btn-dark btn-circle" aria-label="Share" onClick={() => { navigator.clipboard?.writeText(window.location.href).catch(() => null) }}><IconShare /></button>
         </div>
       </div>
 
@@ -89,7 +101,7 @@ function TvShowDetail() {
                     {ep.release_date && <span>{String(ep.release_date).slice(0, 10)}</span>}
                   </div>
                 </div>
-                <button className="btn btn-dark btn-circle" aria-label={`Play ${ep.name}`}><IconPlay /></button>
+                <button className="btn btn-dark btn-circle" aria-label={`Play ${ep.name}`} title={ep.bunny_video_url ? 'Play episode' : 'No source yet'}><IconPlay /></button>
               </div>
             ))
           )}
@@ -119,6 +131,7 @@ function TvShowDetail() {
             {reviews.map((r: any) => <ReviewCard key={r.id} review={r} />)}
           </div>
           {reviews.length === 0 && <div className="empty">No reviews yet.</div>}
+          <ReviewForm entertainmentId={show.id} myReview={myReview} viewerId={viewerId} />
         </section>
       )}
 

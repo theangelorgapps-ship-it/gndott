@@ -1,11 +1,34 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { getDashboard } from '../lib/api'
+import { getDashboard, getHomeAds } from '../lib/api'
 import { PosterCard, Top10Card, Rail, HeroSlider, img } from '../components/Poster'
 
 export const Route = createFileRoute('/')({
-  loader: async () => await getDashboard(),
+  loader: async () => {
+    const [dash, homeAds] = await Promise.all([getDashboard(), getHomeAds()])
+    return { ...dash, homeAds }
+  },
   component: Home,
 })
+
+function HomeAds({ ads }: { ads: any[] }) {
+  if (!ads?.length) return null
+  return (
+    <section className="section">
+      {ads.map((ad: any) => {
+        const src = ad.url_type === 'url' ? ad.media : img(ad.media)
+        const inner = ad.type === 'video'
+          ? <video className="home-ad" src={src} autoPlay muted loop playsInline />
+          : <img className="home-ad" src={src} alt={ad.name ?? 'Sponsored'} loading="lazy" />
+        return (
+          <div key={ad.id} className="home-ad-wrap">
+            <span className="ad-badge" style={{ position: 'absolute' }}>Sponsored</span>
+            {ad.redirect_url ? <a href={ad.redirect_url} target="_blank" rel="noreferrer">{inner}</a> : inner}
+          </div>
+        )
+      })}
+    </section>
+  )
+}
 
 function baseFor(item: any) {
   return item.type === 'tvshow' ? '/tv-show' : '/movie'
@@ -18,6 +41,8 @@ function Home() {
   return (
     <div>
       <HeroSlider slides={slides} baseFor={baseFor} genres={data.genres} />
+
+      <HomeAds ads={(data as any).homeAds} />
 
       {data.top10.length > 0 && (
         <Rail title="Top 10">

@@ -27,6 +27,7 @@ import { Route as OtpLoginRouteImport } from './routes/otp-login'
 import { Route as PayPerViewRouteImport } from './routes/pay-per-view'
 import { Route as PayPerViewHistoryRouteImport } from './routes/pay-per-view-history'
 import { Route as PaymentHistoryRouteImport } from './routes/payment-history'
+import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
 import { Route as ProfileDetailsRouteImport } from './routes/profile-details'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SearchRouteImport } from './routes/search'
@@ -133,6 +134,11 @@ const PaymentHistoryRoute = PaymentHistoryRouteImport.update({
   path: '/payment-history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
+  id: '/payment-success',
+  path: '/payment-success',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileDetailsRoute = ProfileDetailsRouteImport.update({
   id: '/profile-details',
   path: '/profile-details',
@@ -228,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/pay-per-view': typeof PayPerViewRoute
   '/pay-per-view-history': typeof PayPerViewHistoryRoute
   '/payment-history': typeof PaymentHistoryRoute
+  '/payment-success': typeof PaymentSuccessRoute
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
@@ -263,6 +270,7 @@ export interface FileRoutesByTo {
   '/pay-per-view': typeof PayPerViewRoute
   '/pay-per-view-history': typeof PayPerViewHistoryRoute
   '/payment-history': typeof PaymentHistoryRoute
+  '/payment-success': typeof PaymentSuccessRoute
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
@@ -299,6 +307,7 @@ export interface FileRoutesById {
   '/pay-per-view': typeof PayPerViewRoute
   '/pay-per-view-history': typeof PayPerViewHistoryRoute
   '/payment-history': typeof PaymentHistoryRoute
+  '/payment-success': typeof PaymentSuccessRoute
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
@@ -336,6 +345,7 @@ export interface FileRouteTypes {
     | '/pay-per-view'
     | '/pay-per-view-history'
     | '/payment-history'
+    | '/payment-success'
     | '/profile-details'
     | '/register'
     | '/search'
@@ -371,6 +381,7 @@ export interface FileRouteTypes {
     | '/pay-per-view'
     | '/pay-per-view-history'
     | '/payment-history'
+    | '/payment-success'
     | '/profile-details'
     | '/register'
     | '/search'
@@ -406,6 +417,7 @@ export interface FileRouteTypes {
     | '/pay-per-view'
     | '/pay-per-view-history'
     | '/payment-history'
+    | '/payment-success'
     | '/profile-details'
     | '/register'
     | '/search'
@@ -442,6 +454,7 @@ export interface RootRouteChildren {
   PayPerViewRoute: typeof PayPerViewRoute
   PayPerViewHistoryRoute: typeof PayPerViewHistoryRoute
   PaymentHistoryRoute: typeof PaymentHistoryRoute
+  PaymentSuccessRoute: typeof PaymentSuccessRoute
   ProfileDetailsRoute: typeof ProfileDetailsRoute
   RegisterRoute: typeof RegisterRoute
   SearchRoute: typeof SearchRoute
@@ -586,6 +599,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PaymentHistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payment-success': {
+      id: '/payment-success'
+      path: '/payment-success'
+      fullPath: '/payment-success'
+      preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile-details': {
       id: '/profile-details'
       path: '/profile-details'
@@ -723,6 +743,7 @@ const rootRouteChildren: RootRouteChildren = {
   PayPerViewRoute: PayPerViewRoute,
   PayPerViewHistoryRoute: PayPerViewHistoryRoute,
   PaymentHistoryRoute: PaymentHistoryRoute,
+  PaymentSuccessRoute: PaymentSuccessRoute,
   ProfileDetailsRoute: ProfileDetailsRoute,
   RegisterRoute: RegisterRoute,
   SearchRoute: SearchRoute,

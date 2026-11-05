@@ -5,7 +5,7 @@ import {
   PosterCard, CircleCard, Rail, img,
   IconPlay, IconPlus, IconShare, IconCalendar, IconGlobe, IconClock, IconStar,
 } from '../components/Poster'
-import { TrailerPlayer, DetailTabs, ReviewCard, ClipsRail } from '../components/Detail'
+import { TrailerPlayer, DetailTabs, ReviewCard, ClipsRail, WatchSection, WatchlistButton, ReviewForm } from '../components/Detail'
 
 export const Route = createFileRoute('/movie/$id')({
   loader: async ({ params }) => await getMovie({ data: Number(params.id) }),
@@ -16,7 +16,7 @@ function MovieDetail() {
   const data = Route.useLoaderData() as any
   const [tab, setTab] = useState('cast')
   if (!data) return <div className="empty">Movie not found.</div>
-  const { movie, genres, cast, similar, reviews, clips } = data
+  const { movie, genres, cast, similar, reviews, clips, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, viewerId } = data
   const rating = movie.IMDb_rating ?? movie.imdb_rating
   const actors = cast.filter((c: any) => c.type !== 'director')
   const directors = cast.filter((c: any) => c.type === 'director')
@@ -30,7 +30,20 @@ function MovieDetail() {
   return (
     <div>
       <div className="detail-player">
-        <TrailerPlayer url={movie.trailer_url} poster={movie.thumbnail_url || movie.poster_url} title={movie.name} />
+        <WatchSection
+          contentType="movie"
+          contentId={movie.id}
+          title={movie.name}
+          poster={movie.thumbnail_url || movie.poster_url}
+          ads={ads}
+          bunnyLibraryId={bunnyLibraryId}
+          bunnyVideoId={movie.bunny_video_url}
+          trailerUrl={movie.trailer_url}
+          movieAccess={movie.movie_access}
+          price={movie.price}
+          myPurchase={myPurchase}
+          viewerId={viewerId}
+        />
       </div>
 
       <div className="detail-info">
@@ -49,9 +62,9 @@ function MovieDetail() {
           {rating && <span><IconStar /> {rating} (IMDb)</span>}
         </div>
         <div className="hero-actions">
-          <button className="btn btn-primary"><IconPlay /> Watch now</button>
-          <button className="btn btn-dark btn-circle" aria-label="Add to watchlist"><IconPlus /></button>
-          <button className="btn btn-dark btn-circle" aria-label="Share"><IconShare /></button>
+          <button className="btn btn-primary" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><IconPlay /> Watch now</button>
+          <WatchlistButton entertainmentId={movie.id} initialAdded={!!inWatchlist} viewerId={viewerId} />
+          <button className="btn btn-dark btn-circle" aria-label="Share" onClick={() => { navigator.clipboard?.writeText(window.location.href).catch(() => null) }}><IconShare /></button>
         </div>
       </div>
 
@@ -82,6 +95,7 @@ function MovieDetail() {
             {reviews.map((r: any) => <ReviewCard key={r.id} review={r} />)}
           </div>
           {reviews.length === 0 && <div className="empty">No reviews yet.</div>}
+          <ReviewForm entertainmentId={movie.id} myReview={myReview} viewerId={viewerId} />
         </section>
       )}
 

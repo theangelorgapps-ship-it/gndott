@@ -1,6 +1,6 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState } from 'react'
-import { getPlansPage } from '../lib/api'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { getPlansPage, getCheckoutInfo, validateCoupon, subscribePlan } from '../lib/api'
 import { IconCrown } from '../components/Poster'
 
 export const Route = createFileRoute('/subscription-plan')({
@@ -47,10 +47,96 @@ function featureLines(lims: any[]): string[] {
   return lines
 }
 
+function CheckoutModal({ plan, onClose }: { plan: any; onClose: (done: boolean) => void }) {
+  const [gateways, setGateways] = useState<{ id: string; label: string }[] | null>(null)
+  const [gateway, setGateway] = useState('')
+  const [coupon, setCoupon] = useState('')
+  const [couponInfo, setCouponInfo] = useState<any>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const router = useRouter()
+
+  useEffect(() => {
+    getCheckoutInfo().then((info: any) => {
+      setGateways(info?.gateways ?? [])
+      if (info?.gateways?.length) setGateway(info.gateways[0].id)
+      if (!info?.gateways?.length) setMsg('No payment gateway is enabled. Ask the administrator to enable one in settings.')
+    })
+  }, [])
+
+  const price = Number(plan.price || 0)
+  const discount = couponInfo?.ok ? couponInfo.discount : 0
+  const total = Math.max(0, price - discount)
+
+  return (
+    <div className="profile-modal" onClick={(e) => { if (e.target === e.currentTarget) onClose(false) }}>
+      <div className="profile-form checkout-form">
+        <h3>Subscribe — {plan.name}</h3>
+        <div className="checkout-row"><span>Plan price</span><strong>${price.toFixed(2)}</strong></div>
+
+        <label className="checkout-label">Coupon code</label>
+        <div className="coupon-row">
+          <input type="text" value={coupon} onChange={(e) => { setCoupon(e.target.value); setCouponInfo(null) }} placeholder="Enter coupon code" />
+          <button
+            type="button"
+            className="btn btn-dark"
+            disabled={!coupon.trim()}
+            onClick={async () => setCouponInfo(await validateCoupon({ data: { code: coupon.trim(), amount: price } }))}
+          >
+            Apply
+          </button>
+        </div>
+        {couponInfo && (
+          <p className="form-msg" style={{ color: couponInfo.ok ? 'var(--green, #4caf50)' : 'var(--red, #f66)' }}>
+            {couponInfo.ok ? `Coupon applied: −$${discount.toFixed(2)}` : couponInfo.error}
+          </p>
+        )}
+
+        <label className="checkout-label">Payment method</label>
+        <div className="gateway-list">
+          {(gateways ?? []).map((g) => (
+            <label key={g.id} className={`gateway-item${gateway === g.id ? ' active' : ''}`}>
+              <input type="radio" name="gateway" checked={gateway === g.id} onChange={() => setGateway(g.id)} />
+              {g.label}
+            </label>
+          ))}
+          {gateways === null && <p className="muted">Loading payment methods…</p>}
+        </div>
+
+        <div className="checkout-row checkout-total"><span>Total</span><strong>${total.toFixed(2)}</strong></div>
+        {msg && <p className="form-msg">{msg}</p>}
+
+        <div className="profile-form-actions">
+          <button type="button" className="btn btn-dark" onClick={() => onClose(false)}>Cancel</button>
+          <button
+            className="btn btn-primary"
+            disabled={busy || !gateway}
+            onClick={async () => {
+              setBusy(true); setMsg(null)
+              const res: any = await subscribePlan({
+                data: { planId: plan.id, gateway, couponCode: couponInfo?.ok ? coupon.trim() : undefined, origin: window.location.origin },
+              })
+              setBusy(false)
+              if (res?.needsAuth) { router.navigate({ to: '/login' }); return }
+              if (res?.checkoutUrl) { window.location.href = res.checkoutUrl; return }
+              if (res?.ok) { onClose(true); return }
+              setMsg(res?.error ?? 'Payment failed.')
+            }}
+          >
+            {busy ? 'Processing…' : `Pay $${total.toFixed(2)}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function SubscriptionPlan() {
   const { plans, limits, activeSub } = Route.useLoaderData() as any
   const [cycle, setCycle] = useState<'month' | 'year'>('month')
   const [notice, setNotice] = useState<string | null>(null)
+  const [checkoutPlan, setCheckoutPlan] = useState<any>(null)
+  const router = useRouter()
   const shown = plans.filter((p: any) => p.duration === cycle)
 
   return (
@@ -108,7 +194,7 @@ function SubscriptionPlan() {
                   </li>
                 ))}
               </ul>
-              <button className="btn btn-primary plan-btn" onClick={() => setNotice('Payment gateway is not configured on this deployment.')}>
+              <button className="btn btn-primary plan-btn" onClick={() => setCheckoutPlan(p)}>
                 Subscribe Now
               </button>
             </div>
@@ -116,6 +202,15 @@ function SubscriptionPlan() {
         })}
       </div>
       {shown.length === 0 && <div className="empty">No {cycle}ly plans available.</div>}
+      {checkoutPlan && (
+        <CheckoutModal
+          plan={checkoutPlan}
+          onClose={(done) => {
+            setCheckoutPlan(null)
+            if (done) { setNotice('Subscription activated! Enjoy unlimited streaming.'); router.invalidate() }
+          }}
+        />
+      )}
     </div>
   )
 }

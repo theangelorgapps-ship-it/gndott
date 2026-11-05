@@ -609,3 +609,56 @@ button { font-family: inherit; }
   .account-side { position: static; flex-direction: row; flex-wrap: wrap; }
   .acct-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- feature batch: watchlist / reviews / ads / checkout / profiles ---------- */
+
+.form-msg { color: var(--muted); font-size: 14px; margin: 8px 0; }
+.muted { color: var(--muted); font-size: 14px; }
+.linklike { background: none; border: 0; color: var(--accent, #e50914); cursor: pointer; font-size: inherit; padding: 0; }
+
+.btn-circle.active-watch { background: var(--accent, #e50914); color: #fff; }
+
+/* review form */
+.review-form { margin-top: 28px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; max-width: 640px; }
+.review-form h3 { margin: 0 0 14px; font-size: 17px; }
+.review-form textarea { width: 100%; background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; color: var(--text); padding: 12px 14px; font: inherit; resize: vertical; margin: 10px 0; }
+.star-input { display: flex; gap: 6px; }
+.star-input button { background: none; border: 0; color: #f5c518; cursor: pointer; padding: 2px; opacity: .35; }
+.star-input button.on { opacity: 1; }
+
+/* ads */
+.ad-overlay { position: relative; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
+.ad-video, .ad-image { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.ad-image { object-fit: cover; }
+.ad-badge { position: absolute; top: 14px; left: 14px; background: rgba(0,0,0,.65); color: #ffd54a; font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 6px; letter-spacing: .4px; }
+.ad-skip { position: absolute; bottom: 16px; right: 16px; background: rgba(20,20,22,.85); border: 1px solid rgba(255,255,255,.25); color: #fff; padding: 9px 18px; border-radius: 8px; font-size: 13.5px; cursor: pointer; }
+.ad-skip.disabled { opacity: .55; cursor: default; }
+.ad-loading { color: var(--muted); }
+
+/* rent / ppv */
+.rent-box { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: rgba(8,8,10,.72); backdrop-filter: blur(3px); text-align: center; padding: 20px; }
+.rent-price { font-size: 34px; font-weight: 700; color: #fff; }
+.watch-section .trailer-poster { position: relative; }
+
+/* checkout modal */
+.profile-modal { position: fixed; inset: 0; background: rgba(0,0,0,.68); z-index: 80; display: flex; align-items: center; justify-content: center; padding: 18px; }
+.profile-form { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px; width: 460px; max-width: 94vw; }
+.profile-form h3 { margin: 0 0 16px; }
+.profile-form input[type="text"] { width: 100%; background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; color: var(--text); padding: 11px 14px; font: inherit; }
+.profile-child-toggle { display: flex; gap: 8px; align-items: center; margin: 12px 0; font-size: 14.5px; color: var(--muted); }
+.profile-form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.checkout-label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+.checkout-row { display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+.checkout-total { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; font-size: 16.5px; }
+.coupon-row { display: flex; gap: 8px; }
+.coupon-row input { flex: 1; background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; color: var(--text); padding: 10px 12px; font: inherit; }
+.gateway-list { display: flex; flex-direction: column; gap: 8px; }
+.gateway-item { display: flex; gap: 10px; align-items: center; background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; cursor: pointer; font-size: 14.5px; }
+.gateway-item.active { border-color: var(--accent, #e50914); }
+
+/* profile management */
+.profile-gate-item-wrap { position: relative; display: inline-block; }
+button.profile-gate-item { background: none; border: 0; cursor: pointer; font: inherit; color: inherit; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.profile-kid { position: absolute; top: 6px; left: 6px; background: var(--accent, #e50914); color: #fff; font-size: 10px; font-style: normal; font-weight: 700; padding: 2px 6px; border-radius: 5px; }
+.profile-delete { position: absolute; top: -6px; right: -6px; width: 26px; height: 26px; border-radius: 50%; background: #d33; color: #fff; border: 2px solid var(--bg); font-size: 15px; line-height: 1; cursor: pointer; z-index: 2; }
+.profile-add-plus { display: flex; align-items: center; justify-content: center; width: 110px; height: 110px; border-radius: 10px; border: 2px dashed var(--line); font-size: 40px; color: var(--muted); }

@@ -3,9 +3,9 @@ import { useState } from 'react'
 import { getVideo } from '../lib/api'
 import {
   PosterCard, Rail,
-  IconPlay, IconPlus, IconShare, IconCalendar, IconClock, IconStar,
+  IconPlay, IconShare, IconCalendar, IconClock, IconStar,
 } from '../components/Poster'
-import { DetailTabs, ReviewCard, ClipsRail, WatchSection, ReviewForm } from '../components/Detail'
+import { DetailTabs, ClipsRail, WatchSection, BiblePanel, ContentNotes } from '../components/Detail'
 
 export const Route = createFileRoute('/video/$id')({
   loader: async ({ params }) => await getVideo({ data: Number(params.id) }),
@@ -16,10 +16,11 @@ function VideoDetail() {
   const data = Route.useLoaderData() as any
   const [tab, setTab] = useState('more')
   if (!data) return <div className="empty">Video not found.</div>
-  const { video, similar, reviews, clips, bunnyLibraryId, ads, myReview, viewerId } = data
+  const { video, similar, clips, bunnyLibraryId, viewerId } = data
   const tabs = [
-    { key: 'more', label: 'More Like This' },
-    { key: 'reviews', label: 'Reviews' },
+    { key: 'more', label: 'Featured' },
+    { key: 'bible', label: 'Bible' },
+    { key: 'notes', label: 'Notes' },
   ]
   return (
     <div>
@@ -29,7 +30,6 @@ function VideoDetail() {
           contentId={video.id}
           title={video.name}
           poster={video.thumbnail_url || video.poster_url}
-          ads={ads}
           bunnyLibraryId={bunnyLibraryId}
           bunnyVideoId={video.bunny_video_url}
           trailerUrl={video.trailer_url}
@@ -57,20 +57,12 @@ function VideoDetail() {
       <DetailTabs tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === 'more' && (
-        <Rail title="More Like This">
+        <Rail title="Featured">
           {similar.map((m: any) => <PosterCard key={m.id} item={m} base="/video" />)}
         </Rail>
       )}
-      {tab === 'reviews' && (
-        <section className="section">
-          <div className="section-head"><h2>{reviews.length} Reviews for {video.name}</h2></div>
-          <div className="review-list">
-            {reviews.map((r: any) => <ReviewCard key={r.id} review={r} />)}
-          </div>
-          {reviews.length === 0 && <div className="empty">No reviews yet.</div>}
-          <ReviewForm entertainmentId={video.id} myReview={myReview} viewerId={viewerId} />
-        </section>
-      )}
+      {tab === 'bible' && <BiblePanel />}
+      {tab === 'notes' && <ContentNotes contentType="video" contentId={video.id} title={video.name} />}
     </div>
   )
 }

@@ -1,11 +1,11 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { getMovie } from '../lib/api'
 import {
-  PosterCard, CircleCard, Rail, img,
-  IconPlay, IconPlus, IconShare, IconCalendar, IconGlobe, IconClock, IconStar,
+  PosterCard, CircleCard, Rail,
+  IconPlay, IconShare, IconCalendar, IconGlobe, IconClock, IconStar,
 } from '../components/Poster'
-import { TrailerPlayer, DetailTabs, ReviewCard, ClipsRail, WatchSection, WatchlistButton, ReviewForm } from '../components/Detail'
+import { DetailTabs, ClipsRail, WatchSection, WatchlistButton, BiblePanel, ContentNotes } from '../components/Detail'
 
 export const Route = createFileRoute('/movie/$id')({
   loader: async ({ params }) => await getMovie({ data: Number(params.id) }),
@@ -16,15 +16,16 @@ function MovieDetail() {
   const data = Route.useLoaderData() as any
   const [tab, setTab] = useState('cast')
   if (!data) return <div className="empty">Movie not found.</div>
-  const { movie, genres, cast, similar, reviews, clips, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, viewerId } = data
+  const { movie, genres, cast, similar, clips, bunnyLibraryId, inWatchlist, myPurchase, viewerId } = data
   const rating = movie.IMDb_rating ?? movie.imdb_rating
   const actors = cast.filter((c: any) => c.type !== 'director')
   const directors = cast.filter((c: any) => c.type === 'director')
 
   const tabs = [
     { key: 'cast', label: 'Casts & Directors' },
-    { key: 'reviews', label: 'Reviews' },
-    { key: 'more', label: 'More Like This' },
+    { key: 'more', label: 'Featured' },
+    { key: 'bible', label: 'Bible' },
+    { key: 'notes', label: 'Notes' },
   ]
 
   return (
@@ -35,7 +36,6 @@ function MovieDetail() {
           contentId={movie.id}
           title={movie.name}
           poster={movie.thumbnail_url || movie.poster_url}
-          ads={ads}
           bunnyLibraryId={bunnyLibraryId}
           bunnyVideoId={movie.bunny_video_url}
           trailerUrl={movie.trailer_url}
@@ -88,22 +88,13 @@ function MovieDetail() {
         </div>
       )}
 
-      {tab === 'reviews' && (
-        <section className="section">
-          <div className="section-head"><h2>{reviews.length} Reviews for {movie.name}</h2></div>
-          <div className="review-list">
-            {reviews.map((r: any) => <ReviewCard key={r.id} review={r} />)}
-          </div>
-          {reviews.length === 0 && <div className="empty">No reviews yet.</div>}
-          <ReviewForm entertainmentId={movie.id} myReview={myReview} viewerId={viewerId} />
-        </section>
-      )}
-
       {tab === 'more' && (
-        <Rail title="More Like This">
+        <Rail title="Featured">
           {similar.map((m: any) => <PosterCard key={m.id} item={m} base="/movie" />)}
         </Rail>
       )}
+      {tab === 'bible' && <BiblePanel />}
+      {tab === 'notes' && <ContentNotes contentType="movie" contentId={movie.id} title={movie.name} />}
     </div>
   )
 }

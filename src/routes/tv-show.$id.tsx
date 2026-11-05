@@ -3,9 +3,9 @@ import { useState } from 'react'
 import { getTvShow } from '../lib/api'
 import {
   PosterCard, CircleCard, Rail, img,
-  IconPlay, IconPlus, IconShare, IconCalendar, IconGlobe, IconStar,
+  IconPlay, IconShare, IconCalendar, IconGlobe, IconStar,
 } from '../components/Poster'
-import { DetailTabs, ReviewCard, ClipsRail, WatchSection, WatchlistButton, ReviewForm } from '../components/Detail'
+import { DetailTabs, ClipsRail, WatchSection, WatchlistButton, BiblePanel, ContentNotes } from '../components/Detail'
 
 export const Route = createFileRoute('/tv-show/$id')({
   loader: async ({ params }) => await getTvShow({ data: Number(params.id) }),
@@ -17,7 +17,7 @@ function TvShowDetail() {
   const [tab, setTab] = useState('episodes')
   const [seasonIdx, setSeasonIdx] = useState(0)
   if (!data) return <div className="empty">Show not found.</div>
-  const { show, seasons, episodes, genres, cast, reviews, clips, similar, bunnyLibraryId, ads, inWatchlist, myReview, viewerId } = data
+  const { show, seasons, episodes, genres, cast, clips, similar, bunnyLibraryId, inWatchlist, viewerId } = data
   const rating = show.IMDb_rating ?? show.imdb_rating
   const actors = cast.filter((c: any) => c.type !== 'director')
   const directors = cast.filter((c: any) => c.type === 'director')
@@ -27,8 +27,9 @@ function TvShowDetail() {
   const tabs = [
     ...(seasons.length ? [{ key: 'episodes', label: 'Episodes' }] : []),
     { key: 'cast', label: 'Casts & Directors' },
-    { key: 'reviews', label: 'Reviews' },
-    { key: 'more', label: 'More Like This' },
+    { key: 'more', label: 'Featured' },
+    { key: 'bible', label: 'Bible' },
+    { key: 'notes', label: 'Notes' },
   ]
   const activeTab = tabs.some((t) => t.key === tab) ? tab : tabs[0]?.key ?? 'cast'
 
@@ -40,7 +41,6 @@ function TvShowDetail() {
           contentId={show.id}
           title={show.name}
           poster={show.thumbnail_url || show.poster_url}
-          ads={ads}
           bunnyLibraryId={bunnyLibraryId}
           bunnyVideoId={show.bunny_video_url}
           trailerUrl={show.trailer_url}
@@ -124,22 +124,13 @@ function TvShowDetail() {
         </div>
       )}
 
-      {activeTab === 'reviews' && (
-        <section className="section">
-          <div className="section-head"><h2>{reviews.length} Reviews for {show.name}</h2></div>
-          <div className="review-list">
-            {reviews.map((r: any) => <ReviewCard key={r.id} review={r} />)}
-          </div>
-          {reviews.length === 0 && <div className="empty">No reviews yet.</div>}
-          <ReviewForm entertainmentId={show.id} myReview={myReview} viewerId={viewerId} />
-        </section>
-      )}
-
       {activeTab === 'more' && (
-        <Rail title="More Like This">
+        <Rail title="Featured">
           {similar.map((m: any) => <PosterCard key={m.id} item={m} base="/tv-show" />)}
         </Rail>
       )}
+      {activeTab === 'bible' && <BiblePanel />}
+      {activeTab === 'notes' && <ContentNotes contentType="tvshow" contentId={show.id} title={show.name} />}
     </div>
   )
 }

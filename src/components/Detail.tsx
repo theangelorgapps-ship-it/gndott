@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
+import { BookOpen, Film, ListVideo, NotebookPen, Users } from 'lucide-react'
+import { DiscreteTabs } from './ui/discrete-tab'
 import { img, IconStar, IconPlay, IconPlus } from './Poster'
 
 export function IconCheck({ size = 16 }: { size?: number }) {
@@ -16,15 +18,15 @@ export function youtubeId(url: string | null | undefined): string | null {
   return m ? m[1] : null
 }
 
-export function TrailerPlayer({ url, poster, title }: { url?: string | null; poster?: string | null; title: string }) {
-  const [playing, setPlaying] = useState(false)
+export function TrailerPlayer({ url, poster, title, showImmediately = false }: { url?: string | null; poster?: string | null; title: string; showImmediately?: boolean }) {
+  const [playing, setPlaying] = useState(showImmediately)
   const yt = youtubeId(url)
   return (
     <div className="trailer-wrap">
       {playing && yt ? (
         <iframe
           className="trailer-frame"
-          src={`https://www.youtube.com/embed/${yt}?autoplay=1&rel=0`}
+          src={`https://www.youtube.com/embed/${yt}?autoplay=${showImmediately ? 0 : 1}&rel=0`}
           title={title}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
@@ -67,15 +69,123 @@ export function ReviewCard({ review }: { review: any }) {
   )
 }
 
+const TAB_ICONS: Record<string, any> = {
+  cast: Users,
+  episodes: ListVideo,
+  more: Film,
+  bible: BookOpen,
+  notes: NotebookPen,
+}
+
 export function DetailTabs({ tabs, active, onChange }: { tabs: { key: string; label: string }[]; active: string; onChange: (k: string) => void }) {
   return (
     <div className="tabs detail-tabs">
-      {tabs.map((t) => (
-        <button key={t.key} className={active === t.key ? 'active' : ''} onClick={() => onChange(t.key)}>
-          {t.label}
-        </button>
-      ))}
+      <DiscreteTabs
+        items={tabs.map((tab) => ({ id: tab.key, title: tab.label, icon: TAB_ICONS[tab.key] ?? Film }))}
+        active={active}
+        onChange={onChange}
+      />
     </div>
+  )
+}
+
+const BIBLE_READINGS = [
+  {
+    reference: 'Psalm 119:105',
+    text: 'Thy word is a lamp unto my feet, and a light unto my path.',
+  },
+  {
+    reference: 'Proverbs 3:5–6',
+    text: 'Trust in the LORD with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.',
+  },
+  {
+    reference: '2 Timothy 3:16',
+    text: 'All scripture is given by inspiration of God, and is profitable for doctrine, for reproof, for correction, for instruction in righteousness.',
+  },
+]
+
+export function BiblePanel() {
+  return (
+    <section className="section detail-supplement bible-panel" aria-labelledby="bible-reading-title">
+      <div className="supplement-heading">
+        <span className="supplement-kicker">King James Version</span>
+        <h2 id="bible-reading-title">Bible reading</h2>
+        <p>Pause for scripture and reflection alongside this title.</p>
+      </div>
+      <div className="bible-grid">
+        {BIBLE_READINGS.map((reading) => (
+          <blockquote className="bible-verse" key={reading.reference}>
+            <p>“{reading.text}”</p>
+            <cite>{reading.reference}</cite>
+          </blockquote>
+        ))}
+      </div>
+      <a className="btn btn-dark bible-link" href="https://www.bible.com/bible/1/PSA.119.KJV" target="_blank" rel="noreferrer">
+        <BookOpen size={17} /> Open YouVersion Bible
+      </a>
+    </section>
+  )
+}
+
+export function ContentNotes({ contentType, contentId, title }: { contentType: string; contentId: number; title: string }) {
+  const storageKey = `streamit-notes:${contentType}:${contentId}`
+  const [note, setNote] = useState('')
+  const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [status, setStatus] = useState('')
+
+  useEffect(() => {
+    setNote(window.localStorage.getItem(storageKey) ?? '')
+    setSavedAt(window.localStorage.getItem(`${storageKey}:saved-at`))
+    setStatus('')
+  }, [storageKey])
+
+  const saveNote = () => {
+    const timestamp = new Date().toISOString()
+    window.localStorage.setItem(storageKey, note)
+    window.localStorage.setItem(`${storageKey}:saved-at`, timestamp)
+    setSavedAt(timestamp)
+    setStatus(note.trim() ? 'Note saved on this device.' : 'Empty note saved on this device.')
+  }
+
+  const clearNote = () => {
+    window.localStorage.removeItem(storageKey)
+    window.localStorage.removeItem(`${storageKey}:saved-at`)
+    setNote('')
+    setSavedAt(null)
+    setStatus('Note cleared from this device.')
+  }
+
+  return (
+    <section className="section detail-supplement notes-panel" aria-labelledby="notes-title">
+      <div className="supplement-heading">
+        <span className="supplement-kicker">Private to this browser</span>
+        <h2 id="notes-title">Notes for {title}</h2>
+        <p>Write down a thought, scripture, or moment to revisit. Your note stays on this device.</p>
+      </div>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          saveNote()
+        }}
+      >
+        <label className="notes-label" htmlFor={`note-${contentType}-${contentId}`}>Your note</label>
+        <textarea
+          id={`note-${contentType}-${contentId}`}
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder="Write your note here…"
+          rows={6}
+          maxLength={5000}
+        />
+        <div className="notes-actions">
+          <button className="btn btn-play" type="submit">Save note</button>
+          <button className="btn btn-dark" type="button" onClick={clearNote} disabled={!note && !savedAt}>Clear</button>
+        </div>
+        <p className="notes-status" aria-live="polite">
+          {status || (savedAt ? `Last saved ${new Date(savedAt).toLocaleString()}.` : 'No note saved yet.')}
+        </p>
+      </form>
+    </section>
   )
 }
 
@@ -108,7 +218,7 @@ export function ClipsRail({ clips }: { clips: any[] }) {
 
 // ---------- watchlist toggle ----------
 
-import { toggleWatchlist, submitReview, fetchVastMedia, purchasePayPerView } from '../lib/api'
+import { toggleWatchlist, submitReview, purchasePayPerView } from '../lib/api'
 import { useRouter } from '@tanstack/react-router'
 
 export function WatchlistButton({ entertainmentId, initialAdded, viewerId }: { entertainmentId: number; initialAdded: boolean; viewerId: number | null }) {
@@ -210,88 +320,16 @@ export function BunnyPlayer({ libraryId, videoId, poster, title }: { libraryId: 
   )
 }
 
-// ---------- ads (VAST pre-roll / custom overlay) ----------
-
-function VastPreRoll({ ad, onDone }: { ad: any; onDone: () => void }) {
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null)
-  const [err, setErr] = useState<string | null>(null)
-  const [elapsed, setElapsed] = useState(0)
-  const skipAfter = Number(ad.enable_skip) === 1 ? Number(ad.skip_after) || 5 : null
-  useEffect(() => {
-    let alive = true
-    fetchVastMedia({ data: ad.url }).then((res: any) => {
-      if (!alive) return
-      if (res?.ok) setMediaUrl(res.mediaUrl)
-      else setErr(res?.error ?? 'Ad unavailable')
-    })
-    return () => { alive = false }
-  }, [ad.url])
-  if (err) return null
-  return (
-    <div className="ad-overlay">
-      {mediaUrl ? (
-        <video
-          className="ad-video"
-          src={mediaUrl}
-          autoPlay
-          onEnded={onDone}
-          onTimeUpdate={(e) => setElapsed(Math.floor((e.target as HTMLVideoElement).currentTime))}
-        />
-      ) : (
-        <div className="ad-loading">Loading ad…</div>
-      )}
-      <span className="ad-badge">Ad{ad.name ? ` · ${ad.name}` : ''}</span>
-      {skipAfter != null && (
-        elapsed >= skipAfter
-          ? <button className="ad-skip" onClick={onDone}>Skip Ad</button>
-          : <span className="ad-skip disabled">Skip in {Math.max(0, skipAfter - elapsed)}s</span>
-      )}
-    </div>
-  )
-}
-
-function CustomOverlayAd({ ad, onDone }: { ad: any; onDone: () => void }) {
-  const [elapsed, setElapsed] = useState(0)
-  const duration = Number(ad.duration) || 10
-  const skipAfter = Number(ad.skip_enabled) === 1 ? Number(ad.skip_after) || 5 : null
-  useEffect(() => {
-    const t = setInterval(() => setElapsed((s) => s + 1), 1000)
-    return () => clearInterval(t)
-  }, [])
-  useEffect(() => {
-    if (elapsed >= duration) onDone()
-  }, [elapsed, duration, onDone])
-  const src = ad.url_type === 'url' ? ad.media : img(ad.media)
-  return (
-    <div className="ad-overlay ad-custom">
-      {ad.redirect_url ? (
-        <a href={ad.redirect_url} target="_blank" rel="noreferrer">
-          {ad.type === 'video' ? <video className="ad-video" src={src} autoPlay muted /> : <img className="ad-image" src={src} alt={ad.name ?? 'Advertisement'} />}
-        </a>
-      ) : (
-        ad.type === 'video' ? <video className="ad-video" src={src} autoPlay muted /> : <img className="ad-image" src={src} alt={ad.name ?? 'Advertisement'} />
-      )}
-      <span className="ad-badge">Ad{ad.name ? ` · ${ad.name}` : ''}</span>
-      {skipAfter != null && (
-        elapsed >= skipAfter
-          ? <button className="ad-skip" onClick={onDone}>Skip Ad</button>
-          : <span className="ad-skip disabled">Skip in {Math.max(0, skipAfter - elapsed)}s</span>
-      )}
-    </div>
-  )
-}
-
-// ---------- unified watch section (ads → player, PPV gate) ----------
+// ---------- unified watch section (direct player, PPV gate) ----------
 
 export function WatchSection({
-  contentType, contentId, title, poster, ads, bunnyLibraryId, bunnyVideoId, trailerUrl,
+  contentType, contentId, title, poster, bunnyLibraryId, bunnyVideoId, trailerUrl,
   movieAccess, price, myPurchase, viewerId,
 }: {
   contentType: 'movie' | 'video' | 'episode' | 'tvshow'
   contentId: number
   title: string
   poster?: string | null
-  ads?: { vast: any[]; custom: any[] }
   bunnyLibraryId?: string | null
   bunnyVideoId?: string | null
   trailerUrl?: string | null
@@ -300,9 +338,7 @@ export function WatchSection({
   myPurchase?: any
   viewerId: number | null
 }) {
-  const preRoll = ads?.vast?.find((a: any) => a.type === 'pre-roll')
-  const customAd = ads?.custom?.find((a: any) => a.placement === 'video_player') ?? null
-  const [stage, setStage] = useState<'idle' | 'ad' | 'main'>('idle')
+  const [stage, setStage] = useState<'idle' | 'main'>(movieAccess === 'paid' && !myPurchase ? 'idle' : 'main')
   const [rentMsg, setRentMsg] = useState<string | null>(null)
   const [rentBusy, setRentBusy] = useState(false)
   const [owned, setOwned] = useState(!!myPurchase)
@@ -311,14 +347,9 @@ export function WatchSection({
   const needsPurchase = movieAccess === 'paid' && !owned
   const hasBunny = !!(bunnyLibraryId && bunnyVideoId)
 
-  const startPlayback = () => setStage(preRoll || customAd ? 'ad' : 'main')
-
   return (
     <div className="watch-section">
-      {stage === 'ad' && preRoll && <VastPreRoll ad={preRoll} onDone={() => setStage('main')} />}
-      {stage === 'ad' && !preRoll && customAd && <CustomOverlayAd ad={customAd} onDone={() => setStage('main')} />}
-
-      {stage !== 'main' && (
+      {stage === 'idle' && (
         <div className="trailer-wrap">
           <div className="trailer-poster" style={{ backgroundImage: `url(${img(poster)})` }}>
             {needsPurchase ? (
@@ -345,7 +376,7 @@ export function WatchSection({
                 </button>
               </div>
             ) : (
-              <button className="trailer-play" onClick={startPlayback} aria-label={`Play ${title}`}>
+              <button className="trailer-play" onClick={() => setStage('main')} aria-label={`Play ${title}`}>
                 <IconPlay size={26} />
               </button>
             )}
@@ -358,14 +389,14 @@ export function WatchSection({
           <div className="trailer-wrap">
             <iframe
               className="trailer-frame"
-              src={`https://iframe.mediadelivery.net/embed/${bunnyLibraryId}/${bunnyVideoId}?autoplay=true&preload=false`}
+              src={`https://iframe.mediadelivery.net/embed/${bunnyLibraryId}/${bunnyVideoId}?autoplay=false&preload=true`}
               title={title}
               allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
               allowFullScreen
             />
           </div>
         ) : trailerUrl ? (
-          <TrailerPlayer url={trailerUrl} poster={poster} title={title} />
+          <TrailerPlayer url={trailerUrl} poster={poster} title={title} showImmediately />
         ) : (
           <div className="trailer-wrap"><div className="empty" style={{ paddingTop: '18%' }}>No video source configured for this title yet.</div></div>
         )

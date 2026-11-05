@@ -8,7 +8,7 @@ const MANIFEST = manifest as Record<string, string>
 
 export function img(url: string | null | undefined): string {
   if (!url) return DEFAULT_IMG
-  if (url.startsWith('/images/')) return url
+  if (url.startsWith('/images/') || url.startsWith('/media/')) return url
   if (url.startsWith('http://') || url.startsWith('https://')) {
     // URLs left over from the Laravel seed point at a dead local server — resolve by filename
     if (/^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(url)) {

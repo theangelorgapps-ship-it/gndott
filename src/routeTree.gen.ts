@@ -37,6 +37,7 @@ import { Route as VideosRouteImport } from './routes/videos'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as CastIdRouteImport } from './routes/cast.$id'
 import { Route as ChannelIdRouteImport } from './routes/channel.$id'
+import { Route as MediaSplatRouteImport } from './routes/media/$'
 import { Route as MovieIdRouteImport } from './routes/movie.$id'
 import { Route as PageSlugRouteImport } from './routes/page.$slug'
 import { Route as TvShowIdRouteImport } from './routes/tv-show.$id'
@@ -182,6 +183,11 @@ const ChannelIdRoute = ChannelIdRouteImport.update({
   path: '/channel/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MediaSplatRoute = MediaSplatRouteImport.update({
+  id: '/media/$',
+  path: '/media/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MovieIdRoute = MovieIdRouteImport.update({
   id: '/movie/$id',
   path: '/movie/$id',
@@ -232,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/watchlist': typeof WatchlistRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
+  '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
   '/tv-show/$id': typeof TvShowIdRoute
@@ -266,6 +273,7 @@ export interface FileRoutesByTo {
   '/watchlist': typeof WatchlistRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
+  '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
   '/tv-show/$id': typeof TvShowIdRoute
@@ -301,6 +309,7 @@ export interface FileRoutesById {
   '/watchlist': typeof WatchlistRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
+  '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
   '/tv-show/$id': typeof TvShowIdRoute
@@ -337,6 +346,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/cast/$id'
     | '/channel/$id'
+    | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
     | '/tv-show/$id'
@@ -371,6 +381,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/cast/$id'
     | '/channel/$id'
+    | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
     | '/tv-show/$id'
@@ -405,6 +416,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/cast/$id'
     | '/channel/$id'
+    | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
     | '/tv-show/$id'
@@ -439,6 +451,7 @@ export interface RootRouteChildren {
   VideosRoute: typeof VideosRoute
   WatchlistRoute: typeof WatchlistRoute
   ChannelIdRoute: typeof ChannelIdRoute
+  MediaSplatRoute: typeof MediaSplatRoute
   MovieIdRoute: typeof MovieIdRoute
   PageSlugRoute: typeof PageSlugRoute
   TvShowIdRoute: typeof TvShowIdRoute
@@ -643,6 +656,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChannelIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/media/$': {
+      id: '/media/$'
+      path: '/media/$'
+      fullPath: '/media/$'
+      preLoaderRoute: typeof MediaSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/movie/$id': {
       id: '/movie/$id'
       path: '/movie/$id'
@@ -712,6 +732,7 @@ const rootRouteChildren: RootRouteChildren = {
   VideosRoute: VideosRoute,
   WatchlistRoute: WatchlistRoute,
   ChannelIdRoute: ChannelIdRoute,
+  MediaSplatRoute: MediaSplatRoute,
   MovieIdRoute: MovieIdRoute,
   PageSlugRoute: PageSlugRoute,
   TvShowIdRoute: TvShowIdRoute,

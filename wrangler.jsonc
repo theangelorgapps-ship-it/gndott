@@ -3,6 +3,12 @@
   "name": "gndott",
   "compatibility_date": "2026-01-15",
   "compatibility_flags": ["nodejs_compat"],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "streamit-media"
+    }
+  ],
   "main": "@tanstack/react-start/server-entry",
   "d1_databases": [
     {

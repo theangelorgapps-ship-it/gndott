@@ -166,7 +166,8 @@ export function HeroSlider({
 
   if (live) {
     return (
-      <section className="hero hero-live" style={{ backgroundImage: `url(${img(hero.thumbnail_url || hero.poster_url)})` }}>
+      <section className="hero hero-live">
+        <div key={hero.id} className="hero-bg" style={{ backgroundImage: `url(${img(hero.thumbnail_url || hero.poster_url)})` }} />
         <span className="live-badge hero-live-badge">LIVE</span>
         {slides.length > 1 && (
           <>
@@ -197,7 +198,8 @@ export function HeroSlider({
   }
 
   return (
-    <section className="hero" style={{ backgroundImage: `url(${img(hero.thumbnail_url || hero.poster_url)})` }}>
+    <section className="hero">
+      <div key={hero.id} className="hero-bg" style={{ backgroundImage: `url(${img(hero.thumbnail_url || hero.poster_url)})` }} />
       {slides.length > 1 && (
         <>
           <button className="hero-chevron prev" aria-label="Previous" onClick={() => setSlide((idx - 1 + slides.length) % slides.length)}>
@@ -208,7 +210,7 @@ export function HeroSlider({
           </button>
         </>
       )}
-      <div className="hero-content">
+      <div key={`content-${hero.id}`} className="hero-content hero-stagger">
         {genres && genres.length > 0 && (
           <div className="hero-genres">
             {genres.slice(0, 3).map((g: any) => <span key={g.id ?? g.name}>{g.name}</span>)}

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useEffect } from 'react'
 import {
   Outlet,
   Link,
@@ -9,6 +10,7 @@ import {
 } from '@tanstack/react-router'
 import { getSessionUser, getFooterData } from '../lib/api'
 import { IconSearch, IconCrown } from '../components/Poster'
+import { MotionRoot } from '../components/Motion'
 import '../styles.css'
 
 export const Route = createRootRoute({
@@ -74,6 +76,14 @@ function RootComponent() {
     )
   }
   const allContentActive = ['/movies', '/tv-shows', '/videos', '/movie', '/tv-show', '/video'].some((p) => pathname.startsWith(p))
+
+  // keep Lenis in sync on navigation: jump to top through Lenis itself
+  useEffect(() => {
+    const lenis = (window as any).__lenis
+    if (lenis) lenis.scrollTo(0, { immediate: true })
+    else window.scrollTo(0, 0)
+  }, [pathname])
+
   return (
     <RootDocument>
       <header className={`site-header${pathname === '/' ? ' on-hero' : ''}`}>
@@ -125,10 +135,11 @@ function RootComponent() {
           )}
         </div>
       </header>
-      <main>
+      <main key={pathname} className="page-enter">
         <Outlet />
       </main>
       <SiteFooter footer={footer} />
+      <MotionRoot />
     </RootDocument>
   )
 }

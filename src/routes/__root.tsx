@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Outlet,
   Link,
@@ -7,10 +7,14 @@ import {
   HeadContent,
   Scripts,
   useRouterState,
+  useNavigate,
 } from '@tanstack/react-router'
 import { getSessionUser, getFooterData } from '../lib/api'
 import { IconSearch, IconCrown } from '../components/Poster'
 import { MotionRoot } from '../components/Motion'
+import { GlassButton } from '@/components/ui/glass-button'
+import { LiquidButton } from '@/components/ui/liquid-glass-button'
+import { AppleSpotlight } from '@/components/ui/apple-spotlight'
 import '../styles.css'
 
 export const Route = createRootRoute({
@@ -26,7 +30,7 @@ export const Route = createRootRoute({
       { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
       {
         rel: 'stylesheet',
-        href: 'https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300&display=swap',
+        href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
       },
     ],
   }),
@@ -66,6 +70,8 @@ function IconChevronDown({ size = 12 }: { size?: number }) {
 function RootComponent() {
   const { user, footer } = Route.useLoaderData()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const navigate = useNavigate()
+  const [spotlightOpen, setSpotlightOpen] = useState(false)
   const isAdmin = pathname.startsWith('/admin')
   const isBare = BARE_ROUTES.some((r) => pathname.startsWith(r))
   if (isAdmin || isBare) {
@@ -104,9 +110,9 @@ function RootComponent() {
           <Link to="/live-tv" className={pathname.startsWith('/live-tv') ? 'active' : ''}>Live TV</Link>
         </nav>
         <div className="header-actions">
-          <Link to="/search" className="icon-btn-plain" aria-label="Search">
+          <button type="button" className="icon-btn-plain" aria-label="Search" onClick={() => setSpotlightOpen(true)}>
             <IconSearch />
-          </Link>
+          </button>
           {user && (
             <Link to="/notifications" className="icon-btn-plain" aria-label="Notifications">
               <IconBell />
@@ -123,18 +129,30 @@ function RootComponent() {
             </svg>
             EN <IconChevronDown />
           </span>
-          <Link to="/subscription-plan" className="subscribe-btn">
+          <GlassButton
+            size="sm"
+            className="subscribe-glass"
+            contentClassName="flex items-center gap-2 subscribe-glass-text"
+            onClick={() => navigate({ to: '/subscription-plan' })}
+          >
             <IconCrown /> {user ? 'UPGRADE' : 'SUBSCRIBE'}
-          </Link>
+          </GlassButton>
           {user ? (
             <Link to="/account-setting" className="avatar-link" aria-label="Account">
               <img className="avatar" src="/default-image.jpg" alt={user.first_name ?? 'Profile'} />
             </Link>
           ) : (
-            <Link to="/login" className="btn btn-primary">Login</Link>
+            <LiquidButton
+              size="sm"
+              className="login-liquid"
+              onClick={() => navigate({ to: '/login' })}
+            >
+              Login
+            </LiquidButton>
           )}
         </div>
       </header>
+      <AppleSpotlight isOpen={spotlightOpen} handleClose={() => setSpotlightOpen(false)} />
       <main key={pathname} className="page-enter">
         <Outlet />
       </main>

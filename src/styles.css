@@ -1,5 +1,26 @@
+/* Tailwind v4: theme tokens + utilities only (no preflight — existing layout is hand-tuned) */
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #ffffff;
+  --color-destructive: #dc2626;
+  --color-secondary: var(--card-2);
+  --color-secondary-foreground: var(--text);
+  --color-accent: var(--card-2);
+  --color-accent-foreground: var(--text);
+  --color-muted: var(--bg-soft);
+  --color-input: var(--line);
+  --color-ring: rgba(255, 255, 255, 0.55);
+}
+
 /* Streamit theme — tokens extracted from the Laravel app's own CSS (see design-tokens.md) */
 :root {
+  --background: #010a0f;
+  --foreground: #ffffff;
   --bg: #010a0f;
   --bg-soft: #0d151c;
   --card: #131c24;
@@ -896,4 +917,127 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   }
   .reveal { opacity: 1; transform: none; }
   html { scroll-behavior: auto; }
+}
+
+/* ================= Batch F: blue play, Netflix font, ui kit, previews, responsive ================= */
+
+/* ---------- Netflix-typeface stack (Netflix Sans is proprietary; Inter is the closest open match) ---------- */
+html, body {
+  font-family: 'Netflix Sans', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.hero-title, .detail-title, .section-head h2, .page-head h1, .hero-live-title { letter-spacing: -0.02em; }
+
+/* ---------- blue play CTA ---------- */
+.btn-play {
+  overflow: hidden;
+  position: relative;
+  height: 44px; padding: 0 26px; font-size: 14.5px; font-weight: 700;
+  border-radius: 8px; color: #fff; border: 1px solid rgba(255, 255, 255, 0.24);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(29, 78, 216, 0.82));
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: var(--glass-hi), 0 8px 28px rgba(37, 99, 235, 0.4);
+  transition: transform var(--dur-quick) var(--ease-out-premium),
+              box-shadow var(--dur-standard) var(--ease-standard),
+              background var(--dur-standard) var(--ease-standard);
+}
+.btn-play::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.3) 50%, transparent 68%);
+  transform: translateX(-130%);
+  transition: transform var(--dur-slow) var(--ease-standard);
+}
+.btn-play:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(37, 99, 235, 0.88));
+  transform: translateY(-1px);
+  box-shadow: var(--glass-hi), 0 14px 38px rgba(59, 130, 246, 0.5);
+}
+.btn-play:hover::after { transform: translateX(130%); }
+.btn-play:active { transform: translateY(0) scale(0.97); transition-duration: 90ms; }
+
+/* ---------- header ui-kit integration ---------- */
+.subscribe-glass { font-size: 13px; }
+.subscribe-glass-text {
+  font-weight: 700; letter-spacing: 0.4px; color: var(--gold);
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.subscribe-glass .glass-button-text { color: var(--gold); text-shadow: 0 0.25em 0.5em rgba(245, 181, 10, 0.25); }
+.login-liquid { font-weight: 700; letter-spacing: 0.3px; }
+.login-liquid .liquid-glass-backdrop { background: rgba(255, 255, 255, 0.06); }
+
+/* ---------- Netflix/Paramount-style hover preview card ---------- */
+.p-card { position: relative; }
+.pv-card {
+  position: absolute; left: 50%; bottom: 62%; z-index: 40;
+  width: 250px; margin-left: -125px;
+  background: var(--bg-soft); border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+  opacity: 0; transform: translateY(14px) scale(0.92); transform-origin: bottom center;
+  pointer-events: none;
+  transition: opacity var(--dur-standard) var(--ease-out-premium),
+              transform var(--dur-standard) var(--ease-out-premium);
+}
+.pv-card.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.pv-thumb { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--card) center / cover; }
+.pv-body { padding: 12px 14px 14px; }
+.pv-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.pv-play {
+  width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
+  background: #2563eb; color: #fff; display: inline-flex; align-items: center; justify-content: center;
+  transition: transform var(--dur-quick) var(--ease-out-premium), background var(--dur-quick) var(--ease-standard);
+}
+.pv-play:hover { transform: scale(1.1); background: #3b82f6; }
+.pv-icon {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.06);
+  color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: border-color var(--dur-quick) var(--ease-standard), transform var(--dur-quick) var(--ease-out-premium);
+}
+.pv-icon:hover { border-color: #fff; transform: scale(1.08); }
+.pv-name { font-weight: 700; font-size: 14px; margin-bottom: 6px; color: var(--text); }
+.pv-meta { display: flex; gap: 10px; color: var(--muted-2); font-size: 11.5px; align-items: center; }
+.pv-meta .pv-match { color: var(--success); font-weight: 700; }
+@media (hover: none), (pointer: coarse) { .pv-card { display: none; } }
+
+/* ---------- responsive pass ---------- */
+@media (max-width: 1100px) {
+  .main-nav { gap: 18px; }
+  .site-header { gap: 20px; padding: 0 24px; }
+}
+@media (max-width: 900px) {
+  .icon-btn-dark { display: none; }
+  .lang-pill { display: none; }
+  .hero { min-height: 480px; }
+  .hero-title { font-size: clamp(26px, 6vw, 34px); }
+  .hero-content { padding: 0 22px; max-width: 100%; }
+  .hero-dots { left: 22px; }
+  .rail { grid-auto-columns: 140px; gap: 14px; }
+  .subscribe-glass .glass-button-text { padding: 8px 14px; }
+}
+@media (max-width: 600px) {
+  .site-header { gap: 10px; padding: 0 14px; height: 60px; }
+  :root { --header-h: 60px; }
+  .brand img { height: 28px; width: 28px; }
+  .hero { min-height: 420px; background-position: center 30%; }
+  .hero-meta { flex-wrap: wrap; gap: 12px; }
+  .hero-actions { flex-wrap: wrap; }
+  .section { padding: 20px 14px; }
+  .section-head h2 { font-size: 17px; }
+  .rail { grid-auto-columns: 118px; gap: 12px; padding-bottom: 6px; }
+  .p-name { font-size: 12px; }
+  .top10-rank { font-size: 96px; margin-right: -18px; -webkit-text-stroke-width: 1.5px; }
+  .top10-item .p-poster { width: 118px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 14px; padding: 0 14px 20px; }
+  .footer-grid { grid-template-columns: 1fr; gap: 24px; }
+  .site-footer { padding: 34px 16px 0; }
+  .footer-legal { gap: 6px 14px; padding: 12px; }
+  .page-head { padding: 30px 14px 14px; }
+  .page-head h1 { font-size: 24px; }
+  .detail-hero { padding: calc(var(--header-h) + 30px) 16px 24px; }
+  .detail-title { font-size: 24px; }
+  .detail-info, .detail-tabs, .tabs { padding-left: 14px; padding-right: 14px; }
+  .pv-card { display: none; }
 }

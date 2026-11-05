@@ -62,7 +62,7 @@ function MovieDetail() {
           {rating && <span><IconStar /> {rating} (IMDb)</span>}
         </div>
         <div className="hero-actions">
-          <button className="btn btn-primary" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><IconPlay /> Watch now</button>
+          <button className="btn btn-play" onClick={() => { const l = (window as any).__lenis; if (l) l.scrollTo(0); else window.scrollTo({ top: 0, behavior: 'smooth' }) }}><IconPlay /> Watch now</button>
           <WatchlistButton entertainmentId={movie.id} initialAdded={!!inWatchlist} viewerId={viewerId} />
           <button className="btn btn-dark btn-circle" aria-label="Share" onClick={() => { navigator.clipboard?.writeText(window.location.href).catch(() => null) }}><IconShare /></button>
         </div>

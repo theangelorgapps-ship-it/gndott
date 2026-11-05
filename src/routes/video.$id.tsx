@@ -47,7 +47,7 @@ function VideoDetail() {
           {video.IMDb_rating && <span><IconStar /> {video.IMDb_rating} (IMDb)</span>}
         </div>
         <div className="hero-actions">
-          <button className="btn btn-primary" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><IconPlay /> Play</button>
+          <button className="btn btn-play" onClick={() => { const l = (window as any).__lenis; if (l) l.scrollTo(0); else window.scrollTo({ top: 0, behavior: 'smooth' }) }}><IconPlay /> Play</button>
           <button className="btn btn-dark btn-circle" aria-label="Share" onClick={() => { navigator.clipboard?.writeText(window.location.href).catch(() => null) }}><IconShare /></button>
         </div>
       </div>

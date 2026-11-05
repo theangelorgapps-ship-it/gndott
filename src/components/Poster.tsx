@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import manifest from '../lib/img-manifest.json'
 
 export const DEFAULT_IMG = '/default-image.jpg'
@@ -131,7 +131,63 @@ export function PosterCard({ item, base }: { item: any; base: string }) {
         )}
       </span>
       <span className="p-name">{item.name}</span>
+      <HoverPreview item={item} base={base} rating={rating} />
     </Link>
+  )
+}
+
+/** Netflix-style delayed hover preview: pops up after a short dwell, never instantly. */
+function HoverPreview({ item, base, rating }: { item: any; base: string; rating: string | null }) {
+  const [open, setOpen] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const card = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    const host = card.current?.closest('.p-card') as HTMLElement | null
+    if (!host) return
+    const enter = () => {
+      timer.current = setTimeout(() => setOpen(true), 450)
+    }
+    const leave = () => {
+      if (timer.current) clearTimeout(timer.current)
+      setOpen(false)
+    }
+    host.addEventListener('mouseenter', enter)
+    host.addEventListener('mouseleave', leave)
+    return () => {
+      host.removeEventListener('mouseenter', enter)
+      host.removeEventListener('mouseleave', leave)
+      if (timer.current) clearTimeout(timer.current)
+    }
+  }, [])
+
+  const year = item.release_date ? String(item.release_date).slice(0, 4) : null
+  const match = rating ? `${Math.min(98, Math.round(Number(rating) * 10 + 20))}% Match` : null
+
+  return (
+    <span ref={card} className={`pv-card${open ? ' open' : ''}`} aria-hidden={!open}>
+      <span
+        className="pv-thumb"
+        style={{ backgroundImage: `url(${img(item.thumbnail_url || item.poster_url)})` }}
+      />
+      <span className="pv-body">
+        <span className="pv-actions">
+          <span className="pv-play" title="Play">
+            <IconPlay size={14} />
+          </span>
+          <span className="pv-icon" title="Add to My List">
+            <IconPlus size={14} />
+          </span>
+        </span>
+        <span className="pv-name">{item.name}</span>
+        <span className="pv-meta">
+          {match && <span className="pv-match">{match}</span>}
+          {year && <span>{year}</span>}
+          {item.duration && <span>{item.duration}</span>}
+          {item.language && <span style={{ textTransform: 'capitalize' }}>{item.language}</span>}
+        </span>
+      </span>
+    </span>
   )
 }
 
@@ -182,7 +238,7 @@ export function HeroSlider({
         <div className="hero-live-content">
           {hero.category && <div className="hero-live-cat">{hero.category}</div>}
           <h1 className="hero-live-title">{hero.name}</h1>
-          <Link to={`${baseFor(hero)}/${hero.id}` as any} className="btn btn-primary">
+          <Link to={`${baseFor(hero)}/${hero.id}` as any} className="btn btn-play">
             <IconPlay /> Play Now
           </Link>
         </div>
@@ -230,7 +286,7 @@ export function HeroSlider({
           <Link to={`${baseFor(hero)}/${hero.id}` as any} className="btn btn-dark btn-circle" aria-label="Add to watchlist">
             <IconPlus />
           </Link>
-          <Link to={`${baseFor(hero)}/${hero.id}` as any} className="btn btn-primary">
+          <Link to={`${baseFor(hero)}/${hero.id}` as any} className="btn btn-play">
             <IconPlay /> {ctaLabel}
           </Link>
           <button className="btn btn-dark btn-circle" aria-label="Share">

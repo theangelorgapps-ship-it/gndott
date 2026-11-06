@@ -15,12 +15,12 @@ function TvShows() {
       <HeroSlider slides={slides} baseFor={() => '/tv-show'} ctaLabel="Watch now" />
       <section className="section">
         <div className="section-head">
-          <h2>TV Shows</h2>
+          <h2>Shows</h2>
         </div>
         <div className="grid" style={{ padding: 0 }}>
           {shows.map((m: any) => <PosterCard key={m.id} item={m} base="/tv-show" />)}
         </div>
-        {shows.length === 0 && <div className="empty">No TV shows available yet.</div>}
+        {shows.length === 0 && <div className="empty">No shows available yet.</div>}
       </section>
     </div>
   )

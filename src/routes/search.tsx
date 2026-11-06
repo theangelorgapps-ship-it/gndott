@@ -17,8 +17,9 @@ export const Route = createFileRoute('/search')({
 })
 
 const CATEGORIES = [
-  { label: 'Movies', q: 'movie' },
-  { label: 'TV Shows', q: 'show' },
+  { label: 'Sermons', q: 'movie' },
+  { label: 'Shows', q: 'show' },
+  { label: 'Teachings', q: 'teaching' },
   { label: 'Videos', q: 'video' },
   { label: 'Seasons', q: 'season' },
   { label: 'Episodes', q: 'episode' },
@@ -39,14 +40,14 @@ function Search() {
   }
 
   const total = results
-    ? results.movies.length + results.tvshows.length + results.videos.length + results.channels.length
+    ? results.movies.length + results.tvshows.length + (results.teachings?.length ?? 0) + results.videos.length + results.channels.length
     : 0
 
   return (
     <div>
       <div className="search-hero">
         <h1 className="page-title-center">Discover Your Next Favorite</h1>
-        <p className="search-sub">Search through thousands of movies, TV shows, and documentaries</p>
+        <p className="search-sub">Search through thousands of sermons, shows, teachings, and videos</p>
         <form className="search-bar" onSubmit={(e) => { e.preventDefault(); go(term) }}>
           <input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Search..." autoFocus />
           <button type="submit" aria-label="Search"><IconSearch size={20} /></button>
@@ -87,14 +88,20 @@ function Search() {
           )}
           {results.movies.length > 0 && (
             <section className="section">
-              <div className="section-head"><h2>Movies</h2></div>
+              <div className="section-head"><h2>Sermons</h2></div>
               <div className="grid" style={{ padding: 0 }}>{results.movies.map((m: any) => <PosterCard key={m.id} item={m} base="/movie" />)}</div>
             </section>
           )}
           {results.tvshows.length > 0 && (
             <section className="section">
-              <div className="section-head"><h2>TV Shows</h2></div>
+              <div className="section-head"><h2>Shows</h2></div>
               <div className="grid" style={{ padding: 0 }}>{results.tvshows.map((m: any) => <PosterCard key={m.id} item={m} base="/tv-show" />)}</div>
+            </section>
+          )}
+          {results.teachings?.length > 0 && (
+            <section className="section">
+              <div className="section-head"><h2>Teachings</h2></div>
+              <div className="grid" style={{ padding: 0 }}>{results.teachings.map((m: any) => <PosterCard key={m.id} item={m} base="/teaching" />)}</div>
             </section>
           )}
           {results.videos.length > 0 && (

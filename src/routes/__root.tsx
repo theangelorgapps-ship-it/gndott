@@ -22,8 +22,8 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Streamit: Your Ultimate Entertainment Hub' },
-      { name: 'description', content: 'Watch movies, TV shows, live TV and videos on Streamit.' },
+      { title: 'Streamit: Sermons, Shows & Teachings' },
+      { name: 'description', content: 'Watch sermons, shows, teachings, live TV and videos on Streamit.' },
     ],
     links: [
       { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -81,7 +81,7 @@ function RootComponent() {
       </RootDocument>
     )
   }
-  const allContentActive = ['/movies', '/tv-shows', '/videos', '/movie', '/tv-show', '/video'].some((p) => pathname.startsWith(p))
+  const allContentActive = ['/movies', '/tv-shows', '/teachings', '/videos', '/movie', '/tv-show', '/teaching', '/video'].some((p) => pathname.startsWith(p))
 
   // keep Lenis in sync on navigation: jump to top through Lenis itself
   useEffect(() => {
@@ -101,8 +101,9 @@ function RootComponent() {
           <div className={`nav-drop${allContentActive ? ' active' : ''}`}>
             <span className="nav-drop-label">All Content <IconChevronDown /></span>
             <div className="nav-drop-menu">
-              <Link to="/movies">Movies</Link>
-              <Link to="/tv-shows">TV Shows</Link>
+              <Link to="/movies">Sermons</Link>
+              <Link to="/tv-shows">Shows</Link>
+              <Link to="/teachings">Teachings</Link>
               <Link to="/videos">Videos</Link>
             </div>
           </div>
@@ -183,7 +184,7 @@ function SocialIcon({ d }: { d: string }) {
 
 const SOCIALS = [
   'M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.3v7A10 10 0 0 0 22 12', // facebook
-  'M12 2.2c3.2 0 3.6 0 4.9.1 3.3.1 4.8 1.7 4.9 4.9.1 1.3.1 1.6.1 4.8s0 3.6-.1 4.8c-.1 3.2-1.7 4.8-4.9 4.9-1.3.1-1.6.1-4.9.1-3.2 0-3.6 0-4.8-.1-3.3-.1-4.8-1.7-4.9-4.9-.1-1.3-.1-1.6-.1-4.8s0-3.6.1-4.8C2.3 4 3.9 2.4 7.2 2.3c1.2-.1 1.6-.1 4.8-.1M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10m0 8.2a3.2 3.2 0 1 1 0-6.4 3.2 3.2 0 0 1 0 6.4m5.2-9.6a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4', // instagram
+  'M12 2.2c3.2 0 3.6 0 4.9.1 3.3.1 4.8 1.7 4.9 4.9.1 1.3.1 1.6.1 4.8s0 3.6-.1 4.8c-.1 3.2-1.7 4.8-4.9 4.9-.1 1.3-.1 1.6-.1 4.8-.1-1.6-.1-1.6-.1-4.9-.1-1.3-.1-1.6-.1-4.8-.1-3.2 0-4.8-.1-3.6 0-.1-4.8-1.6-1.3-.1-1.6-4.9-4.9C2.3 4 3.9 2.4 7.2 2.3c1.2-.1 1.6-.1 4.8-.1M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10m0 8.2a3.2 3.2 0 1 1 0-6.4 3.2 3.2 0 0 1 0 6.4m5.2-9.6a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4', // instagram
   'M23 7.2s-.2-1.6-.9-2.3c-.9-.9-1.9-.9-2.3-1C16.6 3.6 12 3.6 12 3.6s-4.6 0-7.8.3c-.4.1-1.4.1-2.3 1-.7.7-.9 2.3-.9 2.3S.8 9.1.8 11v1.8c0 1.9.2 3.8.2 3.8s.2 1.6.9 2.3c.9.9 2 .9 2.5 1 1.8.2 7.6.3 7.6.3s4.6 0 7.8-.4c.4-.1 1.4-.1 2.3-1 .7-.7.9-2.3.9-2.3s.2-1.9.2-3.8V11c0-1.9-.2-3.8-.2-3.8M9.7 15V8.4l6.2 3.3z', // youtube
   'M18.9 2H22l-6.8 7.8L23.2 22h-6.3l-4.9-6.4L5.8 22H2.7l7.3-8.3L1.2 2h6.5l4.4 5.9zm-1.1 18h1.7L7.1 3.9H5.3z', // x
 ]
@@ -195,7 +196,7 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
         <div className="footer-brand">
           <img src="/default-image.jpg" alt="Streamit" />
           <p className="tagline">
-            Streamit: Your Ultimate Destination for Unlimited Movies and Shows!
+            Streamit: Your Ultimate Destination for Unlimited Sermons, Shows and Teachings!
           </p>
           <p className="contact">
             <span>hello@iqonic.design</span>
@@ -206,7 +207,7 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
           </div>
         </div>
         <div className="footer-col">
-          <h4>Premium shows</h4>
+          <h4>Premium Shows</h4>
           {footer.premium.map((m: any) => (
             <Link key={m.id} to={`/tv-show/${m.id}` as any}>› {m.name}</Link>
           ))}
@@ -220,7 +221,7 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
         <div className="footer-col">
           <h4>Download Our App</h4>
           <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>
-            Download our app for instant access to the best movies and shows!
+            Download our app for instant access to the best sermons, shows and teachings!
           </p>
           <div className="store-badges">
             <img src="/play_store.png" alt="Get it on Google Play" />
@@ -234,7 +235,7 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
         ))}
         <Link to="/faq">FAQ</Link>
       </div>
-      <div className="footer-copy">© 2026 Streamit: Your Ultimate Entertainment Hub. All Rights Reserved.</div>
+      <div className="footer-copy">© 2026 Streamit: Sermons, Shows & Teachings. All Rights Reserved.</div>
     </footer>
   )
 }

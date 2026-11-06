@@ -10,6 +10,13 @@ export const Route = createFileRoute('/pay-per-view')({
 
 type Kind = 'all' | 'movie' | 'video' | 'episode'
 
+const KIND_LABELS: Record<Kind, string> = {
+  all: 'All',
+  movie: 'Sermon',
+  video: 'Video',
+  episode: 'Episode',
+}
+
 function RentCard({ item, to }: { item: any; to: string }) {
   return (
     <Link to={to as any} className="p-card">
@@ -38,7 +45,7 @@ function PayPerView() {
       <div className="filter-pills">
         {(['all', 'movie', 'video', 'episode'] as Kind[]).map((k) => (
           <button key={k} className={`filter-pill${kind === k ? ' active' : ''}`} onClick={() => setKind(k)}>
-            {k === 'all' ? 'All' : k[0].toUpperCase() + k.slice(1)}
+            {KIND_LABELS[k]}
           </button>
         ))}
       </div>

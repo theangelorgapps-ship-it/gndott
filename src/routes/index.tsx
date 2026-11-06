@@ -31,7 +31,7 @@ function HomeAds({ ads }: { ads: any[] }) {
 }
 
 function baseFor(item: any) {
-  return item.type === 'tvshow' ? '/tv-show' : '/movie'
+  return item.type === 'teaching' ? '/teaching' : item.type === 'tvshow' ? '/tv-show' : '/movie'
 }
 
 function Home() {
@@ -53,7 +53,7 @@ function Home() {
       )}
 
       {data.latest.length > 0 && (
-        <Rail title="New Released Movies" seeAll="/movies">
+        <Rail title="New Released Sermons" seeAll="/movies">
           {data.latest.map((m: any) => <PosterCard key={m.id} item={m} base={baseFor(m)} />)}
         </Rail>
       )}
@@ -76,7 +76,7 @@ function Home() {
       )}
 
       {data.popularMovies.length > 0 && (
-        <Rail title="Popular Movies" seeAll="/movies">
+        <Rail title="Popular Sermons" seeAll="/movies">
           {data.popularMovies.map((m: any) => <PosterCard key={m.id} item={m} base={baseFor(m)} />)}
         </Rail>
       )}
@@ -93,7 +93,7 @@ function Home() {
       )}
 
       {data.popularTvShows.length > 0 && (
-        <Rail title="Popular TV Shows" seeAll="/tv-shows">
+        <Rail title="Popular Shows" seeAll="/tv-shows">
           {data.popularTvShows.map((m: any) => <PosterCard key={m.id} item={m} base={baseFor(m)} />)}
         </Rail>
       )}
@@ -111,7 +111,7 @@ function Home() {
       )}
 
       {data.free.length > 0 && (
-        <Rail title="Free Movies" seeAll="/movies">
+        <Rail title="Free Sermons" seeAll="/movies">
           {data.free.map((m: any) => <PosterCard key={m.id} item={m} base={baseFor(m)} />)}
         </Rail>
       )}

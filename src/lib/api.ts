@@ -136,6 +136,12 @@ export const getTvShows = createServerFn({ method: 'GET' }).handler(async () =>
   ),
 )
 
+export const getTeachings = createServerFn({ method: 'GET' }).handler(async () =>
+  all<Content>(
+    `SELECT ${CONTENT_COLS} FROM entertainments WHERE type = 'teaching' AND status = 1 AND deleted_at IS NULL ORDER BY name`,
+  ),
+)
+
 export const getVideos = createServerFn({ method: 'GET' }).handler(async () =>
   all<Content>(
     `SELECT id, name, slug, description, poster_url, thumbnail_url, release_date, IMDb_rating, duration FROM videos WHERE status = 1 AND deleted_at IS NULL ORDER BY name`,
@@ -170,7 +176,7 @@ export const searchContent = createServerFn({ method: 'GET' })
   .validator((q: string) => q)
   .handler(async ({ data: q }) => {
     const like = `%${q}%`
-    const [movies, tvshows, videos, channels] = await Promise.all([
+    const [movies, tvshows, teachings, videos, channels] = await Promise.all([
       all<Content>(
         `SELECT ${CONTENT_COLS} FROM entertainments WHERE type = 'movie' AND name LIKE ? AND status = 1 AND deleted_at IS NULL LIMIT 20`,
         like,
@@ -178,6 +184,10 @@ export const searchContent = createServerFn({ method: 'GET' })
       all<Content>(
         `SELECT ${CONTENT_COLS} FROM entertainments WHERE type = 'tvshow' AND name LIKE ? AND status = 1 AND deleted_at IS NULL LIMIT 20`,
         like,
+      ),
+      all<Content>(
+        `SELECT ${CONTENT_COLS} FROM entertainments WHERE type = 'teaching' AND (name LIKE ? OR LOWER(?) IN ('teaching', 'teachings')) AND status = 1 AND deleted_at IS NULL LIMIT 20`,
+        like, q,
       ),
       all<Content>(
         `SELECT id, name, slug, description, poster_url, thumbnail_url, release_date, IMDb_rating, duration FROM videos WHERE name LIKE ? AND status = 1 AND deleted_at IS NULL LIMIT 20`,
@@ -188,7 +198,7 @@ export const searchContent = createServerFn({ method: 'GET' })
         like,
       ).catch(() => []),
     ])
-    return { movies, tvshows, videos, channels }
+    return { movies, tvshows, teachings, videos, channels }
   })
 
 export const getMovie = createServerFn({ method: 'GET' })
@@ -278,22 +288,29 @@ export const getTvShow = createServerFn({ method: 'GET' })
       id,
     ).catch(() => [])
     const clips = await all(
-      `SELECT id, title, url, poster_url, type FROM clips WHERE content_id = ? AND content_type = 'tvshow' AND deleted_at IS NULL LIMIT 8`,
-      id,
+      `SELECT id, title, url, poster_url, type FROM clips WHERE content_id = ? AND content_type = ? AND deleted_at IS NULL LIMIT 8`,
+      id, show.type,
     ).catch(() => [])
     const similar = await all<Content>(
-      `SELECT ${CONTENT_COLS} FROM entertainments WHERE type = 'tvshow' AND id != ? AND status = 1 AND deleted_at IS NULL ORDER BY RANDOM() LIMIT 8`,
+      `SELECT ${CONTENT_COLS} FROM entertainments WHERE type = ? AND id != ? AND status = 1 AND deleted_at IS NULL ORDER BY RANDOM() LIMIT 8`,
+      show.type,
       id,
     ).catch(() => [])
-    const [bunnyLibraryId, ads, inWatchlist, myReview] = await Promise.all([
+    const [bunnyLibraryId, ads, inWatchlist, myReview, myPurchase] = await Promise.all([
       getBunnyLibraryId(),
-      getPlaybackAds('tvshow', id),
+      getPlaybackAds(show.type as string, id),
       getInWatchlist(session?.uid ?? null, id),
       session
         ? first<any>(`SELECT id, rating, review FROM reviews WHERE entertainment_id = ? AND user_id = ? AND deleted_at IS NULL`, id, session.uid).catch(() => null)
         : null,
+      session && (show as any).movie_access === 'paid'
+        ? first<any>(
+            `SELECT id, view_expiry_date FROM pay_per_views WHERE user_id = ? AND movie_id = ? AND type = 'movie' AND (view_expiry_date IS NULL OR view_expiry_date >= datetime('now'))`,
+            session.uid, id,
+          ).catch(() => null)
+        : null,
     ])
-    return { show, seasons, episodes, genres, cast, reviews, clips, similar, bunnyLibraryId, ads, inWatchlist, myReview, viewerId: session?.uid ?? null }
+    return { show, seasons, episodes, genres, cast, reviews, clips, similar, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, viewerId: session?.uid ?? null }
   })
 
 export const getVideo = createServerFn({ method: 'GET' })
@@ -939,16 +956,17 @@ export const confirmStripeSession = createServerFn({ method: 'POST' })
 // ---------- pay per view ----------
 
 export const purchasePayPerView = createServerFn({ method: 'POST' })
-  .validator((d: { type: 'movie' | 'video' | 'episode'; id: number; gateway: string }) => d)
+  .validator((d: { type: 'movie' | 'video' | 'episode' | 'teaching'; id: number; gateway: string }) => d)
   .handler(async ({ data }) => {
     const session = await getSession()
     if (!session) return { ok: false, needsAuth: true, error: 'Sign in to rent.' }
-    const table = data.type === 'movie' ? 'entertainments' : data.type === 'video' ? 'videos' : 'episodes'
+    const table = data.type === 'movie' || data.type === 'teaching' ? 'entertainments' : data.type === 'video' ? 'videos' : 'episodes'
+    const purchaseType = data.type === 'teaching' ? 'movie' : data.type
     const item = await first<any>(`SELECT id, name, price, access_duration, available_for FROM ${table} WHERE id = ? AND deleted_at IS NULL`, data.id)
     if (!item) return { ok: false, error: 'Content not found.' }
     const existing = await first<any>(
       `SELECT id FROM pay_per_views WHERE user_id = ? AND movie_id = ? AND type = ? AND (view_expiry_date IS NULL OR view_expiry_date >= datetime('now'))`,
-      session.uid, data.id, data.type,
+      session.uid, data.id, purchaseType,
     ).catch(() => null)
     if (existing) return { ok: true, already: true }
     if (data.gateway !== 'cash') return { ok: false, error: 'Only cash/manual rental is enabled right now.' }
@@ -958,7 +976,7 @@ export const purchasePayPerView = createServerFn({ method: 'POST' })
     await run(
       `INSERT INTO pay_per_views (user_id, movie_id, type, content_price, price, discount_percentage, first_play_date, view_expiry_date, access_duration, available_for, created_at, updated_at)
        VALUES (?,?,?,?,?,0,NULL,?,?,?,datetime('now'),datetime('now'))`,
-      session.uid, data.id, data.type, item.price ?? 0, item.price ?? 0, expiry, days, item.available_for ?? null,
+      session.uid, data.id, purchaseType, item.price ?? 0, item.price ?? 0, expiry, days, item.available_for ?? null,
     )
     return { ok: true, expiry, price: item.price ?? 0 }
   })

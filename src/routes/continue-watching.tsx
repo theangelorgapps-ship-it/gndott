@@ -18,7 +18,7 @@ function ContinueWatching() {
       ) : (
         <div className="grid" style={{ padding: 0 }}>
           {data.items.map((m: any) => (
-            <PosterCard key={m.cw_id} item={m} base={m.type === 'tvshow' ? '/tv-show' : '/movie'} />
+            <PosterCard key={m.cw_id} item={m} base={m.type === 'teaching' ? '/teaching' : m.type === 'tvshow' ? '/tv-show' : '/movie'} />
           ))}
         </div>
       )}

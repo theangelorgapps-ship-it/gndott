@@ -30,7 +30,7 @@ function CastDetail() {
           <div className="section-head"><h2>Known For</h2></div>
           <div className="grid" style={{ padding: 0 }}>
             {works.map((w: any) => (
-              <PosterCard key={w.id} item={w} base={w.type === 'tvshow' ? '/tv-show' : '/movie'} />
+              <PosterCard key={w.id} item={w} base={w.type === 'teaching' ? '/teaching' : w.type === 'tvshow' ? '/tv-show' : '/movie'} />
             ))}
           </div>
         </section>

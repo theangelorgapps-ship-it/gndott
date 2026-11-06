@@ -32,6 +32,7 @@ import { Route as ProfileDetailsRouteImport } from './routes/profile-details'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SubscriptionPlanRouteImport } from './routes/subscription-plan'
+import { Route as TeachingsRouteImport } from './routes/teachings'
 import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as TvShowsRouteImport } from './routes/tv-shows'
 import { Route as VideosRouteImport } from './routes/videos'
@@ -41,6 +42,7 @@ import { Route as ChannelIdRouteImport } from './routes/channel.$id'
 import { Route as MediaSplatRouteImport } from './routes/media/$'
 import { Route as MovieIdRouteImport } from './routes/movie.$id'
 import { Route as PageSlugRouteImport } from './routes/page.$slug'
+import { Route as TeachingIdRouteImport } from './routes/teaching.$id'
 import { Route as TvShowIdRouteImport } from './routes/tv-show.$id'
 import { Route as VideoIdRouteImport } from './routes/video.$id'
 
@@ -159,6 +161,11 @@ const SubscriptionPlanRoute = SubscriptionPlanRouteImport.update({
   path: '/subscription-plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeachingsRoute = TeachingsRouteImport.update({
+  id: '/teachings',
+  path: '/teachings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TrendingRoute = TrendingRouteImport.update({
   id: '/trending',
   path: '/trending',
@@ -204,6 +211,11 @@ const PageSlugRoute = PageSlugRouteImport.update({
   path: '/page/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeachingIdRoute = TeachingIdRouteImport.update({
+  id: '/teaching/$id',
+  path: '/teaching/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TvShowIdRoute = TvShowIdRouteImport.update({
   id: '/tv-show/$id',
   path: '/tv-show/$id',
@@ -239,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
   '/subscription-plan': typeof SubscriptionPlanRoute
+  '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
   '/tv-shows': typeof TvShowsRoute
   '/videos': typeof VideosRoute
@@ -248,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/teaching/$id': typeof TeachingIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
 }
@@ -275,6 +289,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
   '/subscription-plan': typeof SubscriptionPlanRoute
+  '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
   '/tv-shows': typeof TvShowsRoute
   '/videos': typeof VideosRoute
@@ -284,6 +299,7 @@ export interface FileRoutesByTo {
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/teaching/$id': typeof TeachingIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
 }
@@ -312,6 +328,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
   '/subscription-plan': typeof SubscriptionPlanRoute
+  '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
   '/tv-shows': typeof TvShowsRoute
   '/videos': typeof VideosRoute
@@ -321,6 +338,7 @@ export interface FileRoutesById {
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/teaching/$id': typeof TeachingIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
 }
@@ -350,6 +368,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/search'
     | '/subscription-plan'
+    | '/teachings'
     | '/trending'
     | '/tv-shows'
     | '/videos'
@@ -359,6 +378,7 @@ export interface FileRouteTypes {
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/teaching/$id'
     | '/tv-show/$id'
     | '/video/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -386,6 +406,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/search'
     | '/subscription-plan'
+    | '/teachings'
     | '/trending'
     | '/tv-shows'
     | '/videos'
@@ -395,6 +416,7 @@ export interface FileRouteTypes {
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/teaching/$id'
     | '/tv-show/$id'
     | '/video/$id'
   id:
@@ -422,6 +444,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/search'
     | '/subscription-plan'
+    | '/teachings'
     | '/trending'
     | '/tv-shows'
     | '/videos'
@@ -431,6 +454,7 @@ export interface FileRouteTypes {
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/teaching/$id'
     | '/tv-show/$id'
     | '/video/$id'
   fileRoutesById: FileRoutesById
@@ -459,6 +483,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   SearchRoute: typeof SearchRoute
   SubscriptionPlanRoute: typeof SubscriptionPlanRoute
+  TeachingsRoute: typeof TeachingsRoute
   TrendingRoute: typeof TrendingRoute
   TvShowsRoute: typeof TvShowsRoute
   VideosRoute: typeof VideosRoute
@@ -467,6 +492,7 @@ export interface RootRouteChildren {
   MediaSplatRoute: typeof MediaSplatRoute
   MovieIdRoute: typeof MovieIdRoute
   PageSlugRoute: typeof PageSlugRoute
+  TeachingIdRoute: typeof TeachingIdRoute
   TvShowIdRoute: typeof TvShowIdRoute
   VideoIdRoute: typeof VideoIdRoute
 }
@@ -634,6 +660,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SubscriptionPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/teachings': {
+      id: '/teachings'
+      path: '/teachings'
+      fullPath: '/teachings'
+      preLoaderRoute: typeof TeachingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/trending': {
       id: '/trending'
       path: '/trending'
@@ -697,6 +730,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PageSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/teaching/$id': {
+      id: '/teaching/$id'
+      path: '/teaching/$id'
+      fullPath: '/teaching/$id'
+      preLoaderRoute: typeof TeachingIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tv-show/$id': {
       id: '/tv-show/$id'
       path: '/tv-show/$id'
@@ -748,6 +788,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   SearchRoute: SearchRoute,
   SubscriptionPlanRoute: SubscriptionPlanRoute,
+  TeachingsRoute: TeachingsRoute,
   TrendingRoute: TrendingRoute,
   TvShowsRoute: TvShowsRoute,
   VideosRoute: VideosRoute,
@@ -756,6 +797,7 @@ const rootRouteChildren: RootRouteChildren = {
   MediaSplatRoute: MediaSplatRoute,
   MovieIdRoute: MovieIdRoute,
   PageSlugRoute: PageSlugRoute,
+  TeachingIdRoute: TeachingIdRoute,
   TvShowIdRoute: TvShowIdRoute,
   VideoIdRoute: VideoIdRoute,
 }

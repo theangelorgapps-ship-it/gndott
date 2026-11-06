@@ -8,11 +8,15 @@ export const Route = createFileRoute('/coming-soon')({
   component: ComingSoon,
 })
 
-type Kind = 'all' | 'movie' | 'tvshow' | 'video'
+type Kind = 'all' | 'movie' | 'tvshow' | 'teaching' | 'video'
 
 function daysToGo(date: string): number {
   const d = Math.ceil((new Date(date).getTime() - Date.now()) / 86400000)
   return Math.max(d, 0)
+}
+
+function baseFor(item: any) {
+  return item.type === 'teaching' ? '/teaching' : item.type === 'tvshow' ? '/tv-show' : '/movie'
 }
 
 function ComingSoonCard({ item, base }: { item: any; base: string }) {
@@ -53,7 +57,7 @@ function ComingSoon() {
   const { entertainment, videos } = Route.useLoaderData() as any
   const [kind, setKind] = useState<Kind>('all')
   const items: { item: any; base: string; kind: Kind }[] = [
-    ...entertainment.map((m: any) => ({ item: m, base: m.type === 'tvshow' ? '/tv-show' : '/movie', kind: m.type as Kind })),
+    ...entertainment.map((m: any) => ({ item: m, base: baseFor(m), kind: m.type as Kind })),
     ...videos.map((v: any) => ({ item: v, base: '/video', kind: 'video' as Kind })),
   ]
   const shown = kind === 'all' ? items : items.filter((i) => i.kind === kind)
@@ -61,9 +65,9 @@ function ComingSoon() {
   return (
     <div>
       <h1 className="page-title-center" style={{ color: 'var(--primary)', marginTop: 30 }}>Coming Soon</h1>
-      <p className="search-sub" style={{ textAlign: 'center' }}>Get ready for the most anticipated movies and shows launching soon. Be the first to watch premium content.</p>
+      <p className="search-sub" style={{ textAlign: 'center' }}>Get ready for the most anticipated sermons, shows and teachings launching soon. Be the first to watch premium content.</p>
       <div className="filter-pills">
-        {([['all', 'All'], ['movie', 'Movie'], ['tvshow', 'TV Show'], ['video', 'Video']] as [Kind, string][]).map(([k, label]) => (
+        {([['all', 'All'], ['movie', 'Sermon'], ['tvshow', 'Show'], ['teaching', 'Teaching'], ['video', 'Video']] as [Kind, string][]).map(([k, label]) => (
           <button key={k} className={`filter-pill${kind === k ? ' active' : ''}`} onClick={() => setKind(k)}>{label}</button>
         ))}
       </div>

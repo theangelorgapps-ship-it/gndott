@@ -103,6 +103,16 @@ export function IconCrown({ size = 14 }: { size?: number }) {
   )
 }
 
+export function plainText(value: unknown): string {
+  const entities: Record<string, string> = {
+    '&nbsp;': ' ', '&amp;': '&', '&mdash;': '—', '&ndash;': '–',
+    '&rsquo;': '’', '&lsquo;': '‘', '&ldquo;': '“', '&rdquo;': '”', '&hellip;': '…',
+  }
+  let text = String(value ?? '').replace(/<[^>]*>/g, ' ')
+  for (const [entity, character] of Object.entries(entities)) text = text.replaceAll(entity, character)
+  return text.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code))).replace(/\s+/g, ' ').trim()
+}
+
 export function ratingOf(item: any): string | null {
   const r = item.IMDb_rating ?? item.imdb_rating
   return ratingToStr(r)
@@ -114,7 +124,7 @@ function ratingToStr(r: any): string | null {
 }
 
 export function PosterCard({ item, base }: { item: any; base: string }) {
-  const rating = ratingOf(item)
+  const rating = base === '/video' ? null : ratingOf(item)
   const paid = item.movie_access === 'paid' || item.access === 'paid'
   return (
     <Link to={`${base}/${item.id}` as any} className="p-card" params={undefined as never}>
@@ -273,12 +283,12 @@ export function HeroSlider({
           </div>
         )}
         <h1 className="hero-title">{hero.name}</h1>
-        {hero.description && <p className="hero-desc">{hero.description}</p>}
+        {hero.description && <p className="hero-desc">{plainText(hero.description)}</p>}
         <div className="hero-meta">
           {hero.release_date && <span><IconCalendar /> {String(hero.release_date).slice(0, 4)}</span>}
           {hero.language && <span><IconGlobe /> {hero.language}</span>}
           {hero.duration && <span><IconClock /> {hero.duration}</span>}
-          {(hero.IMDb_rating || hero.imdb_rating) && (
+          {baseFor(hero) !== '/video' && (hero.IMDb_rating || hero.imdb_rating) && (
             <span><IconStar /> {hero.IMDb_rating ?? hero.imdb_rating} (IMDb)</span>
           )}
         </div>
@@ -306,7 +316,7 @@ export function HeroSlider({
 }
 
 export function Top10Card({ item, rank, base }: { item: any; rank: number; base: string }) {
-  const rating = ratingOf(item)
+  const rating = item.type === 'video' ? null : ratingOf(item)
   return (
     <Link to={`${base}/${item.id}` as any} className="top10-item">
       <span className="top10-rank">{rank}</span>

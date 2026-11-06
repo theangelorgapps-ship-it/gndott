@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { getVideo } from '../lib/api'
 import {
   PosterCard, Rail,
-  IconPlay, IconShare, IconCalendar, IconClock, IconStar,
+  IconPlay, IconShare, IconCalendar, IconClock,
 } from '../components/Poster'
 import { DetailTabs, ClipsRail, WatchSection, BiblePanel, ContentNotes } from '../components/Detail'
 
@@ -44,7 +44,6 @@ function VideoDetail() {
         <div className="hero-meta">
           {video.release_date && <span><IconCalendar /> {String(video.release_date).slice(0, 4)}</span>}
           {video.duration && <span><IconClock /> {video.duration}</span>}
-          {video.IMDb_rating && <span><IconStar /> {video.IMDb_rating} (IMDb)</span>}
         </div>
         <div className="hero-actions">
           <button className="btn btn-play" onClick={() => { const l = (window as any).__lenis; if (l) l.scrollTo(0); else window.scrollTo({ top: 0, behavior: 'smooth' }) }}><IconPlay /> Play</button>

@@ -15,12 +15,12 @@ function Movies() {
       <HeroSlider slides={slides} baseFor={() => '/movie'} ctaLabel="Watch now" />
       <section className="section">
         <div className="section-head">
-          <h2>Movies</h2>
+          <h2>Sermons</h2>
         </div>
         <div className="grid" style={{ padding: 0 }}>
           {movies.map((m: any) => <PosterCard key={m.id} item={m} base="/movie" />)}
         </div>
-        {movies.length === 0 && <div className="empty">No movies available yet.</div>}
+        {movies.length === 0 && <div className="empty">No sermons available yet.</div>}
       </section>
     </div>
   )

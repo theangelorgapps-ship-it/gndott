@@ -6,6 +6,7 @@ import {
   MonitorPlay,
   Radio,
   CalendarClock,
+  BookOpen,
   ChevronRight,
   Search,
 } from 'lucide-react'
@@ -216,8 +217,9 @@ const SearchResultsContainer = ({ searchResults, onHover, onNavigate }: SearchRe
 }
 
 const SITE_SHORTCUTS: Shortcut[] = [
-  { label: 'Movies', icon: <Clapperboard />, link: '/movies' },
-  { label: 'TV Shows', icon: <MonitorPlay />, link: '/tv-shows' },
+  { label: 'Sermons', icon: <Clapperboard />, link: '/movies' },
+  { label: 'Shows', icon: <MonitorPlay />, link: '/tv-shows' },
+  { label: 'Teachings', icon: <BookOpen />, link: '/teachings' },
   { label: 'Live TV', icon: <Radio />, link: '/live-tv' },
   { label: 'Coming Soon', icon: <CalendarClock />, link: '/coming-soon' },
 ]
@@ -264,14 +266,20 @@ const AppleSpotlight = ({
           ...r.movies.slice(0, 4).map((m: any) => ({
             icon: <Clapperboard />,
             label: m.name,
-            description: `Movie${m.release_date ? ` · ${String(m.release_date).slice(0, 4)}` : ''}`,
+            description: `Sermon${m.release_date ? ` · ${String(m.release_date).slice(0, 4)}` : ''}`,
             link: `/movie/${m.id}`,
           })),
           ...r.tvshows.slice(0, 4).map((m: any) => ({
             icon: <MonitorPlay />,
             label: m.name,
-            description: `TV Show${m.release_date ? ` · ${String(m.release_date).slice(0, 4)}` : ''}`,
+            description: `Show${m.release_date ? ` · ${String(m.release_date).slice(0, 4)}` : ''}`,
             link: `/tv-show/${m.id}`,
+          })),
+          ...(r.teachings ?? []).slice(0, 4).map((m: any) => ({
+            icon: <BookOpen />,
+            label: m.name,
+            description: `Teaching${m.release_date ? ` · ${String(m.release_date).slice(0, 4)}` : ''}`,
+            link: `/teaching/${m.id}`,
           })),
           ...r.channels.slice(0, 2).map((c: any) => ({
             icon: <Radio />,
@@ -367,7 +375,7 @@ const AppleSpotlight = ({
                       ? shortcuts[hoveredShortcut].label
                       : hoveredSearchResult !== null
                         ? results[hoveredSearchResult]?.label ?? 'Search'
-                        : 'Search movies, shows, live TV…'
+                        : 'Search sermons, shows, teachings, live TV…'
                   }
                   placeholderClassName={
                     hoveredSearchResult !== null ? 'text-white' : 'text-white/40'

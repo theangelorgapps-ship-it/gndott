@@ -1,13 +1,14 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
+  Bookmark,
   BookOpen,
-  CalendarClock,
   ChevronRight,
   Clapperboard,
   LoaderCircle,
   MonitorPlay,
   Radio,
   Search,
+  Video,
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -22,7 +23,7 @@ interface Shortcut {
   icon: LucideIcon
 }
 
-type ResultKind = 'sermon' | 'show' | 'teaching' | 'channel'
+type ResultKind = 'sermon' | 'show' | 'teaching' | 'video' | 'channel'
 type SearchStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 interface SearchResult {
@@ -34,16 +35,18 @@ interface SearchResult {
 
 const SITE_SHORTCUTS: Shortcut[] = [
   { label: 'Sermons', icon: Clapperboard, link: '/movies' },
-  { label: 'Shows', icon: MonitorPlay, link: '/tv-shows' },
   { label: 'Teachings', icon: BookOpen, link: '/teachings' },
+  { label: 'Shows', icon: MonitorPlay, link: '/tv-shows' },
+  { label: 'Videos', icon: Video, link: '/videos' },
   { label: 'Live TV', icon: Radio, link: '/live-tv' },
-  { label: 'Coming Soon', icon: CalendarClock, link: '/coming-soon' },
+  { label: 'Watchlist', icon: Bookmark, link: '/watchlist' },
 ]
 
 const RESULT_ICONS: Record<ResultKind, LucideIcon> = {
   sermon: Clapperboard,
   show: MonitorPlay,
   teaching: BookOpen,
+  video: Video,
   channel: Radio,
 }
 
@@ -68,6 +71,12 @@ const mapSearchResults = (response: any): SearchResult[] => [
     label: teaching.name,
     description: withYear('Teaching', teaching.release_date),
     link: `/teaching/${teaching.id}`,
+  })),
+  ...(response.videos ?? []).slice(0, 4).map((video: any) => ({
+    kind: 'video' as const,
+    label: video.name,
+    description: withYear('Video', video.release_date),
+    link: `/video/${video.id}`,
   })),
   ...(response.channels ?? []).slice(0, 2).map((channel: any) => ({
     kind: 'channel' as const,
@@ -265,7 +274,7 @@ const AppleSpotlight = ({
               <div className="spotlight-heading">
                 <h2 id={titleId}>Search the catalogue</h2>
                 <p id={descriptionId}>
-                  Find Sermons, Shows and Teachings, or browse Live TV and Coming Soon.
+                  Find Sermons, Shows, Teachings and Videos, or browse Live TV and your Watchlist.
                 </p>
               </div>
               <button
@@ -286,7 +295,7 @@ const AppleSpotlight = ({
                 className="spotlight-search-input"
                 type="search"
                 role="combobox"
-                aria-label="Search Sermons, Shows and Teachings"
+                aria-label="Search Sermons, Shows, Teachings and Videos"
                 aria-autocomplete="list"
                 aria-expanded={status === 'ready' && results.length > 0}
                 aria-controls={resultsId}
@@ -294,7 +303,7 @@ const AppleSpotlight = ({
                 aria-keyshortcuts="ArrowDown ArrowUp Home End Enter"
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="Search Sermons, Shows and Teachings…"
+                placeholder="Search Sermons, Shows, Teachings and Videos…"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={onSearchKeyDown}
@@ -325,7 +334,7 @@ const AppleSpotlight = ({
               {status === 'loading' && (
                 <div className="spotlight-state" role="status">
                   <LoaderCircle className="spotlight-loading-icon" size={20} aria-hidden="true" />
-                  <span>Searching Sermons, Shows and Teachings…</span>
+                  <span>Searching Sermons, Shows, Teachings and Videos…</span>
                 </div>
               )}
 

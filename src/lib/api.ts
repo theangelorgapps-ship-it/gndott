@@ -2,6 +2,10 @@ import { createServerFn } from '@tanstack/react-start'
 import { getSession, setSessionCookie, clearSessionCookie } from './session.server'
 import { all, first, run } from './db'
 import bcrypt from 'bcryptjs'
+import { buildRecommendationPayload } from './recommendations'
+import type { RecommendationCandidate, RecommendationPayload, WatchHistoryEntry } from './recommendations'
+
+export type { RecommendationPayload } from './recommendations'
 
 // ---------- types ----------
 
@@ -25,9 +29,9 @@ export interface Content {
 // ---------- content queries ----------
 
 const CONTENT_COLS =
-  'id, name, slug, description, type, poster_url, thumbnail_url, release_date, IMDb_rating, duration, language, movie_access, content_rating, trailer_url'
+  'id, name, slug, description, type, poster_url, thumbnail_url, release_date, IMDb_rating, duration, language, movie_access, content_rating, trailer_url, bunny_video_url, bunny_trailer_url, video_url_input, video_upload_type'
 
-const DETAIL_COLS = `${CONTENT_COLS}, bunny_video_url, bunny_trailer_url, video_url_input, video_upload_type, enable_quality, enable_subtitle, subtitle_file, subtitle_language, price, purchase_type, access_duration, available_for, meta_title, meta_description`
+const DETAIL_COLS = `${CONTENT_COLS}, enable_quality, enable_subtitle, subtitle_file, subtitle_language, price, purchase_type, access_duration, available_for, meta_title, meta_description`
 
 async function getBunnyLibraryId(): Promise<string | null> {
   const row = await first<any>(`SELECT val FROM settings WHERE name = 'bunny_library_id'`).catch(() => null)
@@ -75,6 +79,59 @@ async function getInWatchlist(uid: number | null, entertainmentId: number): Prom
   return !!row
 }
 
+interface RecommendationContext {
+  userId: number | null
+  currentId?: number
+  currentType?: string
+  currentGenres?: string[]
+}
+
+async function loadRecommendations(context: RecommendationContext): Promise<RecommendationPayload> {
+  const historyRequest = context.userId == null
+    ? Promise.resolve<WatchHistoryEntry[] | null>([])
+    : all<WatchHistoryEntry>(
+        `SELECT c.entertainment_id, COALESCE(c.entertainment_type, e.type) AS entertainment_type,
+                c.watched_time, c.total_watched_time, c.created_at, c.updated_at,
+                GROUP_CONCAT(DISTINCT g.name) AS genre_names
+         FROM continue_watch c
+         LEFT JOIN entertainments e ON e.id = c.entertainment_id
+         LEFT JOIN entertainment_gener_mapping m ON m.entertainment_id = c.entertainment_id
+         LEFT JOIN genres g ON g.id = m.genre_id AND g.status = 1 AND g.deleted_at IS NULL
+         WHERE c.user_id = ? AND c.deleted_at IS NULL
+         GROUP BY c.id
+         ORDER BY COALESCE(c.updated_at, c.created_at) DESC, c.id DESC
+         LIMIT 40`,
+        context.userId,
+      ).catch(() => null)
+
+  const candidateRequest = all<RecommendationCandidate>(
+    `SELECT e.id, e.name, e.slug, e.description, e.type, e.poster_url, e.thumbnail_url,
+            e.release_date, e.IMDb_rating, e.duration, e.language, e.movie_access,
+            e.content_rating, e.trailer_url, e.total_views, e.created_at, e.updated_at,
+            GROUP_CONCAT(DISTINCT g.name) AS genre_names
+     FROM entertainments e
+     LEFT JOIN entertainment_gener_mapping m ON m.entertainment_id = e.id
+     LEFT JOIN genres g ON g.id = m.genre_id AND g.status = 1 AND g.deleted_at IS NULL
+     WHERE e.status = 1 AND e.deleted_at IS NULL
+     GROUP BY e.id`,
+  ).catch(() => [])
+
+  const [history, candidates] = await Promise.all([historyRequest, candidateRequest])
+  return buildRecommendationPayload({
+    candidates,
+    // A failed history read is an honest non-personalized fallback, never fake history.
+    history: history ?? [],
+    currentId: context.currentId,
+    currentType: context.currentType,
+    currentGenres: context.currentGenres,
+  })
+}
+
+export const getRecommendations = createServerFn({ method: 'GET' }).handler(async () => {
+  const session = await getSession()
+  return loadRecommendations({ userId: session?.uid ?? null })
+})
+
 export const getDashboard = createServerFn({ method: 'GET' }).handler(async () => {
   const [top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon,
     payPerView, languages, cast, mostWatched] =
@@ -121,7 +178,9 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
          FROM videos WHERE status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 12`,
       ).catch(() => []),
     ])
-  return { top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon, payPerView, languages, cast, mostWatched }
+  const [session, bunnyLibraryId] = await Promise.all([getSession(), getBunnyLibraryId()])
+  const recommendations = await loadRecommendations({ userId: session?.uid ?? null })
+  return { top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon, payPerView, languages, cast, mostWatched, recommendations, bunnyLibraryId }
 })
 
 export const getMovies = createServerFn({ method: 'GET' }).handler(async () =>
@@ -238,7 +297,7 @@ export const getMovie = createServerFn({ method: 'GET' })
       `SELECT id, title, url, poster_url, type FROM clips WHERE content_id = ? AND content_type = ? AND deleted_at IS NULL LIMIT 8`,
       id, movie.type === 'tvshow' ? 'tvshow' : 'movie',
     ).catch(() => [])
-    const [bunnyLibraryId, ads, inWatchlist, myReview, myPurchase] = await Promise.all([
+    const [bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, recommendations] = await Promise.all([
       getBunnyLibraryId(),
       getPlaybackAds('movie', id),
       getInWatchlist(session?.uid ?? null, id),
@@ -251,8 +310,14 @@ export const getMovie = createServerFn({ method: 'GET' })
             session.uid, id,
           ).catch(() => null)
         : null,
+      loadRecommendations({
+        userId: session?.uid ?? null,
+        currentId: id,
+        currentType: movie.type ?? undefined,
+        currentGenres: genres.map((genre) => String(genre.name)),
+      }),
     ])
-    return { movie, genres, cast, similar, reviewStats, reviews, clips, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, viewerId: session?.uid ?? null }
+    return { movie, genres, cast, similar, reviewStats, reviews, clips, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, recommendations, viewerId: session?.uid ?? null }
   })
 
 export const getTvShow = createServerFn({ method: 'GET' })
@@ -296,7 +361,7 @@ export const getTvShow = createServerFn({ method: 'GET' })
       show.type,
       id,
     ).catch(() => [])
-    const [bunnyLibraryId, ads, inWatchlist, myReview, myPurchase] = await Promise.all([
+    const [bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, recommendations] = await Promise.all([
       getBunnyLibraryId(),
       getPlaybackAds(show.type as string, id),
       getInWatchlist(session?.uid ?? null, id),
@@ -309,8 +374,14 @@ export const getTvShow = createServerFn({ method: 'GET' })
             session.uid, id,
           ).catch(() => null)
         : null,
+      loadRecommendations({
+        userId: session?.uid ?? null,
+        currentId: id,
+        currentType: show.type ?? undefined,
+        currentGenres: genres.map((genre) => String(genre.name)),
+      }),
     ])
-    return { show, seasons, episodes, genres, cast, reviews, clips, similar, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, viewerId: session?.uid ?? null }
+    return { show, seasons, episodes, genres, cast, reviews, clips, similar, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, recommendations, viewerId: session?.uid ?? null }
   })
 
 export const getVideo = createServerFn({ method: 'GET' })
@@ -337,14 +408,15 @@ export const getVideo = createServerFn({ method: 'GET' })
       id,
     ).catch(() => [])
     const session = await getSession()
-    const [bunnyLibraryId, ads, myReview] = await Promise.all([
+    const [bunnyLibraryId, ads, myReview, recommendations] = await Promise.all([
       getBunnyLibraryId(),
       getPlaybackAds('video', id),
       session
         ? first<any>(`SELECT id, rating, review FROM reviews WHERE entertainment_id = ? AND user_id = ? AND deleted_at IS NULL`, id, session.uid).catch(() => null)
         : null,
+      loadRecommendations({ userId: session?.uid ?? null, currentId: id, currentType: 'video' }),
     ])
-    return { video, similar, reviews, clips, bunnyLibraryId, ads, myReview, viewerId: session?.uid ?? null }
+    return { video, similar, reviews, clips, bunnyLibraryId, ads, myReview, recommendations, viewerId: session?.uid ?? null }
   })
 
 export const getChannel = createServerFn({ method: 'GET' })

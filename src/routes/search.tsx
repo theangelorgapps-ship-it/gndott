@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { searchContent, getGenres, getTrending } from '../lib/api'
 import { PosterCard, IconSearch } from '../components/Poster'
@@ -25,7 +25,7 @@ const CATEGORIES = [
   { label: 'Episodes', q: 'episode' },
   { label: 'Live TV', q: 'live' },
   { label: 'Actors', q: 'actor' },
-  { label: 'Directors', q: 'director' },
+  { label: 'Location', q: 'director' },
 ]
 
 function Search() {

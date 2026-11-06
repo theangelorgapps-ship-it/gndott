@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { BookOpen, Film, ListVideo, NotebookPen, Users } from 'lucide-react'
+import { BookOpen, Film, Info, ListVideo, NotebookPen } from 'lucide-react'
 import { DiscreteTabs } from './ui/discrete-tab'
-import { img, IconPlay, IconPlus } from './Poster'
+import { CircleCard, img, IconPlay, IconPlus } from './Poster'
 
 export function IconCheck({ size = 16 }: { size?: number }) {
   return (
@@ -40,11 +40,11 @@ export function TrailerPlayer({ url, poster, title, showImmediately = false }: {
 }
 
 const TAB_ICONS: Record<string, any> = {
-  cast: Users,
   episodes: ListVideo,
   more: Film,
   bible: BookOpen,
   notes: NotebookPen,
+  about: Info,
 }
 
 export function DetailTabs({ tabs, active, onChange }: { tabs: { key: string; label: string }[]; active: string; onChange: (k: string) => void }) {
@@ -56,6 +56,30 @@ export function DetailTabs({ tabs, active, onChange }: { tabs: { key: string; la
         onChange={onChange}
       />
     </div>
+  )
+}
+
+export function AboutPanel({ cast = [] }: { cast?: any[] }) {
+  const people = Array.isArray(cast) ? cast : []
+  const personalities = people.filter((person) => person.type !== 'director')
+  const locations = people.filter((person) => person.type === 'director')
+  return (
+    <section className="section detail-supplement about-panel" aria-label="About this title">
+      <div className="about-grid">
+        <div className="about-column">
+          <div className="section-head"><h2>Personality</h2></div>
+          {personalities.length ? (
+            <div className="about-people">{personalities.map((person) => <CircleCard key={person.id} name={person.name} image={person.file_url} to={`/cast/${person.id}`} />)}</div>
+          ) : <p className="about-empty">No personality information is available for this title.</p>}
+        </div>
+        <div className="about-column">
+          <div className="section-head"><h2>Location</h2></div>
+          {locations.length ? (
+            <div className="about-people">{locations.map((person) => <CircleCard key={person.id} name={person.name} image={person.file_url} to={`/cast/${person.id}`} />)}</div>
+          ) : <p className="about-empty">No location information is available for this title.</p>}
+        </div>
+      </div>
+    </section>
   )
 }
 

@@ -1,11 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { getVideo } from '../lib/api'
-import {
-  PosterCard, Rail,
-  IconPlay, IconShare, IconCalendar, IconClock,
-} from '../components/Poster'
-import { DetailTabs, ClipsRail, WatchSection, BiblePanel, ContentNotes } from '../components/Detail'
+import { IconPlay, IconShare, IconCalendar, IconClock, RecommendationGroups } from '../components/Poster'
+import { AboutPanel, DetailTabs, ClipsRail, WatchSection, BiblePanel, ContentNotes } from '../components/Detail'
 
 export const Route = createFileRoute('/video/$id')({
   loader: async ({ params }) => await getVideo({ data: Number(params.id) }),
@@ -21,22 +18,12 @@ function VideoDetail() {
     { key: 'more', label: 'Featured' },
     { key: 'bible', label: 'Bible' },
     { key: 'notes', label: 'Notes' },
+    { key: 'about', label: 'About' },
   ]
   return (
     <div>
       <div className="detail-player">
-        <WatchSection
-          contentType="video"
-          contentId={video.id}
-          title={video.name}
-          poster={video.thumbnail_url || video.poster_url}
-          bunnyLibraryId={bunnyLibraryId}
-          bunnyVideoId={video.bunny_video_url}
-          trailerUrl={video.trailer_url}
-          movieAccess={video.access}
-          price={video.price}
-          viewerId={viewerId}
-        />
+        <WatchSection contentType="video" contentId={video.id} title={video.name} poster={video.thumbnail_url || video.poster_url} bunnyLibraryId={bunnyLibraryId} bunnyVideoId={video.bunny_video_url} trailerUrl={video.trailer_url} movieAccess={video.access} price={video.price} viewerId={viewerId} />
       </div>
       <div className="detail-info">
         <h1 className="detail-title">{video.name}</h1>
@@ -46,22 +33,16 @@ function VideoDetail() {
           {video.duration && <span><IconClock /> {video.duration}</span>}
         </div>
         <div className="hero-actions">
-          <button className="btn btn-play" onClick={() => { const l = (window as any).__lenis; if (l) l.scrollTo(0); else window.scrollTo({ top: 0, behavior: 'smooth' }) }}><IconPlay /> Play</button>
+          <button className="btn btn-play" onClick={() => { const lenis = (window as any).__lenis; if (lenis) lenis.scrollTo(0); else window.scrollTo({ top: 0, behavior: 'smooth' }) }}><IconPlay /> Play</button>
           <button className="btn btn-dark btn-circle" aria-label="Share" onClick={() => { navigator.clipboard?.writeText(window.location.href).catch(() => null) }}><IconShare /></button>
         </div>
       </div>
-
       <ClipsRail clips={clips} />
-
       <DetailTabs tabs={tabs} active={tab} onChange={setTab} />
-
-      {tab === 'more' && (
-        <Rail title="Featured">
-          {similar.map((m: any) => <PosterCard key={m.id} item={m} base="/video" />)}
-        </Rail>
-      )}
+      {tab === 'more' && <RecommendationGroups recommendations={data.recommendations} fallback={similar} recentFallback={similar} />}
       {tab === 'bible' && <BiblePanel />}
       {tab === 'notes' && <ContentNotes contentType="video" contentId={video.id} title={video.name} />}
+      {tab === 'about' && <AboutPanel cast={data.cast ?? []} />}
     </div>
   )
 }

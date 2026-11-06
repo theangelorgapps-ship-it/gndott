@@ -175,17 +175,13 @@ def check_detail(browser, path, kind):
         fail(f'watchlist control missing on {path}')
     if kind in ('show', 'teaching'):
         page.locator('.detail-tabs [role="tab"]').nth(1).click()
-        page.wait_for_timeout(250)
-        if not page.locator('.episodes-panel').is_visible():
-            fail(f'episode/volume panel missing on {path}')
+        page.locator('.episodes-panel').wait_for(state='visible', timeout=10000)
     page.get_by_role('tab', name='Bible', exact=True).click()
-    page.wait_for_timeout(220)
-    if not page.locator('.bible-panel').is_visible() or 'Psalm 119:105' not in page.locator('.bible-panel').inner_text():
+    page.locator('.bible-panel').wait_for(state='visible', timeout=10000)
+    if 'Psalm 119:105' not in page.locator('.bible-panel').inner_text():
         fail(f'Bible panel failed on {path}')
     page.get_by_role('tab', name='Notes', exact=True).click()
-    page.wait_for_timeout(220)
-    if not page.locator('.notes-panel textarea').is_visible():
-        fail(f'Notes panel failed on {path}')
+    page.locator('.notes-panel textarea').wait_for(state='visible', timeout=10000)
     if kind == 'movie':
         note = f'Browser acceptance {int(time.time())}'
         page.locator('.notes-panel textarea').fill(note)
@@ -194,7 +190,7 @@ def check_detail(browser, path, kind):
             fail('Notes did not save locally')
         page.get_by_role('button', name='Clear', exact=True).click()
     page.get_by_role('tab', name='About', exact=True).click()
-    page.wait_for_timeout(250)
+    page.locator('.about-panel').wait_for(state='visible', timeout=10000)
     headings = page.locator('.about-column .section-head h2').all_inner_texts()
     if headings != ['Personality', 'Location']:
         fail(f'About headings mismatch on {path}: {headings}')
@@ -210,7 +206,7 @@ def check_detail(browser, path, kind):
     mobile = open_page(browser, path, width=390, height=844)
     clean_public_ui(mobile, path)
     mobile.get_by_role('tab', name='About', exact=True).click()
-    mobile.wait_for_timeout(250)
+    mobile.locator('.about-panel').wait_for(state='visible', timeout=10000)
     first = mobile.locator('.about-column').nth(0).bounding_box()
     second = mobile.locator('.about-column').nth(1).bounding_box()
     if not first or not second or second['y'] < first['y'] + first['height'] - 3:

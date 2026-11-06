@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   PosterCard, CircleCard, Rail, img, plainText,
-  IconPlay, IconShare, IconCalendar, IconGlobe, IconStar,
+  IconPlay, IconShare, IconCalendar,
 } from './Poster'
 import { DetailTabs, ClipsRail, WatchSection, WatchlistButton, BiblePanel, ContentNotes } from './Detail'
 
@@ -14,7 +14,6 @@ export function ShowDetail({ data, kind }: { data: any; kind: 'tvshow' | 'teachi
   const [seasonIdx, setSeasonIdx] = useState(0)
   if (!data) return <div className="empty">{kind === 'teaching' ? 'Teaching' : 'Show'} not found.</div>
   const { show, seasons, episodes, genres, cast, clips, similar, bunnyLibraryId, inWatchlist, myPurchase, viewerId } = data
-  const rating = show.IMDb_rating ?? show.imdb_rating
   const actors = cast.filter((c: any) => c.type !== 'director')
   const directors = cast.filter((c: any) => c.type === 'director')
   const season = seasons[Math.min(seasonIdx, Math.max(seasons.length - 1, 0))]
@@ -58,13 +57,10 @@ export function ShowDetail({ data, kind }: { data: any; kind: 'tvshow' | 'teachi
           </div>
         )}
         <h1 className="detail-title">{show.name}</h1>
-        {show.content_rating && <div className="crating">{show.content_rating}</div>}
         {show.description && <p className="detail-desc">{plainText(show.description)}</p>}
         <div className="hero-meta">
           {show.release_date && <span><IconCalendar /> {String(show.release_date).slice(0, 4)}</span>}
-          {show.language && <span><IconGlobe /> {show.language}</span>}
           <span>{seasons.length} {seasonNoun} · {episodes.length} Episodes</span>
-          {rating && <span><IconStar /> {rating} (IMDb)</span>}
         </div>
         <div className="hero-actions">
           <button className="btn btn-play" onClick={() => { const l = (window as any).__lenis; if (l) l.scrollTo(0); else window.scrollTo({ top: 0, behavior: 'smooth' }) }}><IconPlay /> Watch now</button>
@@ -98,7 +94,6 @@ export function ShowDetail({ data, kind }: { data: any; kind: 'tvshow' | 'teachi
                   <div className="ep-name">E{i + 1} · {ep.name}</div>
                   <div className="ep-meta">
                     {ep.duration && <span>{ep.duration} · </span>}
-                    {ep.IMDb_rating && <span>{ep.IMDb_rating} IMDb · </span>}
                     {ep.release_date && <span>{String(ep.release_date).slice(0, 10)}</span>}
                   </div>
                 </div>

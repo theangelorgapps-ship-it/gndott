@@ -64,17 +64,6 @@ function Home() {
         </Rail>
       )}
 
-      {data.languages?.length > 0 && (
-        <Rail title="Popular Language">
-          {data.languages.map((l: any) => (
-            <Link key={l.name} to="/search" search={{ q: l.name } as any} className="lang-card">
-              <span className="lang-name">{l.name}</span>
-              <span className="lang-count">{l.titles} titles</span>
-            </Link>
-          ))}
-        </Rail>
-      )}
-
       {data.popularMovies.length > 0 && (
         <Rail title="Popular Sermons" seeAll="/movies">
           {data.popularMovies.map((m: any) => <PosterCard key={m.id} item={m} base={baseFor(m)} />)}

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { getMovie } from '../lib/api'
 import {
   PosterCard, CircleCard, Rail,
-  IconPlay, IconShare, IconCalendar, IconGlobe, IconClock, IconStar,
+  IconPlay, IconShare, IconCalendar, IconClock,
 } from '../components/Poster'
 import { DetailTabs, ClipsRail, WatchSection, WatchlistButton, BiblePanel, ContentNotes } from '../components/Detail'
 
@@ -17,7 +17,6 @@ function MovieDetail() {
   const [tab, setTab] = useState('cast')
   if (!data) return <div className="empty">Movie not found.</div>
   const { movie, genres, cast, similar, clips, bunnyLibraryId, inWatchlist, myPurchase, viewerId } = data
-  const rating = movie.IMDb_rating ?? movie.imdb_rating
   const actors = cast.filter((c: any) => c.type !== 'director')
   const directors = cast.filter((c: any) => c.type === 'director')
 
@@ -53,13 +52,10 @@ function MovieDetail() {
           </div>
         )}
         <h1 className="detail-title">{movie.name}</h1>
-        {movie.content_rating && <div className="crating">{movie.content_rating}</div>}
         {movie.description && <p className="detail-desc">{String(movie.description).replace(/<[^>]*>/g, '')}</p>}
         <div className="hero-meta">
           {movie.release_date && <span><IconCalendar /> {String(movie.release_date).slice(0, 4)}</span>}
-          {movie.language && <span><IconGlobe /> {movie.language}</span>}
           {movie.duration && <span><IconClock /> {movie.duration}</span>}
-          {rating && <span><IconStar /> {rating} (IMDb)</span>}
         </div>
         <div className="hero-actions">
           <button className="btn btn-play" onClick={() => { const l = (window as any).__lenis; if (l) l.scrollTo(0); else window.scrollTo({ top: 0, behavior: 'smooth' }) }}><IconPlay /> Watch now</button>

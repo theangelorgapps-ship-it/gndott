@@ -49,16 +49,6 @@ function IconBell({ size = 17 }: { size?: number }) {
   )
 }
 
-function IconDownload({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <path d="M7 10l5 5 5-5" />
-      <path d="M12 15V3" />
-    </svg>
-  )
-}
-
 function IconChevronDown({ size = 12 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -111,7 +101,15 @@ function RootComponent() {
           <Link to="/live-tv" className={pathname.startsWith('/live-tv') ? 'active' : ''}>Live TV</Link>
         </nav>
         <div className="header-actions">
-          <button type="button" className="icon-btn-plain" aria-label="Search" onClick={() => setSpotlightOpen(true)}>
+          <button
+            type="button"
+            className="icon-btn-plain"
+            aria-label="Search"
+            aria-haspopup="dialog"
+            aria-controls="catalogue-search-dialog"
+            aria-expanded={spotlightOpen}
+            onClick={() => setSpotlightOpen(true)}
+          >
             <IconSearch />
           </button>
           {user && (
@@ -119,17 +117,6 @@ function RootComponent() {
               <IconBell />
             </Link>
           )}
-          <span className="icon-btn-dark" aria-label="Downloads">
-            <IconDownload />
-          </span>
-          <span className="lang-pill">
-            <svg width="16" height="11" viewBox="0 0 20 14" aria-hidden="true" style={{ borderRadius: 2 }}>
-              <rect width="20" height="14" fill="#b22234" />
-              {[1, 3, 5, 7, 9, 11].map((i) => <rect key={i} y={i} width="20" height="1" fill="#fff" />)}
-              <rect width="9" height="7.6" fill="#3c3b6e" />
-            </svg>
-            EN <IconChevronDown />
-          </span>
           <GlassButton
             size="sm"
             className="subscribe-glass"

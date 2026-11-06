@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from '@tanstack/react-router'
 import { BookOpen, Film, ListVideo, NotebookPen, Users } from 'lucide-react'
 import { DiscreteTabs } from './ui/discrete-tab'
-import { img, IconStar, IconPlay, IconPlus } from './Poster'
+import { img, IconPlay, IconPlus } from './Poster'
 
 export function IconCheck({ size = 16 }: { size?: number }) {
   return (
@@ -36,35 +35,6 @@ export function TrailerPlayer({ url, poster, title, showImmediately = false }: {
           <span className="trailer-play"><IconPlay size={26} /></span>
         </button>
       )}
-    </div>
-  )
-}
-
-export function Stars({ rating }: { rating: number }) {
-  const n = Math.round(Number(rating) || 0)
-  return (
-    <span className="stars">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <IconStar key={i} size={13} filled={i <= n} />
-      ))}
-    </span>
-  )
-}
-
-export function ReviewCard({ review }: { review: any }) {
-  return (
-    <div className="review-card">
-      <span className="review-avatar">{(review.author ?? '?')[0].toUpperCase()}</span>
-      <div className="review-body">
-        <div className="review-head">
-          <div>
-            <div className="review-author">{review.author}</div>
-            <div className="review-date">{String(review.created_at ?? '').slice(0, 10)}</div>
-          </div>
-          <Stars rating={review.rating} />
-        </div>
-        <p className="review-text">{review.review}</p>
-      </div>
     </div>
   )
 }
@@ -218,7 +188,7 @@ export function ClipsRail({ clips }: { clips: any[] }) {
 
 // ---------- watchlist toggle ----------
 
-import { toggleWatchlist, submitReview, purchasePayPerView } from '../lib/api'
+import { toggleWatchlist, purchasePayPerView } from '../lib/api'
 import { useRouter } from '@tanstack/react-router'
 
 export function WatchlistButton({ entertainmentId, initialAdded, viewerId }: { entertainmentId: number; initialAdded: boolean; viewerId: number | null }) {
@@ -242,57 +212,6 @@ export function WatchlistButton({ entertainmentId, initialAdded, viewerId }: { e
     >
       {added ? <IconCheck /> : <IconPlus />}
     </button>
-  )
-}
-
-// ---------- review form ----------
-
-export function ReviewForm({ entertainmentId, myReview, viewerId }: { entertainmentId: number; myReview: any; viewerId: number | null }) {
-  const [rating, setRating] = useState<number>(myReview?.rating ?? 0)
-  const [text, setText] = useState<string>(myReview?.review ?? '')
-  const [msg, setMsg] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const router = useRouter()
-  if (!viewerId)
-    return (
-      <div className="review-form">
-        <p className="muted">Sign in to write a review.</p>
-        <Link to="/login" className="btn btn-dark">Sign in</Link>
-      </div>
-    )
-  return (
-    <form
-      className="review-form"
-      onSubmit={async (e) => {
-        e.preventDefault()
-        setBusy(true); setMsg(null)
-        const res: any = await submitReview({ data: { entertainmentId, rating, review: text } })
-        setBusy(false)
-        if (res?.ok) { setMsg(res.updated ? 'Your review was updated.' : 'Thanks! Your review was posted.'); router.invalidate() }
-        else setMsg(res?.error ?? 'Could not save your review.')
-      }}
-    >
-      <h3>{myReview ? 'Edit your review' : 'Write a review'}</h3>
-      <div className="star-input" role="radiogroup" aria-label="Your rating">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <button type="button" key={i} className={i <= rating ? 'on' : ''} onClick={() => setRating(i)} aria-label={`${i} star${i > 1 ? 's' : ''}`}>
-            <IconStar size={20} filled={i <= rating} />
-          </button>
-        ))}
-      </div>
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Share your thoughts about this title…"
-        rows={3}
-        maxLength={2000}
-        required
-      />
-      {msg && <p className="form-msg">{msg}</p>}
-      <button className="btn btn-primary" disabled={busy || rating === 0 || !text.trim()}>
-        {busy ? 'Saving…' : myReview ? 'Update Review' : 'Submit Review'}
-      </button>
-    </form>
   )
 }
 

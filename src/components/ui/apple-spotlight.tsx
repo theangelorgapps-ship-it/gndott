@@ -1,227 +1,80 @@
-import { cn } from '@/lib/utils'
-
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
+  BookOpen,
+  CalendarClock,
+  ChevronRight,
   Clapperboard,
+  LoaderCircle,
   MonitorPlay,
   Radio,
-  CalendarClock,
-  BookOpen,
-  ChevronRight,
   Search,
+  X,
 } from 'lucide-react'
-import React, { useEffect, useRef, useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { searchContent } from '@/lib/api'
 
 interface Shortcut {
   label: string
-  icon: React.ReactNode
   link: string
+  icon: LucideIcon
 }
 
+type ResultKind = 'sermon' | 'show' | 'teaching' | 'channel'
+type SearchStatus = 'idle' | 'loading' | 'ready' | 'error'
+
 interface SearchResult {
-  icon: React.ReactNode
+  kind: ResultKind
   label: string
   description: string
   link: string
 }
 
-const SVGFilter = () => {
-  return (
-    <svg width="0" height="0" aria-hidden="true">
-      <filter id="blob">
-        <feGaussianBlur stdDeviation="10" in="SourceGraphic" />
-        <feColorMatrix
-          values="
-      1 0 0 0 0
-      0 1 0 0 0
-      0 0 1 0 0
-      0 0 0 18 -9
-    "
-          result="blob"
-        />
-        <feBlend in="SourceGraphic" in2="blob" />
-      </filter>
-    </svg>
-  )
-}
-
-interface ShortcutButtonProps {
-  icon: React.ReactNode
-  link: string
-  label: string
-}
-
-const ShortcutButton = ({ icon, link, label }: ShortcutButtonProps) => {
-  const navigate = useNavigate()
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label={label}
-      onClick={() => navigate({ to: link as any })}
-      onKeyDown={(e) => e.key === 'Enter' && navigate({ to: link as any })}
-      className="rounded-full cursor-pointer hover:shadow-lg opacity-40 hover:opacity-100 transition-[opacity,shadow] duration-200"
-    >
-      <div className="size-16 aspect-square flex items-center justify-center">{icon}</div>
-    </div>
-  )
-}
-
-interface SpotlightPlaceholderProps {
-  text: string
-  className?: string
-}
-
-const SpotlightPlaceholder = ({ text, className }: SpotlightPlaceholderProps) => {
-  return (
-    <motion.div
-      layout
-      className={cn('absolute text-white/40 flex items-center pointer-events-none z-10', className)}
-    >
-      <AnimatePresence mode="popLayout">
-        <motion.p
-          layoutId={`placeholder-${text}`}
-          key={`placeholder-${text}`}
-          initial={{ opacity: 0, y: 10, filter: 'blur(5px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, y: -10, filter: 'blur(5px)' }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-        >
-          {text}
-        </motion.p>
-      </AnimatePresence>
-    </motion.div>
-  )
-}
-
-interface SpotlightInputProps {
-  placeholder: string
-  hidePlaceholder: boolean
-  value: string
-  onChange: (value: string) => void
-  placeholderClassName?: string
-}
-
-const SpotlightInput = ({
-  placeholder,
-  hidePlaceholder,
-  value,
-  onChange,
-  placeholderClassName,
-}: SpotlightInputProps) => {
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-
-  return (
-    <div className="flex items-center w-full justify-start gap-3 px-6 h-16 text-white">
-      <motion.div layoutId="search-icon">
-        <Search />
-      </motion.div>
-      <div className="flex-1 relative text-2xl">
-        {!hidePlaceholder && (
-          <SpotlightPlaceholder text={placeholder} className={placeholderClassName} />
-        )}
-
-        <motion.input
-          ref={inputRef}
-          layout="position"
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-transparent outline-none ring-none text-white"
-          aria-label="Search titles"
-        />
-      </div>
-    </div>
-  )
-}
-
-interface SearchResultCardProps extends SearchResult {
-  isLast: boolean
-  onNavigate: () => void
-}
-
-const SearchResultCard = ({ icon, label, description, isLast, onNavigate }: SearchResultCardProps) => {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onNavigate}
-      onKeyDown={(e) => e.key === 'Enter' && onNavigate()}
-      className="overflow-hidden w-full group/card cursor-pointer"
-    >
-      <div
-        className={cn(
-          'flex items-center text-white justify-start hover:bg-white/10 gap-3 py-2 px-3 rounded-xl w-full transition-colors duration-150',
-          isLast && 'rounded-b-3xl',
-        )}
-      >
-        <div className="size-8 [&_svg]:stroke-[1.5] [&_svg]:size-6 aspect-square flex items-center justify-center shrink-0">
-          {icon}
-        </div>
-        <div className="flex flex-col min-w-0">
-          <p className="font-medium truncate">{label}</p>
-          <p className="text-xs opacity-50">{description}</p>
-        </div>
-        <div className="flex-1 flex items-center justify-end opacity-0 group-hover/card:opacity-100 transition-opacity duration-200">
-          <ChevronRight className="size-6" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-interface SearchResultsContainerProps {
-  searchResults: SearchResult[]
-  onHover: (index: number | null) => void
-  onNavigate: (link: string) => void
-}
-
-const SearchResultsContainer = ({ searchResults, onHover, onNavigate }: SearchResultsContainerProps) => {
-  return (
-    <motion.div
-      layout
-      onMouseLeave={() => onHover(null)}
-      className="px-2 border-t border-white/10 flex flex-col max-h-96 overflow-y-auto w-full py-2"
-    >
-      {searchResults.map((result, index) => (
-        <motion.div
-          key={`search-result-${result.link}-${index}`}
-          onMouseEnter={() => onHover(index)}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{
-            delay: index * 0.05,
-            duration: 0.2,
-            ease: 'easeOut',
-          }}
-        >
-          <SearchResultCard
-            icon={result.icon}
-            label={result.label}
-            description={result.description}
-            link={result.link}
-            isLast={index === searchResults.length - 1}
-            onNavigate={() => onNavigate(result.link)}
-          />
-        </motion.div>
-      ))}
-    </motion.div>
-  )
-}
-
 const SITE_SHORTCUTS: Shortcut[] = [
-  { label: 'Sermons', icon: <Clapperboard />, link: '/movies' },
-  { label: 'Shows', icon: <MonitorPlay />, link: '/tv-shows' },
-  { label: 'Teachings', icon: <BookOpen />, link: '/teachings' },
-  { label: 'Live TV', icon: <Radio />, link: '/live-tv' },
-  { label: 'Coming Soon', icon: <CalendarClock />, link: '/coming-soon' },
+  { label: 'Sermons', icon: Clapperboard, link: '/movies' },
+  { label: 'Shows', icon: MonitorPlay, link: '/tv-shows' },
+  { label: 'Teachings', icon: BookOpen, link: '/teachings' },
+  { label: 'Live TV', icon: Radio, link: '/live-tv' },
+  { label: 'Coming Soon', icon: CalendarClock, link: '/coming-soon' },
+]
+
+const RESULT_ICONS: Record<ResultKind, LucideIcon> = {
+  sermon: Clapperboard,
+  show: MonitorPlay,
+  teaching: BookOpen,
+  channel: Radio,
+}
+
+const withYear = (label: string, releaseDate?: unknown) =>
+  `${label}${releaseDate ? ` · ${String(releaseDate).slice(0, 4)}` : ''}`
+
+const mapSearchResults = (response: any): SearchResult[] => [
+  ...(response.movies ?? []).slice(0, 4).map((movie: any) => ({
+    kind: 'sermon' as const,
+    label: movie.name,
+    description: withYear('Sermon', movie.release_date),
+    link: `/movie/${movie.id}`,
+  })),
+  ...(response.tvshows ?? []).slice(0, 4).map((show: any) => ({
+    kind: 'show' as const,
+    label: show.name,
+    description: withYear('Show', show.release_date),
+    link: `/tv-show/${show.id}`,
+  })),
+  ...(response.teachings ?? []).slice(0, 4).map((teaching: any) => ({
+    kind: 'teaching' as const,
+    label: teaching.name,
+    description: withYear('Teaching', teaching.release_date),
+    link: `/teaching/${teaching.id}`,
+  })),
+  ...(response.channels ?? []).slice(0, 2).map((channel: any) => ({
+    kind: 'channel' as const,
+    label: channel.name,
+    description: 'Live TV channel',
+    link: `/channel/${channel.id}`,
+  })),
 ]
 
 interface AppleSpotlightProps {
@@ -230,202 +83,308 @@ interface AppleSpotlightProps {
   handleClose?: () => void
 }
 
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+
 const AppleSpotlight = ({
   shortcuts = SITE_SHORTCUTS,
   isOpen = true,
   handleClose = () => {},
 }: AppleSpotlightProps) => {
   const navigate = useNavigate()
-  const [hovered, setHovered] = useState(false)
-  const [hoveredSearchResult, setHoveredSearchResult] = useState<number | null>(null)
-  const [hoveredShortcut, setHoveredShortcut] = useState<number | null>(null)
-  const [searchValue, setSearchValue] = useState('')
+  const reduceMotion = useReducedMotion()
+  const instanceId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const closeRef = useRef(handleClose)
+  closeRef.current = handleClose
+
+  const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
+  const [status, setStatus] = useState<SearchStatus>('idle')
+  const [activeIndex, setActiveIndex] = useState(-1)
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [handleClose])
-
-  // live search against the catalogue
-  useEffect(() => {
-    const q = searchValue.trim()
-    if (!q) {
-      setResults([])
-      return
-    }
-    let cancelled = false
-    const t = setTimeout(async () => {
-      try {
-        const r = await searchContent({ data: q })
-        if (cancelled) return
-        const mapped: SearchResult[] = [
-          ...r.movies.slice(0, 4).map((m: any) => ({
-            icon: <Clapperboard />,
-            label: m.name,
-            description: `Sermon${m.release_date ? ` · ${String(m.release_date).slice(0, 4)}` : ''}`,
-            link: `/movie/${m.id}`,
-          })),
-          ...r.tvshows.slice(0, 4).map((m: any) => ({
-            icon: <MonitorPlay />,
-            label: m.name,
-            description: `Show${m.release_date ? ` · ${String(m.release_date).slice(0, 4)}` : ''}`,
-            link: `/tv-show/${m.id}`,
-          })),
-          ...(r.teachings ?? []).slice(0, 4).map((m: any) => ({
-            icon: <BookOpen />,
-            label: m.name,
-            description: `Teaching${m.release_date ? ` · ${String(m.release_date).slice(0, 4)}` : ''}`,
-            link: `/teaching/${m.id}`,
-          })),
-          ...r.channels.slice(0, 2).map((c: any) => ({
-            icon: <Radio />,
-            label: c.name,
-            description: 'Live TV channel',
-            link: `/channel/${c.id}`,
-          })),
-        ]
-        setResults(mapped)
-      } catch {
-        if (!cancelled) setResults([])
-      }
-    }, 220)
-    return () => {
-      cancelled = true
-      clearTimeout(t)
-    }
-  }, [searchValue])
+  const titleId = `${instanceId}-title`
+  const descriptionId = `${instanceId}-description`
+  const resultsId = `${instanceId}-results`
+  const activeResult = activeIndex >= 0 ? results[activeIndex] : undefined
 
   const go = (link: string) => {
-    handleClose()
+    closeRef.current()
     navigate({ to: link as any })
   }
 
+  // Opening always starts a fresh search. Closing releases the page and restores trigger focus.
+  useEffect(() => {
+    setQuery('')
+    setResults([])
+    setStatus('idle')
+    setActiveIndex(-1)
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true })
+    })
+
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        closeRef.current()
+        return
+      }
+
+      if (event.key !== 'Tab' || !panelRef.current) return
+      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+      if (focusable.length === 0) {
+        event.preventDefault()
+        inputRef.current?.focus()
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const focused = document.activeElement
+      if (event.shiftKey && (focused === first || !panelRef.current.contains(focused))) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && focused === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.cancelAnimationFrame(focusFrame)
+      document.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
+    }
+  }, [isOpen])
+
+  // Live catalogue search with stale-response and post-close protection.
+  useEffect(() => {
+    const searchTerm = query.trim()
+    if (!isOpen || !searchTerm) {
+      setResults([])
+      setStatus('idle')
+      setActiveIndex(-1)
+      return
+    }
+
+    let cancelled = false
+    setResults([])
+    setStatus('loading')
+    setActiveIndex(-1)
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await searchContent({ data: searchTerm })
+        if (cancelled) return
+        const mapped = mapSearchResults(response)
+        setResults(mapped)
+        setStatus('ready')
+        setActiveIndex(mapped.length > 0 ? 0 : -1)
+      } catch {
+        if (cancelled) return
+        setResults([])
+        setStatus('error')
+        setActiveIndex(-1)
+      }
+    }, 220)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [isOpen, query])
+
+  useEffect(() => {
+    if (!isOpen || !activeResult) return
+    document
+      .getElementById(`${instanceId}-result-${activeIndex}`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex, activeResult, instanceId, isOpen])
+
+  const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (status !== 'ready' || results.length === 0) return
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveIndex((current) => (current < 0 ? 0 : (current + 1) % results.length))
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setActiveIndex((current) => (current < 0 ? results.length - 1 : (current - 1 + results.length) % results.length))
+    } else if (event.key === 'Home') {
+      event.preventDefault()
+      setActiveIndex(0)
+    } else if (event.key === 'End') {
+      event.preventDefault()
+      setActiveIndex(results.length - 1)
+    } else if (event.key === 'Enter' && activeResult) {
+      event.preventDefault()
+      go(activeResult.link)
+    }
+  }
+
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{
-            opacity: 0,
-            filter: 'blur(20px) url(#blob)',
-            scaleX: 1.3,
-            scaleY: 1.1,
-            y: -10,
+          className="spotlight-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.16 }}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeRef.current()
           }}
-          animate={{
-            opacity: 1,
-            filter: 'blur(0px) url(#blob)',
-            scaleX: 1,
-            scaleY: 1,
-            y: 0,
-          }}
-          exit={{
-            opacity: 0,
-            filter: 'blur(20px) url(#blob)',
-            scaleX: 1.3,
-            scaleY: 1.1,
-            y: 10,
-          }}
-          transition={{
-            stiffness: 550,
-            damping: 50,
-            type: 'spring',
-          }}
-          className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={handleClose}
         >
-          <SVGFilter />
-
-          <div
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => {
-              setHovered(false)
-              setHoveredShortcut(null)
-            }}
-            onClick={(e) => e.stopPropagation()}
-            style={{ filter: 'url(#blob)' }}
-            className={cn(
-              'w-full flex items-center justify-end gap-4 z-20 group px-4',
-              '[&>div]:bg-[#131c24]/95 [&>div]:text-white [&>div]:rounded-full [&>div]:backdrop-blur-xl',
-              '[&_svg]:size-7 [&_svg]:stroke-[1.4]',
-              'max-w-3xl',
-            )}
+          <motion.div
+            ref={panelRef}
+            id="catalogue-search-dialog"
+            className="spotlight-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.99 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
           >
-            <AnimatePresence mode="popLayout">
-              <motion.div
-                layoutId="search-input-container"
-                transition={{
-                  layout: {
-                    duration: 0.5,
-                    type: 'spring',
-                    bounce: 0.2,
-                  },
-                }}
-                style={{
-                  borderRadius: '30px',
-                }}
-                className="h-full w-full flex flex-col items-center justify-start z-10 relative shadow-2xl overflow-hidden border border-white/10"
+            <div className="spotlight-header">
+              <div className="spotlight-heading">
+                <h2 id={titleId}>Search the catalogue</h2>
+                <p id={descriptionId}>
+                  Find Sermons, Shows and Teachings, or browse Live TV and Coming Soon.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="spotlight-close"
+                aria-label="Close catalogue search"
+                onClick={() => closeRef.current()}
               >
-                <SpotlightInput
-                  placeholder={
-                    hoveredShortcut !== null
-                      ? shortcuts[hoveredShortcut].label
-                      : hoveredSearchResult !== null
-                        ? results[hoveredSearchResult]?.label ?? 'Search'
-                        : 'Search sermons, shows, teachings, live TV…'
-                  }
-                  placeholderClassName={
-                    hoveredSearchResult !== null ? 'text-white' : 'text-white/40'
-                  }
-                  hidePlaceholder={!(hoveredSearchResult !== null || !searchValue)}
-                  value={searchValue}
-                  onChange={setSearchValue}
-                />
+                <X size={18} aria-hidden="true" />
+                <span>Close</span>
+              </button>
+            </div>
 
-                {searchValue && results.length > 0 && (
-                  <SearchResultsContainer
-                    searchResults={results}
-                    onHover={setHoveredSearchResult}
-                    onNavigate={go}
-                  />
-                )}
-                {searchValue && results.length === 0 && (
-                  <div className="px-6 py-4 text-white/40 text-sm w-full border-t border-white/10">
-                    No titles match “{searchValue}”
+            <div className="spotlight-search-wrap">
+              <Search className="spotlight-search-icon" size={21} aria-hidden="true" />
+              <input
+                ref={inputRef}
+                className="spotlight-search-input"
+                type="search"
+                role="combobox"
+                aria-label="Search Sermons, Shows and Teachings"
+                aria-autocomplete="list"
+                aria-expanded={status === 'ready' && results.length > 0}
+                aria-controls={resultsId}
+                aria-activedescendant={activeResult ? `${instanceId}-result-${activeIndex}` : undefined}
+                aria-keyshortcuts="ArrowDown ArrowUp Home End Enter"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="Search Sermons, Shows and Teachings…"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={onSearchKeyDown}
+              />
+            </div>
+
+            <div className="spotlight-content">
+              <section className="spotlight-categories" aria-labelledby={`${instanceId}-categories`}>
+                <h3 id={`${instanceId}-categories`}>Browse by category</h3>
+                <div className="spotlight-shortcuts">
+                  {shortcuts.map((shortcut) => {
+                    const ShortcutIcon = shortcut.icon
+                    return (
+                      <button
+                        key={shortcut.link}
+                        type="button"
+                        className="spotlight-shortcut"
+                        onClick={() => go(shortcut.link)}
+                      >
+                        <ShortcutIcon size={20} strokeWidth={1.8} aria-hidden="true" />
+                        <span>{shortcut.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+
+              {status === 'loading' && (
+                <div className="spotlight-state" role="status">
+                  <LoaderCircle className="spotlight-loading-icon" size={20} aria-hidden="true" />
+                  <span>Searching Sermons, Shows and Teachings…</span>
+                </div>
+              )}
+
+              {status === 'error' && (
+                <div className="spotlight-state" role="status">
+                  Search is unavailable right now. Please try again in a moment.
+                </div>
+              )}
+
+              {status === 'ready' && results.length === 0 && (
+                <div className="spotlight-state" role="status">
+                  No catalogue titles match “{query.trim()}”. Try another title or choose a category above.
+                </div>
+              )}
+
+              {status === 'ready' && results.length > 0 && (
+                <div className="spotlight-results">
+                  <p className="spotlight-result-count" role="status">
+                    {results.length} catalogue {results.length === 1 ? 'result' : 'results'}
+                  </p>
+                  <div id={resultsId} role="listbox" aria-label="Catalogue search results">
+                    {results.map((result, index) => {
+                      const ResultIcon = RESULT_ICONS[result.kind]
+                      const isActive = activeIndex === index
+                      return (
+                        <button
+                          id={`${instanceId}-result-${index}`}
+                          key={`${result.kind}-${result.link}`}
+                          type="button"
+                          role="option"
+                          aria-selected={isActive}
+                          tabIndex={-1}
+                          className="spotlight-result"
+                          onMouseEnter={() => setActiveIndex(index)}
+                          onClick={() => go(result.link)}
+                        >
+                          <span className="spotlight-result-icon">
+                            <ResultIcon size={20} strokeWidth={1.8} aria-hidden="true" />
+                          </span>
+                          <span className="spotlight-result-copy">
+                            <span className="spotlight-result-title">{result.label}</span>
+                            <span className="spotlight-result-description">{result.description}</span>
+                          </span>
+                          <ChevronRight className="spotlight-result-arrow" size={18} aria-hidden="true" />
+                        </button>
+                      )
+                    })}
                   </div>
-                )}
-              </motion.div>
-              {hovered &&
-                !searchValue &&
-                shortcuts.map((shortcut, index) => (
-                  <motion.div
-                    key={`shortcut-${index}`}
-                    onMouseEnter={() => setHoveredShortcut(index)}
-                    layout
-                    initial={{ scale: 0.7, x: -1 * (64 * (index + 1)) }}
-                    animate={{ scale: 1, x: 0 }}
-                    exit={{
-                      scale: 0.7,
-                      x:
-                        1 *
-                        (16 * (shortcuts.length - index - 1) + 64 * (shortcuts.length - index - 1)),
-                    }}
-                    transition={{
-                      duration: 0.8,
-                      type: 'spring',
-                      bounce: 0.2,
-                      delay: index * 0.05,
-                    }}
-                    className="rounded-full cursor-pointer"
-                  >
-                    <ShortcutButton icon={shortcut.icon} link={shortcut.link} label={shortcut.label} />
-                  </motion.div>
-                ))}
-            </AnimatePresence>
-          </div>
+                </div>
+              )}
+            </div>
+
+            <div className="spotlight-footer" aria-hidden="true">
+              <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+              <span><kbd>Home</kbd><kbd>End</kbd> Jump</span>
+              <span><kbd>Enter</kbd> Open</span>
+              <span><kbd>Esc</kbd> Close</span>
+            </div>
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

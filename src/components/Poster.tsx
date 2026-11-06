@@ -60,24 +60,10 @@ export function IconCalendar({ size = 14 }: { size?: number }) {
     </svg>
   )
 }
-export function IconGlobe({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 010 20 15.3 15.3 0 010-20z" />
-    </svg>
-  )
-}
 export function IconClock({ size = 14 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" strokeLinecap="round" />
-    </svg>
-  )
-}
-export function IconStar({ size = 14, filled = false }: { size?: number; filled?: boolean }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -113,27 +99,11 @@ export function plainText(value: unknown): string {
   return text.replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code))).replace(/\s+/g, ' ').trim()
 }
 
-export function ratingOf(item: any): string | null {
-  const r = item.IMDb_rating ?? item.imdb_rating
-  return ratingToStr(r)
-}
-function ratingToStr(r: any): string | null {
-  if (r == null || r === '') return null
-  const n = Number(r)
-  return isNaN(n) ? String(r) : String(Math.round(n * 10) / 10)
-}
-
 export function PosterCard({ item, base }: { item: any; base: string }) {
-  const rating = base === '/video' ? null : ratingOf(item)
   const paid = item.movie_access === 'paid' || item.access === 'paid'
   return (
     <Link to={`${base}/${item.id}` as any} className="p-card" params={undefined as never}>
       <span className="p-poster" style={{ backgroundImage: `url(${img(item.poster_url)})` }}>
-        {rating && (
-          <span className="p-rating">
-            <IconStar size={10} /> {rating}
-          </span>
-        )}
         {paid && (
           <span className="p-crown" title="Premium">
             <IconCrown size={11} />
@@ -141,13 +111,13 @@ export function PosterCard({ item, base }: { item: any; base: string }) {
         )}
       </span>
       <span className="p-name">{item.name}</span>
-      <HoverPreview item={item} base={base} rating={rating} />
+      <HoverPreview item={item} />
     </Link>
   )
 }
 
 /** Netflix-style delayed hover preview: pops up after a short dwell, never instantly. */
-function HoverPreview({ item, base, rating }: { item: any; base: string; rating: string | null }) {
+function HoverPreview({ item }: { item: any }) {
   const [open, setOpen] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const card = useRef<HTMLSpanElement>(null)
@@ -172,7 +142,6 @@ function HoverPreview({ item, base, rating }: { item: any; base: string; rating:
   }, [])
 
   const year = item.release_date ? String(item.release_date).slice(0, 4) : null
-  const match = rating ? `${Math.min(98, Math.round(Number(rating) * 10 + 20))}% Match` : null
 
   return (
     <span ref={card} className={`pv-card${open ? ' open' : ''}`} aria-hidden={!open}>
@@ -191,10 +160,8 @@ function HoverPreview({ item, base, rating }: { item: any; base: string; rating:
         </span>
         <span className="pv-name">{item.name}</span>
         <span className="pv-meta">
-          {match && <span className="pv-match">{match}</span>}
           {year && <span>{year}</span>}
           {item.duration && <span>{item.duration}</span>}
-          {item.language && <span style={{ textTransform: 'capitalize' }}>{item.language}</span>}
         </span>
       </span>
     </span>
@@ -286,11 +253,7 @@ export function HeroSlider({
         {hero.description && <p className="hero-desc">{plainText(hero.description)}</p>}
         <div className="hero-meta">
           {hero.release_date && <span><IconCalendar /> {String(hero.release_date).slice(0, 4)}</span>}
-          {hero.language && <span><IconGlobe /> {hero.language}</span>}
           {hero.duration && <span><IconClock /> {hero.duration}</span>}
-          {baseFor(hero) !== '/video' && (hero.IMDb_rating || hero.imdb_rating) && (
-            <span><IconStar /> {hero.IMDb_rating ?? hero.imdb_rating} (IMDb)</span>
-          )}
         </div>
         <div className="hero-actions">
           <Link to={`${baseFor(hero)}/${hero.id}` as any} className="btn btn-dark btn-circle" aria-label="Add to watchlist">
@@ -316,17 +279,10 @@ export function HeroSlider({
 }
 
 export function Top10Card({ item, rank, base }: { item: any; rank: number; base: string }) {
-  const rating = item.type === 'video' ? null : ratingOf(item)
   return (
     <Link to={`${base}/${item.id}` as any} className="top10-item">
       <span className="top10-rank">{rank}</span>
-      <span className="p-poster" style={{ backgroundImage: `url(${img(item.poster_url)})` }}>
-        {rating && (
-          <span className="p-rating">
-            <IconStar size={10} /> {rating}
-          </span>
-        )}
-      </span>
+      <span className="p-poster" style={{ backgroundImage: `url(${img(item.poster_url)})` }} />
     </Link>
   )
 }

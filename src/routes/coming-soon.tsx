@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { getComingSoon } from '../lib/api'
-import { img, IconGlobe } from '../components/Poster'
+import { img } from '../components/Poster'
 
 export const Route = createFileRoute('/coming-soon')({
   loader: async () => await getComingSoon(),
@@ -36,7 +36,6 @@ function ComingSoonCard({ item, base }: { item: any; base: string }) {
           </div>
         )}
         {item.description && <p className="cs-desc">{item.description}</p>}
-        {item.language && <div className="cs-lang"><IconGlobe size={13} /> {item.language}</div>}
         <div className="cs-actions">
           {item.trailer_url ? (
             <a href={item.trailer_url} target="_blank" rel="noreferrer" className="btn btn-primary btn-xs" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RecommendationGroups, img, plainText, IconPlay, IconShare, IconCalendar } from './Poster'
+import { RecommendationGroups, img, plainText, IconShare, IconCalendar } from './Poster'
 import { AboutPanel, DetailTabs, ClipsRail, WatchSection, WatchlistButton, BiblePanel, ContentNotes } from './Detail'
 
 export function ShowDetail({ data, kind }: { data: any; kind: 'tvshow' | 'teaching' }) {
@@ -33,7 +33,6 @@ export function ShowDetail({ data, kind }: { data: any; kind: 'tvshow' | 'teachi
           <span>{seasons.length} {seasonNoun} · {episodes.length} Episodes</span>
         </div>
         <div className="hero-actions">
-          <button className="btn btn-play" onClick={() => { const lenis = (window as any).__lenis; if (lenis) lenis.scrollTo(0); else window.scrollTo({ top: 0, behavior: 'smooth' }) }}><IconPlay /> Watch now</button>
           <WatchlistButton entertainmentId={show.id} initialAdded={!!inWatchlist} viewerId={viewerId} />
           <button className="btn btn-dark btn-circle" aria-label="Share" onClick={() => { navigator.clipboard?.writeText(window.location.href).catch(() => null) }}><IconShare /></button>
         </div>
@@ -43,29 +42,46 @@ export function ShowDetail({ data, kind }: { data: any; kind: 'tvshow' | 'teachi
 
       {tab === 'episodes' && (
         <section className="section episodes-panel">
-          {seasons.length > 1 && (
-            <div className="filter-pills season-pills">
-              {seasons.map((item: any, index: number) => (
-                <button key={item.id} className={`filter-pill${index === seasonIdx ? ' active' : ''}`} onClick={() => setSeasonIdx(index)}>
-                  {item.name ?? (isTeaching ? `Volume ${item.season_index}` : `Season ${item.season_index}`)}
-                </button>
-              ))}
-            </div>
-          )}
-          {seasonEps.length === 0 ? (
-            <div className="empty episode-empty">{isTeaching ? 'No episodes listed for this volume.' : 'No episodes listed for this season.'}</div>
-          ) : seasonEps.map((episode: any, index: number) => (
-            <div className="episode-row" key={episode.id}>
-              <img className="thumb" src={img(episode.poster_url)} alt={episode.name} loading="lazy" />
-              <div className="episode-copy">
-                <div className="ep-name">E{index + 1} · {episode.name}</div>
-                <div className="ep-meta">
-                  {episode.duration && <span>{episode.duration}</span>}
-                  {episode.release_date && <span>{String(episode.release_date).slice(0, 10)}</span>}
+          <div className="season-selector-layout">
+            {season && (
+              <aside className="season-summary">
+                {season.poster_url && <img className="season-summary-poster" src={img(season.poster_url)} alt="" loading="lazy" />}
+                <div className="season-summary-copy">
+                  {season.season_index != null && <span className="season-summary-kicker">{isTeaching ? `Volume ${season.season_index}` : `Season ${season.season_index}`}</span>}
+                  <h2 className="season-summary-title">{season.name ?? (isTeaching ? `Volume ${season.season_index}` : `Season ${season.season_index}`)}</h2>
+                  <div className="season-summary-meta">{seasonEps.length} {seasonEps.length === 1 ? 'Episode' : 'Episodes'}</div>
+                  {season.short_desc && <p className="season-summary-desc">{plainText(season.short_desc)}</p>}
                 </div>
+              </aside>
+            )}
+            <div className="season-selector">
+              {seasons.length > 1 && (
+                <div className="filter-pills season-pills">
+                  {seasons.map((item: any, index: number) => (
+                    <button key={item.id} type="button" className={`filter-pill${index === seasonIdx ? ' active' : ''}`} aria-pressed={index === seasonIdx} onClick={() => setSeasonIdx(index)}>
+                      {item.name ?? (isTeaching ? `Volume ${item.season_index}` : `Season ${item.season_index}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="episode-list">
+                {seasonEps.length === 0 ? (
+                  <div className="empty episode-empty">{isTeaching ? 'No episodes listed for this volume.' : 'No episodes listed for this season.'}</div>
+                ) : seasonEps.map((episode: any, index: number) => (
+                  <div className="episode-row" key={episode.id}>
+                    <img className="thumb" src={img(episode.poster_url)} alt={episode.name} loading="lazy" />
+                    <div className="episode-copy">
+                      <div className="ep-name">E{index + 1} · {episode.name}</div>
+                      <div className="ep-meta">
+                        {episode.duration && <span>{episode.duration}</span>}
+                        {episode.release_date && <span>{String(episode.release_date).slice(0, 10)}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
+          </div>
         </section>
       )}
       {tab === 'more' && <RecommendationGroups recommendations={data.recommendations} fallback={similar} recentFallback={similar} />}

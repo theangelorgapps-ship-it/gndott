@@ -119,7 +119,8 @@ function motionGate() {
   requireMatch(text, /previewTimer\s*=\s*setTimeout\(\(\)\s*=>\s*setPreview\(true\),\s*PREVIEW_DELAY_MS\)/, 'preview must be scheduled with the 3 second delay')
   requireMatch(text, /advanceTimer\s*=\s*setTimeout\([\s\S]*?ADVANCE_DELAY_MS\)/, 'next slide must be scheduled with the 8 second delay')
   requireMatch(text, /autoPlay[\s\S]{0,100}muted[\s\S]{0,100}playsInline/, 'direct hero media must autoplay muted and inline')
-  requireMatch(text, /autoplay=1&mute=1/, 'YouTube previews must autoplay muted')
+  requireMatch(text, /autoplay=1&mute=\$\{muted\s*\?\s*1\s*:\s*0\}/, 'YouTube previews must begin muted and follow the sound toggle')
+  requireMatch(text, /start=\$\{HERO_START_SECONDS\}/, 'YouTube previews must use the shared start offset')
   requireMatch(text, /playsinline=1/, 'YouTube previews must play inline')
   requireMatch(text, /prefers-reduced-motion:\s*reduce/, 'reduced motion must be detected')
   requireMatch(text, /if \(!canAutoplay\)[\s\S]{0,160}return/, 'reduced motion must disable automatic scheduling')
@@ -139,7 +140,7 @@ function motionGate() {
   requireMatch(text, /hero\?\.bunny_video_url/, 'hero source mapping must include Bunny video IDs')
   requireMatch(text, /encodeURIComponent\(libraryId\)[\s\S]*encodeURIComponent\(videoId\)/, 'Bunny library and video IDs must form a safe embed path')
   requireMatch(text, /iframe\.mediadelivery\.net\/embed/, 'Bunny preview must use the iframe player')
-  requireMatch(text, /autoplay=true&muted=true&playsinline=true&loop=true&controls=false/, 'Bunny preview must be muted, inline, looping, and free of controls')
+  requireMatch(text, /autoplay=true&muted=\$\{muted\}&t=\$\{HERO_START_SECONDS\}&playsinline=true&loop=true&controls=false/, 'Bunny preview must begin muted at the shared offset and follow the sound toggle')
   requireMatch(text, /kind:\s*'bunny'/, 'Bunny media must have a distinct source kind')
   requireMatch(text, /preview\s*&&\s*media\s*\?\s*media\.kind/, 'Bunny source kind must flow into data-preview-state')
 }

@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { getVideo } from '../lib/api'
-import { IconPlay, IconShare, IconCalendar, IconClock, RecommendationGroups } from '../components/Poster'
+import { IconShare, IconCalendar, IconClock, RecommendationGroups } from '../components/Poster'
 import { AboutPanel, DetailTabs, ClipsRail, WatchSection, BiblePanel, ContentNotes } from '../components/Detail'
 
 export const Route = createFileRoute('/video/$id')({
@@ -33,7 +33,6 @@ function VideoDetail() {
           {video.duration && <span><IconClock /> {video.duration}</span>}
         </div>
         <div className="hero-actions">
-          <button className="btn btn-play" onClick={() => { const lenis = (window as any).__lenis; if (lenis) lenis.scrollTo(0); else window.scrollTo({ top: 0, behavior: 'smooth' }) }}><IconPlay /> Play</button>
           <button className="btn btn-dark btn-circle" aria-label="Share" onClick={() => { navigator.clipboard?.writeText(window.location.href).catch(() => null) }}><IconShare /></button>
         </div>
       </div>

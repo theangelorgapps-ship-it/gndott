@@ -13,6 +13,12 @@ for (const mode of ['--header', '--details', '--metadata', '--motion', '--respon
 for (const mode of ['--scoring', '--groups', '--api']) {
   run('scripts/gate-recommendations.mjs', mode)
 }
+for (const mode of ['--start', '--sound', '--timing']) {
+  run('scripts/gate-hero-contract.mjs', mode)
+}
+for (const mode of ['--header', '--actions', '--episodes']) {
+  run('scripts/gate-layout-contract.mjs', mode)
+}
 
 const allowedChanges = new Set([
   'src/routes/__root.tsx',
@@ -32,6 +38,8 @@ const allowedChanges = new Set([
   'scripts/gate-experience-static.mjs',
   'scripts/gate-experience-local.py',
   'scripts/gate-experience-deployed.mjs',
+  'scripts/gate-hero-contract.mjs',
+  'scripts/gate-layout-contract.mjs',
 ])
 const changed = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' })
   .trimEnd().split('\n').filter(Boolean).map((line) => line.slice(3))

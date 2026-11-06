@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from urllib.parse import parse_qs, urlparse
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -52,6 +53,15 @@ def no_overflow(page, path):
         fail(f'horizontal overflow on {path}: {dimensions["overflow"]}px')
 
 
+def check_nonhero_clearance(page, path):
+    if page.locator('main.page-enter .hero').count():
+        return
+    header_box = page.locator('header.site-header').bounding_box()
+    padding = page.locator('main.page-enter').evaluate("el => parseFloat(getComputedStyle(el).paddingTop)")
+    if not header_box or padding < header_box['y'] + header_box['height'] + 4:
+        fail(f'non-hero content lacks floating-header clearance on {path}: padding={padding}, header={header_box}')
+
+
 def clean_public_ui(page, path):
     body = page.locator('body').inner_text()
     if re.search(r'\bIMDb\b|%\s*Match|\bNR\b', body, re.I):
@@ -94,6 +104,30 @@ def check_desktop_header(page):
         fail('header is not fixed')
     if header.evaluate("el => getComputedStyle(el).zIndex") != '80':
         fail('header z-index is not 80')
+    floating = header.evaluate("""el => {
+        const style = getComputedStyle(el)
+        const rect = el.getBoundingClientRect()
+        return {
+            top: rect.top, left: rect.left, rightGap: innerWidth - rect.right,
+            background: style.backgroundColor,
+            blur: style.backdropFilter || style.webkitBackdropFilter,
+            radius: parseFloat(style.borderTopLeftRadius),
+        }
+    }""")
+    if abs(floating['top'] - 12) > 1 or abs(floating['left'] - 20) > 1 or abs(floating['rightGap'] - 20) > 1:
+        fail(f'header does not float with desktop viewport insets: {floating}')
+    alpha = re.search(r'rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)', floating['background'])
+    if not alpha or not 0 < float(alpha.group(1)) < 1:
+        fail(f'header background is not translucent: {floating["background"]}')
+    if 'blur(' not in floating['blur'] or floating['radius'] < 12:
+        fail(f'header lacks glass blur or rounded corners: {floating}')
+    hero = page.locator('main.page-enter .hero').first
+    hero_box = hero.bounding_box()
+    if not hero_box or abs(hero_box['y']) > 1 or hero.evaluate("el => getComputedStyle(el).paddingTop") != '0px':
+        fail(f'hero is displaced by the floating header: {hero_box}')
+    header_box = header.bounding_box()
+    if not header_box or header_box['y'] + header_box['height'] <= hero_box['y']:
+        fail('header does not overlay the hero')
     if 'grid' not in header.locator('.site-header-bar').evaluate("el => getComputedStyle(el).display"):
         fail('header is not a grid')
     brand = header.locator('.brand').bounding_box()
@@ -154,6 +188,30 @@ def first_content_link(browser, listing):
     return href
 
 
+def check_episode_layout(page, path, mobile=False):
+    layout = page.locator('.season-selector-layout')
+    layout.wait_for(state='visible', timeout=10000)
+    page.wait_for_timeout(650)
+    summary = layout.locator('.season-summary')
+    selector = layout.locator('.season-selector')
+    if summary.count() != 1 or selector.count() != 1:
+        fail(f'season summary/selector regions missing on {path}')
+    if selector.locator('.episode-list').count() != 1:
+        fail(f'episode list is not inside the selector column on {path}')
+    summary_box = summary.bounding_box()
+    selector_box = selector.bounding_box()
+    if not summary_box or not selector_box:
+        fail(f'season layout has no measurable bounds on {path}')
+    if mobile:
+        if selector_box['y'] < summary_box['y'] + summary_box['height'] - 3:
+            fail(f'season selector does not stack below summary on mobile: {summary_box}, {selector_box}')
+    elif selector_box['x'] < summary_box['x'] + summary_box['width'] - 3:
+        fail(f'season selector is not right of summary on desktop: {summary_box}, {selector_box}')
+    pills = selector.locator('.season-pills')
+    if pills.count() and not pills.is_visible():
+        fail(f'season pills are not visible in the selector column on {path}')
+
+
 def check_detail(browser, path, kind):
     page = open_page(browser, path)
     clean_public_ui(page, path)
@@ -161,6 +219,11 @@ def check_detail(browser, path, kind):
         fail(f'detail title missing on {path}')
     if not page.locator('.watch-section').is_visible() or page.locator('.watch-section .trailer-wrap').count() < 1:
         fail(f'playback container missing on {path}')
+    actions = page.locator('.detail-info .hero-actions')
+    if actions.locator('.btn-play').count() or actions.get_by_role('button', name=re.compile('^(?:Watch now|Play)$', re.I)).count():
+        fail(f'redundant detail Watch now/Play action remains on {path}')
+    if not actions.get_by_role('button', name='Share', exact=True).is_visible():
+        fail(f'Share action missing on {path}')
     expected = ['Featured', 'Bible', 'Notes', 'About']
     if kind in ('show', 'teaching'):
         expected.insert(1, 'Volumes' if kind == 'teaching' else 'Episodes')
@@ -176,6 +239,8 @@ def check_detail(browser, path, kind):
     if kind in ('show', 'teaching'):
         page.locator('.detail-tabs [role="tab"]').nth(1).click()
         page.locator('.episodes-panel').wait_for(state='visible', timeout=10000)
+        check_episode_layout(page, path)
+        shot(page, f'{kind}-episodes-desktop')
     page.get_by_role('tab', name='Bible', exact=True).click()
     page.locator('.bible-panel').wait_for(state='visible', timeout=10000)
     if 'Psalm 119:105' not in page.locator('.bible-panel').inner_text():
@@ -191,6 +256,7 @@ def check_detail(browser, path, kind):
         page.get_by_role('button', name='Clear', exact=True).click()
     page.get_by_role('tab', name='About', exact=True).click()
     page.locator('.about-panel').wait_for(state='visible', timeout=10000)
+    page.wait_for_timeout(450)
     headings = page.locator('.about-column .section-head h2').all_inner_texts()
     if headings != ['Personality', 'Location']:
         fail(f'About headings mismatch on {path}: {headings}')
@@ -205,6 +271,12 @@ def check_detail(browser, path, kind):
 
     mobile = open_page(browser, path, width=390, height=844)
     clean_public_ui(mobile, path)
+    if kind in ('show', 'teaching'):
+        mobile.locator('.detail-tabs [role="tab"]').nth(1).click()
+        mobile.locator('.episodes-panel').wait_for(state='visible', timeout=10000)
+        check_episode_layout(mobile, path, mobile=True)
+        no_overflow(mobile, f'{path} episodes mobile')
+        shot(mobile, f'{kind}-episodes-mobile')
     mobile.get_by_role('tab', name='About', exact=True).click()
     mobile.locator('.about-panel').wait_for(state='visible', timeout=10000)
     first = mobile.locator('.about-column').nth(0).bounding_box()
@@ -214,6 +286,46 @@ def check_detail(browser, path, kind):
     no_overflow(mobile, path)
     shot(mobile, f'{kind}-about-mobile')
     mobile.close()
+
+
+def check_hero_start_and_sound(page, hero):
+    kind = hero.get_attribute('data-preview-state')
+    if kind == 'video':
+        page.wait_for_function("document.querySelector('.hero-preview video')?.currentTime >= 79", timeout=7000)
+        if not hero.locator('.hero-preview video').evaluate('el => el.muted'):
+            fail('direct hero video did not begin muted')
+    else:
+        iframe = hero.locator('.hero-preview iframe')
+        source = iframe.get_attribute('src') or ''
+        params = parse_qs(urlparse(source).query)
+        if kind == 'bunny':
+            if params.get('t') != ['80'] or params.get('muted') != ['true']:
+                fail(f'Bunny hero must start muted at 80 seconds: {source}')
+        elif kind == 'youtube':
+            if params.get('start') != ['80'] or params.get('mute') != ['1']:
+                fail(f'YouTube hero must start muted at 80 seconds: {source}')
+        else:
+            fail(f'unknown hero media kind: {kind}')
+    unmute = hero.get_by_role('button', name='Unmute hero preview', exact=True)
+    unmute.wait_for(state='visible', timeout=3000)
+    if unmute.get_attribute('aria-pressed') != 'false':
+        fail('initial hero sound button pressed state is incorrect')
+    unmute.click()
+    mute = hero.get_by_role('button', name='Mute hero preview', exact=True)
+    mute.wait_for(state='visible', timeout=3000)
+    if mute.get_attribute('aria-pressed') != 'true':
+        fail('unmuted hero sound button pressed state is incorrect')
+    if kind == 'video':
+        if hero.locator('.hero-preview video').evaluate('el => el.muted'):
+            fail('direct hero video did not unmute')
+    else:
+        source = hero.locator('.hero-preview iframe').get_attribute('src') or ''
+        params = parse_qs(urlparse(source).query)
+        expected = '0' if kind == 'youtube' else 'false'
+        key = 'mute' if kind == 'youtube' else 'muted'
+        if params.get(key) != [expected]:
+            fail(f'{kind} iframe did not unmute: {source}')
+    shot(page, 'hero-unmuted')
 
 
 def check_hero_timing(browser):
@@ -247,10 +359,13 @@ def check_hero_timing(browser):
     preview_elapsed = time.monotonic() - cycle_start
     if preview_elapsed < 2.8 or preview_elapsed > 6.5:
         fail(f'hero preview delay outside tolerance: {preview_elapsed:.2f}s')
+    check_hero_start_and_sound(page, hero)
     page.wait_for_function(f"document.querySelector('.hero[data-hero-slide]')?.dataset.heroSlide !== '{initial_slide}'", timeout=9000)
     advance_elapsed = time.monotonic() - cycle_start
     if advance_elapsed < 7 or advance_elapsed > 12:
         fail(f'hero advance timing outside tolerance: {advance_elapsed:.2f}s')
+    if hero.locator('.hero-sound-toggle').count():
+        fail('sound control remained visible after the preview slide advanced')
     repeated_slide = int(hero.get_attribute('data-hero-slide'))
     repeat_start = time.monotonic()
     page.wait_for_function(f"document.querySelector('.hero[data-hero-slide]')?.dataset.heroSlide !== '{repeated_slide}'", timeout=11000)
@@ -262,6 +377,12 @@ def check_hero_timing(browser):
     page.wait_for_timeout(200)
     if int(hero.get_attribute('data-hero-slide')) == before_manual or hero.get_attribute('data-preview-state') != 'poster':
         fail('manual slide control did not reset preview state')
+    hero.locator('.hero-dots button').nth(initial_slide).click()
+    page.wait_for_function("['video', 'youtube', 'bunny'].includes(document.querySelector('.hero[data-hero-slide]')?.dataset.previewState)", timeout=5500)
+    reset_sound = hero.get_by_role('button', name='Unmute hero preview', exact=True)
+    reset_sound.wait_for(state='visible', timeout=3000)
+    if reset_sound.get_attribute('aria-pressed') != 'false':
+        fail('hero sound did not reset to muted on slide selection')
     shot(page, 'hero-timed-preview')
     page.close()
 
@@ -272,6 +393,8 @@ def check_hero_timing(browser):
     reduced.wait_for_timeout(9000)
     if hero.get_attribute('data-hero-slide') != initial or hero.get_attribute('data-preview-state') != 'reduced-motion':
         fail('reduced-motion preference did not disable automatic playback and advance')
+    if reduced.locator('.hero-sound-toggle').count():
+        fail('sound control appeared without an active reduced-motion preview')
     reduced.close()
 
 
@@ -322,6 +445,7 @@ try:
         for path in ('/videos', '/coming-soon', '/search?q=teaching', '/page/privacy-policy', '/live-tv', '/watchlist'):
             other = open_page(browser, path)
             clean_public_ui(other, path)
+            check_nonhero_clearance(other, path)
             no_overflow(other, path)
             if path == '/page/privacy-policy' and 'Privacy' not in other.locator('body').inner_text():
                 fail('custom Privacy page content missing')
@@ -352,6 +476,7 @@ try:
         for path in ['/movies', '/tv-shows', '/teachings', '/videos', '/coming-soon', '/search?q=teaching', '/page/privacy-policy']:
             other = open_page(browser, path, width=390, height=844)
             clean_public_ui(other, path)
+            check_nonhero_clearance(other, path)
             no_overflow(other, path)
             other.close()
 

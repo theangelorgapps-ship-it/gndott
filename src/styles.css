@@ -1434,23 +1434,29 @@ h1, h2, h3, p, blockquote { overflow-wrap: break-word; }
 
 
 /* ================= Reference navigation, recommendations and safe previews ================= */
-:root { --header-h: 86px; }
+:root { --header-h: 74px; }
 html, body { max-width: 100%; overflow-x: clip; }
 body { min-width: 0; }
 main, section, nav, div, form { min-width: 0; }
 button, input, textarea, select { max-width: 100%; }
-.page-enter { padding-top: var(--header-h); }
+.page-enter { padding-top: calc(var(--header-h) + 24px); }
 .page-enter:has(.hero) { padding-top: 0; }
 
 .site-header {
-  position: fixed; inset: 0 0 auto; z-index: 80; width: 100%; height: var(--header-h);
-  background: rgba(3, 12, 20, .82); border-bottom: 1px solid rgba(255,255,255,.09);
+  position: fixed; top: 12px; right: 20px; bottom: auto; left: 20px; z-index: 80;
+  width: auto; height: var(--header-h); border: 1px solid rgba(255,255,255,.12); border-radius: 18px;
+  background: rgba(3, 12, 20, .68);
   -webkit-backdrop-filter: blur(22px) saturate(150%); backdrop-filter: blur(22px) saturate(150%);
-  box-shadow: 0 10px 36px rgba(0,0,0,.24);
+  box-shadow: 0 12px 38px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.04);
 }
-.site-header.on-hero, .site-header.scrolled, .site-header.on-hero.scrolled {
-  background: rgba(3, 12, 20, .78); border-bottom: 1px solid rgba(255,255,255,.09);
+.site-header.on-hero {
+  background: rgba(3, 12, 20, .68); border: 1px solid rgba(255,255,255,.12);
   -webkit-backdrop-filter: blur(22px) saturate(150%); backdrop-filter: blur(22px) saturate(150%);
+}
+.site-header.scrolled, .site-header.on-hero.scrolled {
+  background: rgba(3, 12, 20, .86); border: 1px solid rgba(255,255,255,.15);
+  -webkit-backdrop-filter: blur(24px) saturate(150%); backdrop-filter: blur(24px) saturate(150%);
+  box-shadow: 0 16px 44px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.05);
 }
 .site-header-bar {
   display: grid; grid-template-columns: minmax(210px, 1fr) auto minmax(280px, 1fr);
@@ -1481,11 +1487,25 @@ button, input, textarea, select { max-width: 100%; }
 .login-liquid { height: 40px; min-width: 68px; }
 .mobile-menu-trigger, .mobile-dock, .mobile-menu-backdrop { display: none; }
 
-.hero { margin-top: 0; padding-top: var(--header-h); }
+.hero { margin-top: 0; padding-top: 0; }
 .hero-preview { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #010a0f; }
 .hero-preview video, .hero-preview iframe { width: 100%; height: 100%; border: 0; object-fit: cover; pointer-events: none; }
 .hero-preview iframe { transform: scale(1.12); }
 .hero::before { pointer-events: none; }
+.hero-sound-toggle {
+  position: absolute; right: 28px; bottom: 30px; z-index: 2;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: auto; min-width: 44px; height: 44px; padding: 0 14px; border: 1px solid rgba(255,255,255,.24); border-radius: 999px;
+  background: rgba(8,19,30,.58); color: #fff; pointer-events: auto; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 650; line-height: 1; white-space: nowrap;
+  -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 8px 26px rgba(0,0,0,.34);
+  transition: background var(--dur-quick) var(--ease-standard), border-color var(--dur-quick) var(--ease-standard), transform var(--dur-quick) var(--ease-out-premium);
+}
+.hero-sound-toggle:hover { background: rgba(24,39,54,.78); border-color: rgba(255,255,255,.46); transform: translateY(-1px); }
+.hero-sound-toggle:active { transform: scale(.95); }
+.hero-sound-toggle:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.hero-sound-toggle svg { width: 20px; height: 20px; flex: 0 0 auto; }
 
 .recommendation-groups { min-width: 0; }
 .recommendation-discovery .rail { grid-auto-columns: minmax(150px, 220px); }
@@ -1518,7 +1538,19 @@ button, input, textarea, select { max-width: 100%; }
 .bible-grid > *, .notes-panel form, .search-cols > *, .episode-copy { min-width: 0; }
 .episode-copy { flex: 1; }
 .ep-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.season-selector-layout { display: grid; grid-template-columns: minmax(220px, .75fr) minmax(0, 1.6fr); gap: 32px; align-items: start; }
+.season-selector-layout > :only-child { grid-column: 1 / -1; }
+.season-summary { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: rgba(18,29,40,.62); }
+.season-summary-poster { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; background: var(--card); }
+.season-summary-copy { min-width: 0; padding: 20px; }
+.season-summary-kicker { display: block; margin-bottom: 7px; color: #60a5fa; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.season-summary-title { margin: 0; color: var(--text); font-size: clamp(19px, 2vw, 24px); line-height: 1.25; overflow-wrap: anywhere; }
+.season-summary-meta { margin-top: 8px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.season-summary-desc { margin: 14px 0 0; color: var(--muted); font-size: 13.5px; line-height: 1.65; overflow-wrap: anywhere; }
+.season-selector { min-width: 0; }
 .season-pills { justify-content: flex-start; margin: 0 0 20px; }
+.episode-list { min-width: 0; }
+.episode-list .episode-row:last-child { border-bottom: 0; }
 .episode-empty { padding: 20px; }
 .spotlight-shortcuts { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 
@@ -1540,9 +1572,10 @@ button, input, textarea, select { max-width: 100%; }
   .login-liquid { min-width: 58px; }
 }
 @media (max-width: 860px) {
-  :root { --header-h: 68px; }
+  :root { --header-h: 60px; }
+  .page-enter { padding-top: calc(var(--header-h) + 20px); }
   body { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-  .site-header { height: var(--header-h); padding: 0; }
+  .site-header { top: 8px; right: 10px; left: 10px; height: var(--header-h); padding: 0; border-radius: 14px; }
   .site-header-bar { grid-template-columns: minmax(42px, 1fr) auto; gap: 8px; padding: 0 14px; }
   .brand { width: 42px; height: 46px; }
   .brand img { width: 38px; height: 38px; border-radius: 10px; }
@@ -1584,6 +1617,7 @@ button, input, textarea, select { max-width: 100%; }
   .site-footer { margin-bottom: calc(82px + env(safe-area-inset-bottom)); }
 }
 @media (max-width: 700px) {
+  .season-selector-layout { grid-template-columns: minmax(0, 1fr); gap: 22px; }
   .about-grid { grid-template-columns: 1fr; gap: 16px; }
   .about-column { padding: 18px; }
   .spotlight-shortcuts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1602,12 +1636,14 @@ button, input, textarea, select { max-width: 100%; }
   .hero-chevron.prev { left: 2px; }
   .hero-chevron.next { right: 2px; }
   .hero-dots { left: 18px; bottom: 22px; }
+  .hero-sound-toggle { right: 14px; bottom: 18px; min-width: 42px; height: 42px; gap: 6px; padding: 0 12px; font-size: 12px; }
   .detail-title { font-size: clamp(20px, 6vw, 26px); }
   .detail-player { padding-inline: 12px; }
   .detail-info, .detail-tabs { padding-inline: 12px; }
   .episode-row { align-items: flex-start; gap: 11px; }
   .episode-row .thumb { width: 96px; }
   .ep-name { font-size: 13px; }
+  .season-summary-copy { padding: 17px; }
   .bible-verse { padding: 15px; }
   .notes-panel textarea { padding: 13px; }
   .search-hero { padding-inline: 16px; }
@@ -1619,5 +1655,5 @@ button, input, textarea, select { max-width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-preview { display: none; }
-  .pv-card { transition: none; }
+  .hero-sound-toggle, .pv-card { transition: none; }
 }

@@ -6,6 +6,7 @@ import manifest from '../lib/img-manifest.json'
 export const DEFAULT_IMG = '/default-image.jpg'
 const PREVIEW_DELAY_MS = 3000
 const ADVANCE_DELAY_MS = 8000
+const HERO_START_SECONDS = 80
 const VIEWPORT_GUTTER = 12
 
 const MANIFEST = manifest as Record<string, string>
@@ -86,12 +87,12 @@ function youtubeId(url: string | null | undefined): string | null {
 
 type HeroMedia = { kind: 'video' | 'youtube' | 'bunny'; url: string }
 
-function heroMediaFor(hero: any, bunnyLibraryId?: string | null): HeroMedia | null {
+function heroMediaFor(hero: any, muted: boolean, bunnyLibraryId?: string | null): HeroMedia | null {
   const direct = trailerFor(hero)
   if (direct) {
     const yt = youtubeId(direct)
     return yt
-      ? { kind: 'youtube', url: `https://www.youtube.com/embed/${yt}?autoplay=1&mute=1&controls=0&playsinline=1&loop=1&playlist=${yt}&rel=0` }
+      ? { kind: 'youtube', url: `https://www.youtube.com/embed/${yt}?autoplay=1&mute=${muted ? 1 : 0}&start=${HERO_START_SECONDS}&controls=0&playsinline=1&loop=1&playlist=${yt}&rel=0` }
       : { kind: 'video', url: direct }
   }
   const videoId = typeof hero?.bunny_video_url === 'string' ? hero.bunny_video_url.trim() : ''
@@ -99,7 +100,7 @@ function heroMediaFor(hero: any, bunnyLibraryId?: string | null): HeroMedia | nu
   if (videoId && libraryId) {
     return {
       kind: 'bunny',
-      url: `https://iframe.mediadelivery.net/embed/${encodeURIComponent(libraryId)}/${encodeURIComponent(videoId)}?autoplay=true&muted=true&playsinline=true&loop=true&controls=false`,
+      url: `https://iframe.mediadelivery.net/embed/${encodeURIComponent(libraryId)}/${encodeURIComponent(videoId)}?autoplay=true&muted=${muted}&t=${HERO_START_SECONDS}&playsinline=true&loop=true&controls=false`,
     }
   }
   return null
@@ -259,11 +260,12 @@ export function LiveChannelCard({ channel }: { channel: any }) {
   )
 }
 
-function HeroPreview({ hero, preview, media, mediaRef }: {
+function HeroPreview({ hero, preview, media, mediaRef, muted }: {
   hero: any
   preview: boolean
   media: HeroMedia | null
   mediaRef: React.RefObject<HTMLVideoElement | null>
+  muted: boolean
 }) {
   if (!preview || !media) return null
   return (
@@ -275,10 +277,13 @@ function HeroPreview({ hero, preview, media, mediaRef }: {
           src={media.url}
           poster={img(hero.thumbnail_url || hero.poster_url)}
           autoPlay
-          muted
+          muted={muted}
           loop
           playsInline
           preload="none"
+          onLoadedMetadata={(event) => {
+            event.currentTarget.currentTime = HERO_START_SECONDS
+          }}
         />
       ) : (
         <iframe
@@ -311,13 +316,14 @@ export function HeroSlider({
   const [slide, setSlide] = useState(0)
   const [cycle, setCycle] = useState(0)
   const [preview, setPreview] = useState(false)
+  const [muted, setMuted] = useState(true)
   const [reducedMotion, setReducedMotion] = useState(false)
   const [pageVisible, setPageVisible] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
   const idx = Math.min(slide, Math.max(slides.length - 1, 0))
   const hero = slides[idx]
-  const media = heroMediaFor(hero, bunnyLibraryId)
-  const mediaUrl = media?.url ?? null
+  const media = heroMediaFor(hero, muted, bunnyLibraryId)
+  const mediaIdentity = media ? `${media.kind}:${media.kind === 'video' ? media.url : hero.id}` : null
 
   useEffect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -339,11 +345,12 @@ export function HeroSlider({
 
   useEffect(() => {
     setPreview(false)
+    setMuted(true)
     const canAutoplay = !reducedMotion && pageVisible && !document.hidden && !!hero
     if (!canAutoplay) return
     let previewTimer: ReturnType<typeof setTimeout> | undefined
     let advanceTimer: ReturnType<typeof setTimeout> | undefined
-    if (mediaUrl) previewTimer = setTimeout(() => setPreview(true), PREVIEW_DELAY_MS)
+    if (mediaIdentity) previewTimer = setTimeout(() => setPreview(true), PREVIEW_DELAY_MS)
     advanceTimer = setTimeout(() => {
       setPreview(false)
       setSlide((idx + 1) % slides.length)
@@ -357,11 +364,12 @@ export function HeroSlider({
       video?.removeAttribute('src')
       video?.load()
     }
-  }, [cycle, hero, idx, pageVisible, reducedMotion, slides.length, mediaUrl])
+  }, [cycle, hero, idx, pageVisible, reducedMotion, slides.length, mediaIdentity])
 
   if (!slides.length || !hero) return null
   const selectSlide = (next: number) => {
     setPreview(false)
+    setMuted(true)
     setSlide(next)
     setCycle((value) => value + 1)
   }
@@ -382,12 +390,35 @@ export function HeroSlider({
       ))}
     </div>
   )
+  const soundToggle = preview && media && (
+    <button
+      type="button"
+      className="hero-sound-toggle"
+      aria-label={muted ? 'Unmute hero preview' : 'Mute hero preview'}
+      aria-pressed={!muted}
+      onClick={() => setMuted((value) => !value)}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <path d="M11 5 6 9H3v6h3l5 4V5Z" strokeLinecap="round" strokeLinejoin="round" />
+        {muted ? (
+          <path d="m17 9 4 4m0-4-4 4" strokeLinecap="round" />
+        ) : (
+          <>
+            <path d="M15 9a4 4 0 0 1 0 6" strokeLinecap="round" />
+            <path d="M18 6a8 8 0 0 1 0 12" strokeLinecap="round" />
+          </>
+        )}
+      </svg>
+      {muted ? 'Unmute' : 'Mute'}
+    </button>
+  )
 
   if (live) {
     return (
       <section className="hero hero-live" data-hero-slide={idx} data-preview-state={previewState}>
         <div key={hero.id} className="hero-bg" style={{ backgroundImage: `url(${img(hero.thumbnail_url || hero.poster_url)})` }} />
-        <HeroPreview hero={hero} preview={preview} media={media} mediaRef={videoRef} />
+        <HeroPreview hero={hero} preview={preview} media={media} mediaRef={videoRef} muted={muted} />
+        {soundToggle}
         <span className="live-badge hero-live-badge">LIVE</span>
         {controls}
         <div className="hero-live-content">
@@ -410,7 +441,8 @@ export function HeroSlider({
   return (
     <section className="hero" data-hero-slide={idx} data-preview-state={previewState}>
       <div key={hero.id} className="hero-bg" style={{ backgroundImage: `url(${img(hero.thumbnail_url || hero.poster_url)})` }} />
-      <HeroPreview hero={hero} preview={preview} media={media} mediaRef={videoRef} />
+      <HeroPreview hero={hero} preview={preview} media={media} mediaRef={videoRef} muted={muted} />
+      {soundToggle}
       {controls}
       <div key={`content-${hero.id}`} className="hero-content hero-stagger">
         {genres && genres.length > 0 && <div className="hero-genres">{genres.slice(0, 3).map((g: any) => <span key={g.id ?? g.name}>{g.name}</span>)}</div>}

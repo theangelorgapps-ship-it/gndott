@@ -15,8 +15,8 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Streamit: Sermons, Shows & Teachings' },
-      { name: 'description', content: 'Watch sermons, shows, teachings, live TV and videos on Streamit.' },
+      { title: 'GoodNews Halobox: Sermons, Shows & Teachings' },
+      { name: 'description', content: 'Watch sermons, shows, teachings, live TV and videos on GoodNews Halobox.' },
     ],
     links: [
       { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -119,9 +119,9 @@ function RootComponent() {
     <RootDocument>
       <header className={`site-header${pathname === '/' ? ' on-hero' : ''}`}>
         <div className="site-header-bar">
-          <Link to="/" className="brand" aria-label="Streamit home">
-            <img src="/default-image.jpg" alt="Streamit" />
-            <span className="brand-word">Streamit</span>
+          <Link to="/" className="brand" aria-label="GoodNews Halobox home">
+            <img src="/goodnews-halobox-logo.jpg" alt="GoodNews Halobox" />
+            <span className="brand-word"><span>GoodNews</span><strong>Halobox</strong></span>
           </Link>
           <nav className="main-nav" aria-label="Primary navigation">
             {NAV_ITEMS.map((item) => (
@@ -153,7 +153,7 @@ function RootComponent() {
         <div className="mobile-menu-backdrop" onClick={() => setMenuOpen(false)}>
           <div ref={menuPanelRef} id="mobile-navigation-sheet" className="mobile-menu-sheet" role="dialog" aria-modal="true" aria-label="Site menu" onClick={(event) => event.stopPropagation()}>
             <div className="mobile-menu-head">
-              <span>Browse Streamit</span>
+              <span>Browse GoodNews Halobox</span>
               <button type="button" className="icon-btn-plain" aria-label="Close menu" onClick={() => setMenuOpen(false)}><X size={20} /></button>
             </div>
             <button type="button" className="mobile-menu-search" onClick={openSearch}><IconSearch /> Search the catalogue</button>
@@ -205,9 +205,9 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
     <footer className="site-footer">
       <div className="footer-grid">
         <div className="footer-brand">
-          <img src="/default-image.jpg" alt="Streamit" />
-          <p className="tagline">Streamit: Your Ultimate Destination for Unlimited Sermons, Shows and Teachings!</p>
-          <p className="contact"><span>hello@iqonic.design</span><span>+15265897485</span></p>
+          <img src="/goodnews-halobox-logo.jpg" alt="GoodNews Halobox" />
+          <p className="tagline">GoodNews Halobox: Your Ultimate Destination for Unlimited Sermons, Shows and Teachings!</p>
+          <p className="contact"><span>support@goodnewsworld.com</span><span>+15265897485</span></p>
           <div className="socials">{SOCIALS.map((d, i) => <SocialIcon key={i} d={d} />)}</div>
         </div>
         <div className="footer-col"><h4>Premium Shows</h4>{footer.premium.map((item: any) => <Link key={item.id} to={`/tv-show/${item.id}` as any}>› {item.name}</Link>)}</div>
@@ -219,7 +219,7 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
         </div>
       </div>
       <div className="footer-legal">{LEGAL.map((item) => <Link key={item.slug} to={`/page/${item.slug}` as any}>{item.label}</Link>)}<Link to="/faq">FAQ</Link></div>
-      <div className="footer-copy">© 2026 Streamit: Sermons, Shows & Teachings. All Rights Reserved.</div>
+      <div className="footer-copy">© 2026 GoodNews Halobox: Sermons, Shows & Teachings. All Rights Reserved.</div>
     </footer>
   )
 }

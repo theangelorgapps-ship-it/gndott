@@ -16,5 +16,8 @@
       "database_name": "halobox-migrated-20261105",
       "database_id": "3bc8aa15-6d59-42be-93df-23397c737c56"
     }
-  ]
+  ],
+  "images": {
+    "binding": "IMAGES"
+  }
 }

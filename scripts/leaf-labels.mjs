@@ -45,7 +45,7 @@ function checkLabels() {
   includes(rootRoute, '<Link to="/teachings">Teachings</Link>', 'root navigation')
   includes(rootRoute, "'/teachings'", 'root active paths')
   includes(rootRoute, "'/teaching'", 'root active paths')
-  includes(rootRoute, 'Watch sermons, shows, teachings, live TV and videos on Streamit.', 'root metadata')
+  includes(rootRoute, 'Watch sermons, shows, teachings, live TV and videos on GoodNews Halobox.', 'root metadata')
   includes(rootRoute, 'Unlimited Sermons, Shows and Teachings!', 'footer tagline')
   includes(rootRoute, 'best sermons, shows and teachings!', 'footer app copy')
   excludes(rootRoute, /Watch movies, TV shows|Unlimited Movies and Shows|best movies and shows/, 'old root copy')

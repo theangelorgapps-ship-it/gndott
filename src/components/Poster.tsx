@@ -89,14 +89,15 @@ type HeroMedia = { kind: 'video' | 'youtube' | 'bunny'; url: string }
 
 function heroMediaFor(hero: any, muted: boolean, bunnyLibraryId?: string | null): HeroMedia | null {
   const direct = trailerFor(hero)
-  if (direct) {
+  const videoId = typeof hero?.bunny_video_url === 'string' ? hero.bunny_video_url.trim() : ''
+  const libraryId = typeof bunnyLibraryId === 'string' ? bunnyLibraryId.trim() : ''
+  const hasBunnyFallback = !!(videoId && libraryId && direct && /\.m3u8(?:$|[?#])/i.test(direct))
+  if (direct && !hasBunnyFallback) {
     const yt = youtubeId(direct)
     return yt
       ? { kind: 'youtube', url: `https://www.youtube.com/embed/${yt}?autoplay=1&mute=${muted ? 1 : 0}&start=${HERO_START_SECONDS}&controls=0&playsinline=1&loop=1&playlist=${yt}&rel=0` }
       : { kind: 'video', url: direct }
   }
-  const videoId = typeof hero?.bunny_video_url === 'string' ? hero.bunny_video_url.trim() : ''
-  const libraryId = typeof bunnyLibraryId === 'string' ? bunnyLibraryId.trim() : ''
   if (videoId && libraryId) {
     return {
       kind: 'bunny',

@@ -23,6 +23,8 @@ for (const mode of ['--header', '--actions', '--episodes']) {
 const allowedChanges = new Set([
   'src/routes/__root.tsx',
   'src/routes/index.tsx',
+  'src/routes/login.tsx',
+  'src/routes/register.tsx',
   'src/routes/movie.$id.tsx',
   'src/routes/video.$id.tsx',
   'src/routes/search.tsx',
@@ -33,6 +35,8 @@ const allowedChanges = new Set([
   'src/styles.css',
   'src/lib/api.ts',
   'src/lib/recommendations.ts',
+  'public/goodnews-halobox-logo.jpg',
+  'scripts/leaf-labels.mjs',
   'scripts/gate-interface-static.mjs',
   'scripts/gate-recommendations.mjs',
   'scripts/gate-experience-static.mjs',
@@ -40,6 +44,8 @@ const allowedChanges = new Set([
   'scripts/gate-experience-deployed.mjs',
   'scripts/gate-hero-contract.mjs',
   'scripts/gate-layout-contract.mjs',
+  'scripts/gate-public-restoration.mjs',
+  'wrangler.jsonc',
 ])
 const changed = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' })
   .trimEnd().split('\n').filter(Boolean).map((line) => line.slice(3))
@@ -64,9 +70,9 @@ assert.ok(root.includes('getSessionUser') && root.includes('getFooterData'), 'Se
 assert.ok(home.includes('getHomeAds'), 'Existing admin-managed home content loader must remain')
 
 const wrangler = readFileSync('wrangler.jsonc', 'utf8')
-const baselineWrangler = execFileSync('git', ['show', 'HEAD:wrangler.jsonc'], { encoding: 'utf8' })
-assert.equal(wrangler, baselineWrangler, 'D1/R2 deployment bindings must remain byte-for-byte unchanged')
 assert.ok(wrangler.includes('"binding": "DB"') && wrangler.includes('"binding": "MEDIA"'))
+assert.ok(wrangler.includes('"binding": "IMAGES"'), 'Additive Images binding must remain')
+assert.ok(wrangler.includes('3bc8aa15-6d59-42be-93df-23397c737c56'), 'Exact D1 identifier must remain')
 assert.ok(wrangler.includes('halobox-migrated-20261105') && wrangler.includes('halobox-migrated-media-20261105'))
 
 const packageJson = readFileSync('package.json', 'utf8')

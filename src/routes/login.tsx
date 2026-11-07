@@ -10,7 +10,7 @@ export function AuthShell({ children, title }: { children: React.ReactNode; titl
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <img className="auth-logo" src="/default-image.jpg" alt="Streamit" />
+        <img className="auth-logo" src="/goodnews-halobox-logo.jpg" alt="GoodNews Halobox" />
         <h1>{title}</h1>
         {children}
       </div>
@@ -95,7 +95,7 @@ function Login() {
   }
 
   return (
-    <AuthShell title={<>Welcome Back to Streamit: Your Ultimate Entertainment Hub!</>}>
+    <AuthShell title={<>Welcome Back to GoodNews Halobox: Your Ultimate Entertainment Hub!</>}>
       <form onSubmit={onSubmit}>
         <div className="field">
           <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />

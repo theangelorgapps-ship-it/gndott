@@ -45,6 +45,7 @@ import { Route as PageSlugRouteImport } from './routes/page.$slug'
 import { Route as TeachingIdRouteImport } from './routes/teaching.$id'
 import { Route as TvShowIdRouteImport } from './routes/tv-show.$id'
 import { Route as VideoIdRouteImport } from './routes/video.$id'
+import { Route as ApiMobileSplatRouteImport } from './routes/api/mobile/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -226,6 +227,11 @@ const VideoIdRoute = VideoIdRouteImport.update({
   path: '/video/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMobileSplatRoute = ApiMobileSplatRouteImport.update({
+  id: '/api/mobile/$',
+  path: '/api/mobile/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -264,6 +270,7 @@ export interface FileRoutesByFullPath {
   '/teaching/$id': typeof TeachingIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
+  '/api/mobile/$': typeof ApiMobileSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/teaching/$id': typeof TeachingIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
+  '/api/mobile/$': typeof ApiMobileSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -341,6 +349,7 @@ export interface FileRoutesById {
   '/teaching/$id': typeof TeachingIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
+  '/api/mobile/$': typeof ApiMobileSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -381,6 +390,7 @@ export interface FileRouteTypes {
     | '/teaching/$id'
     | '/tv-show/$id'
     | '/video/$id'
+    | '/api/mobile/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -419,6 +429,7 @@ export interface FileRouteTypes {
     | '/teaching/$id'
     | '/tv-show/$id'
     | '/video/$id'
+    | '/api/mobile/$'
   id:
     | '__root__'
     | '/'
@@ -457,6 +468,7 @@ export interface FileRouteTypes {
     | '/teaching/$id'
     | '/tv-show/$id'
     | '/video/$id'
+    | '/api/mobile/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -495,6 +507,7 @@ export interface RootRouteChildren {
   TeachingIdRoute: typeof TeachingIdRoute
   TvShowIdRoute: typeof TvShowIdRoute
   VideoIdRoute: typeof VideoIdRoute
+  ApiMobileSplatRoute: typeof ApiMobileSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -751,6 +764,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VideoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/mobile/$': {
+      id: '/api/mobile/$'
+      path: '/api/mobile/$'
+      fullPath: '/api/mobile/$'
+      preLoaderRoute: typeof ApiMobileSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -800,6 +820,7 @@ const rootRouteChildren: RootRouteChildren = {
   TeachingIdRoute: TeachingIdRoute,
   TvShowIdRoute: TvShowIdRoute,
   VideoIdRoute: VideoIdRoute,
+  ApiMobileSplatRoute: ApiMobileSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

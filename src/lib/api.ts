@@ -572,7 +572,7 @@ export const register = createServerFn({ method: 'POST' })
       uid, `${data.firstName.trim()} ${data.lastName.trim()}`.trim(),
     ).catch(() => null)
     await setSessionCookie({ uid, email, name: data.firstName.trim() })
-    return { ok: true }
+    return { ok: true, user: { id: uid, email, name: data.firstName.trim() } }
   })
 
 // ---------- subscription plans (public) ----------
@@ -1097,7 +1097,7 @@ export const verifyOtp = createServerFn({ method: 'POST' })
     )
     if (!user) return { ok: false, error: 'Account not found.' }
     await setSessionCookie({ uid: user.id, email: user.email, name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() })
-    return { ok: true }
+    return { ok: true, user: { id: user.id, email: user.email, name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() } }
   })
 
 // ---------- ads ----------

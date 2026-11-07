@@ -8,7 +8,8 @@
   EVIDENCE: Parent strict tsc/noUnused, npm run build, git diff --check and 11 current behavior commands all passed (verification/cleanup-checks.log, cleanup-build.log). Live Bible checks passed in KJV/ESV/AMP/NIV. Cleanup review adds no runtime abstraction; only proven dead code/data/style removal plus the separately tested two-alias production-schema compatibility correction. Built client CSS -46253 bytes; JS -45968 bytes.
 - [x] G4: Production configuration, database migration needs, secrets names and rollback version are verified before release.
   EVIDENCE: Wrangler OAuth verified; dry-run succeeds with DB/MEDIA/IMAGES. Existing secret names preserved. Rollback43226e39-f27b-4898-a201-06184f4003f8 recorded. Actual production schema tested:95 tables,38 handlers,104 SQL executions/71 distinct statements,zero SQL errors; only required tables are the three in pending20261107_library.sql. See release.md/schema-check.md; provider credential limitations explicitly retained.
-- [ ] G5: The reviewed source is committed/pushed to the intended repository and deployed to the existing live Cloudflare Worker.
-  EVIDENCE: pending
+- [x] G5: The reviewed source is committed/pushed to the intended repository and deployed to the existing live Cloudflare Worker.
+  EVIDENCE: Commit 6444c28 pushed to origin/codex/apple-tv-experience. Cloudflare deployed the existing gndott Worker with DB/MEDIA/IMAGES; migration applied. Final version recorded in release.md.
 - [ ] G6: Live routes/assets and critical flows pass verification; temporary verification processes are stopped and final measurements recorded.
-  EVIDENCE: pending
+  EVIDENCE: 17/17 live HTTP routes/assets returned200. Live400×844 and3840×2160 documents had no horizontal overflow; mobile menu/search alignment verified. Live video51 played to38s, volume adjusted to0.99, pause and fullscreen controls worked. Bible RPC returns a graceful error because the provider connection returnsHTTP525 from Cloudflare. Wrangler tail stopped; all leaf probes disposed; only the pre-existing user-requested local preview remains.
+ABANDON: G6 Full live critical-flow pass is blocked by the external Prayer Pulse TLS handshake failure (HTTP525). Provider implementation is unchanged; no security weakening, replacement provider, speculative proxy or socket transport was introduced.

@@ -22,3 +22,5 @@ Audits may run concurrently because they write separate reports. Implementation 
 - Audit leaves and implementation verified by parent. Cleanup removes105804 source/config bytes and1227 physical lines; all public assets retained. Actual production schema compatibility checked; release ready after migration.
 
 - Release completed: source6444c28 pushed; active Worker5e093a38-4beb-45fe-ba86-91edcd075b12. Root ledger5 passed,1 explicitly blocked by external Bible HTTP525; no speculative transport changes retained.
+
+- User explicitly requested Bible repair before next publication. Dedicated native TLS transport to the original provider proved successful on an isolated version URL before rollout. Source892a18d pushed; verified version6d9cfa0c-a1ed-4425-af3e-645518086a24 deployed at100%. Preview/live each passed9 Bible RPC reads; desktop/mobile reader and chapter/book changes verified. Root ledger now6/6; Bible follow-up4/4. No client design or API signature changes, no new package.

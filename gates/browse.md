@@ -1,0 +1,22 @@
+# Gates: header and browse experience
+Scope: HI2026 header plus Apple TV hero, rails, dock and search flow using existing catalogue. Leaf verification is source inspection and typechecking; parent owns rendered browser verification and screenshots.
+
+- [x] B1: Open borderless header with progressive blur, compact actions and responsive navigation/menu.
+  EVIDENCE: src/header.css resets fixed header to inset 0, border/radius/shadow/background/backdrop-filter none; six nth-child blur masks copied from inspected HI2026 geometry. src/routes/__root.tsx removes GlassButton/LiquidButton and renders plain Login, dark metallic-rim Subscribe, all seven original navigation destinations, and accessible compact menu. Source contract run 2026-11-07: PASS Framed chrome controls removed; PASS Six progressive blur layers. Parent browser inspection at 390x844 reported header rect x0/y0/w390/h76, visible/opacity1/transform none, and brand returned from elementFromPoint(20,20).
+- [x] B2: Portrait mobile hero with white pill play, proper catalogue metadata, real actions and usable pause/swipe controls; smooth snapping poster rails.
+  EVIDENCE: src/components/Poster.tsx keeps all picture layers mounted, uses poster_url at <=860px and landscape thumbnail above, maps real item.genre_names, sends Play to #watch, reads/toggles actual watchlist with authentication redirect, handles manual dots/swipe/pause and motion/visibility state. src/routes/index.tsx puts Top 10 before recommendation rails and removes mobile advertising autoplay. src/catalogue.css defines 2:3 posters, 14px corners, 12px mobile gaps, native snapping and over-card rank numbers. Source contract run 2026-11-07: PASS Top 10 is the first home rail; PASS Swipe, pause and real library operations connected; PASS Play intent and responsive portrait sources connected.
+- [x] B3: Four-tab translucent capsule dock and separate search circle; search category tiles and URL-synchronized results.
+  EVIDENCE: src/routes/__root.tsx dock has exactly four links Home/Sermons/Live TV/Library plus a sibling search circle; Search actions open /search while Cmd/Ctrl+K retains Spotlight. src/routes/search.tsx shows catalogue-backed artwork with actual category routes, filters real result arrays by type and queries getGenreContent with true genre IDs. q/type/genre are URL state, typing debounces 280ms, IME is respected, popstate restores input and in-flight query completion does not overwrite newer text. Source contract run 2026-11-07: PASS Four dock destinations; PASS History, IME and exact genre queries connected.
+- [x] B4: Keyboard, reduced motion and 320px sizing handled; no fake actions or removed routes.
+  CHECK: ./node_modules/.bin/tsc --noEmit
+  EXPECT: /^\s*$/
+  EVIDENCE: TypeScript noEmit exited 0 on 2026-11-07. Source audit verified menu focus containment/Escape/outside close/focus restoration, current-route menu dismissal, visible focus styles, 44px carousel targets, native keyboard-scrolling rail regions, <=360px adjustments, 16px search input, safe-area offsets, reduced-motion disabling hero timers and previews, and no hover video below861px. Browser measurements remain parent integration responsibility.
+
+## Four passes
+1. Implemented header, dock, home, hero, poster rails and search completely within leaf-owned files.
+2. Expert reread replaced global genre labels, fake keyword categories, plus-for-details and mobile autoplay with true catalogue semantics and actions.
+3. Defect pass fixed resume-after-focus, current-route menu dismissal, absent rating classifications, watchlist initial-state races, stale search input responses, 44px dot hit areas and short-video seeking.
+4. Final source sweep passed typecheck and nine structural checks. Parent scroll investigation then identified duplicate scroll ownership; removed root pathname reset so TanStack scroll restoration owns navigation. Header disappearance was not reproduced in measured DOM geometry.
+
+## Validation limits
+No browser, dev server, package install, Git mutation or deployment was started by this leaf. Parent is doing responsive screenshot and interaction verification. Existing gate-metadata-search-static.mjs was attempted and reported unrelated forbidden identifiers in detail-owner files; parent and detail owner were informed. Older header/hero contract scripts require the explicitly rejected framed header and old search dialog buttons, so their literal expectations need parent integration updates.

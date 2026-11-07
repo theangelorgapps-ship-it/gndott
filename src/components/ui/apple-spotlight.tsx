@@ -1,3 +1,4 @@
+import { contentPath } from '@/lib/contentRoutes'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   Bookmark,
@@ -58,31 +59,31 @@ const mapSearchResults = (response: any): SearchResult[] => [
     kind: 'sermon' as const,
     label: movie.name,
     description: withYear('Sermon', movie.release_date),
-    link: `/movie/${movie.id}`,
+    link: contentPath(movie,'/movie'),
   })),
   ...(response.tvshows ?? []).slice(0, 4).map((show: any) => ({
     kind: 'show' as const,
     label: show.name,
     description: withYear('Show', show.release_date),
-    link: `/tv-show/${show.id}`,
+    link: contentPath(show,'/tv-show'),
   })),
   ...(response.teachings ?? []).slice(0, 4).map((teaching: any) => ({
     kind: 'teaching' as const,
     label: teaching.name,
     description: withYear('Teaching', teaching.release_date),
-    link: `/teaching/${teaching.id}`,
+    link: contentPath(teaching,'/teaching'),
   })),
   ...(response.videos ?? []).slice(0, 4).map((video: any) => ({
     kind: 'video' as const,
     label: video.name,
     description: withYear('Video', video.release_date),
-    link: `/video/${video.id}`,
+    link: contentPath(video,'/video'),
   })),
   ...(response.channels ?? []).slice(0, 2).map((channel: any) => ({
     kind: 'channel' as const,
     label: channel.name,
     description: 'Live TV channel',
-    link: `/channel/${channel.id}`,
+    link: contentPath(channel,'/channel'),
   })),
 ]
 

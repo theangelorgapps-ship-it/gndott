@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { getContinueWatching } from '../lib/api'
-import { PosterCard } from '../components/Poster'
+import { ResumeCard } from '../components/ResumeCard'
 import { AccountShell, NeedsAuth } from '../components/Account'
 
 export const Route = createFileRoute('/continue-watching')({
@@ -13,12 +13,12 @@ function ContinueWatching() {
   if (data.needsAuth) return <NeedsAuth />
   return (
     <AccountShell title="Continue Watching">
-      {data.items.length === 0 ? (
+      {data.needsProfile ? <div className="empty"><p>Choose a profile to see where you left off.</p><Link to="/manage-profile" className="btn btn-primary">Choose profile</Link></div> : data.items.length === 0 ? (
         <div className="empty">You have not started watching anything yet.</div>
       ) : (
-        <div className="grid" style={{ padding: 0 }}>
+        <div className="resume-grid">
           {data.items.map((m: any) => (
-            <PosterCard key={m.cw_id} item={m} base={m.type === 'teaching' ? '/teaching' : m.type === 'tvshow' ? '/tv-show' : '/movie'} />
+            <ResumeCard key={m.cw_id} item={m} />
           ))}
         </div>
       )}

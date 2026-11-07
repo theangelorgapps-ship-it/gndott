@@ -60,7 +60,7 @@ function Register() {
         Already have an account? <Link to="/login">Sign In</Link>
       </div>
       <p className="auth-terms">
-        By signing, you agree to Streamit: Your Ultimate Entertainment Hub{' '}
+        By signing, you agree to GoodNews Halobox: Your Ultimate Entertainment Hub{' '}
         <Link to={'/page/terms-conditions' as any}>Terms &amp; Conditions</Link> of all services and{' '}
         <Link to={'/page/privacy-policy' as any}>Privacy Policy</Link> of all services and.
       </p>

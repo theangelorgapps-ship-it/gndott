@@ -1,0 +1,14 @@
+# Cleanup and live release
+
+- [x] G1: Whole-repository complexity audit inventories source, dependencies, assets, tooling and the pending diff; every removal has evidence of non-use.
+  EVIDENCE: All three audit reports cover the complete source/dependency/asset/tooling inventory and pending feature work; child ledgers verified by parent. Live CMS HTMLParser scan (31 rows) resolves CSS provenance. See audit-dependencies.md, audit-frontend.md and audit-backend.md.
+- [x] G2: Approved bloat is removed without changing rendered design, route/API contracts or supported behavior.
+  EVIDENCE: Parent ran scripts/gate-cleanup-equivalence.mjs: 5388 image-resolution cases, all536 targets/70 server functions/37 routes preserved, 266 CSS rules removed with retained-rule signatures unchanged, 689 other baseline files unchanged. Browser comparison matched108/108 pre-existing desktop elements and87/87 phone elements; the schema fix restores the previously empty video rail.
+- [x] G3: Type checking, production build and existing behavior gates pass after cleanup; cleanup diff receives a Ponytail review.
+  EVIDENCE: Parent strict tsc/noUnused, npm run build, git diff --check and 11 current behavior commands all passed (verification/cleanup-checks.log, cleanup-build.log). Live Bible checks passed in KJV/ESV/AMP/NIV. Cleanup review adds no runtime abstraction; only proven dead code/data/style removal plus the separately tested two-alias production-schema compatibility correction. Built client CSS -46253 bytes; JS -45968 bytes.
+- [x] G4: Production configuration, database migration needs, secrets names and rollback version are verified before release.
+  EVIDENCE: Wrangler OAuth verified; dry-run succeeds with DB/MEDIA/IMAGES. Existing secret names preserved. Rollback43226e39-f27b-4898-a201-06184f4003f8 recorded. Actual production schema tested:95 tables,38 handlers,104 SQL executions/71 distinct statements,zero SQL errors; only required tables are the three in pending20261107_library.sql. See release.md/schema-check.md; provider credential limitations explicitly retained.
+- [ ] G5: The reviewed source is committed/pushed to the intended repository and deployed to the existing live Cloudflare Worker.
+  EVIDENCE: pending
+- [ ] G6: Live routes/assets and critical flows pass verification; temporary verification processes are stopped and final measurements recorded.
+  EVIDENCE: pending

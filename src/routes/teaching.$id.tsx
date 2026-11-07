@@ -1,9 +1,10 @@
+import { contentIdFromPath } from '../lib/contentRoutes'
 import { createFileRoute } from '@tanstack/react-router'
 import { getTvShow } from '../lib/api'
 import { ShowDetail } from '../components/ShowDetail'
 
 export const Route = createFileRoute('/teaching/$id')({
-  loader: async ({ params }) => await getTvShow({ data: Number(params.id) }),
+  loader: async ({ params }) => await getTvShow({ data: contentIdFromPath(params.id) }),
   component: TeachingDetail,
 })
 

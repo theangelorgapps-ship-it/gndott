@@ -1,9 +1,10 @@
+import {contentIdFromPath} from '@/lib/contentRoutes'
 import { createFileRoute } from '@tanstack/react-router'
 import { getCastDetail } from '../lib/api'
 import { PosterCard, img } from '../components/Poster'
 
 export const Route = createFileRoute('/cast/$id')({
-  loader: async ({ params }) => await getCastDetail({ data: Number(params.id) }),
+  loader: async ({ params }) => await getCastDetail({ data: contentIdFromPath(params.id) }),
   component: CastDetail,
 })
 

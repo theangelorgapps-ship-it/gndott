@@ -1,3 +1,4 @@
+import { contentPath } from '@/lib/contentRoutes'
 import { createFileRoute } from '@tanstack/react-router'
 import { getCastCrewList } from '../lib/api'
 import { CircleCard } from '../components/Poster'
@@ -15,7 +16,7 @@ function CastList() {
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="cast-grid">
           {people.map((p) => (
-            <CircleCard key={p.id} name={p.name} image={p.file_url} to={`/cast/${p.id}`} />
+            <CircleCard key={p.id} name={p.name} image={p.file_url} to={contentPath(p,'/cast')} />
           ))}
         </div>
         {people.length === 0 && <div className="empty">No personalities available yet.</div>}

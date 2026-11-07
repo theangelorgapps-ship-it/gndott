@@ -1,0 +1,91 @@
+@import "./tv-tokens.css";
+/* Apple TV control language. Extracted controls and inferred web states are
+   documented in demo/apple-tv; catalogue images retain their original identity. */
+:root {
+  color-scheme: dark;
+  --background: #000;
+  --foreground: var(--tv-text);
+  --bg: #000;
+  --bg-soft: #121214;
+  --card: #1c1c1e;
+  --card-2: #2c2c2e;
+  --line: rgba(255, 255, 255, .12);
+  --text: var(--tv-text);
+  --muted: var(--tv-muted);
+  --muted-2: #929297;
+  --primary: var(--tv-blue);
+  --primary-hover: #68c8fa;
+  --radius: var(--tv-radius);
+  --ease-standard: var(--tv-ease);
+  --ease-out-premium: var(--tv-ease);
+  --dur-quick: 180ms;
+  --dur-standard: var(--tv-duration);
+  --dur-slow: 480ms;
+}
+html, body { font-family: var(--tv-font); font-size: 16px; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body { background: var(--bg); }
+input, select, textarea, button { font-family: var(--tv-font); }
+button, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+a, button, input, textarea, select { outline-offset: 4px; }
+:focus-visible { outline: 2px solid var(--tv-blue); }
+.page-enter { animation: tv-page-enter 320ms ease-out both; }
+@keyframes tv-page-enter { from { opacity: .4; } to { opacity: 1; } }
+.btn {
+  min-height: 48px; height: auto; padding: 12px 24px; border-radius: var(--tv-pill);
+  font-size: 17px; font-weight: 600; line-height: 1.25; letter-spacing: -.02em;
+  transition: transform 180ms var(--tv-ease), background 180ms ease, opacity 180ms ease;
+  box-shadow: none;
+}
+.btn-primary, .btn-play { color: #080808; background: var(--tv-white); border: 0; text-shadow: none; }
+.btn-primary:hover, .btn-play:hover { color: #080808; background: #e8e8ed; box-shadow: none; }
+.btn-dark { background: var(--tv-glass); border: 1px solid var(--tv-border); color: var(--tv-text); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.btn-dark:hover { background: rgba(65,65,68,.85); }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.btn.active-watch { color: var(--tv-white); background: rgba(76,76,79,.85); }
+.filter-pill, .spill, .chip { border-radius: var(--tv-pill); }
+.filter-pill.active, .spill.active { background: #3a3a3c; border-color: var(--tv-border); color: var(--tv-white); }
+.pv-card { background: rgba(28,28,30,.98); border-color: var(--tv-border); border-radius: 18px; }
+.page-head h1, .page-title-center { font-weight: 700; letter-spacing: -.035em; }
+.field input, .profile-form input, .profile-form select, .profile-form textarea {
+  min-height: 48px; color: var(--tv-text); background: #1c1c1e; border: 1px solid var(--tv-border); border-radius: 12px; font-size: 16px;
+}
+.auth-card h1 { font-size: 30px; letter-spacing: -.03em; }
+.auth-card .auth-btn { height: 50px; }
+.profile-modal { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); background: rgba(0,0,0,.7); }
+.profile-form { background: #1c1c1e; border: 1px solid var(--tv-border); border-radius: 24px; }
+.plans-page { max-width: 1280px; margin: auto; padding: 40px clamp(20px,4vw,56px) 64px; }
+.plans-page .page-title-center { font-size: clamp(30px,5vw,48px); }
+.no-plan-banner { background: #1c1c1e; border-color: var(--tv-border); border-radius: 20px; }
+.np-subscribe { background: var(--tv-white); color: #000; border: 0; border-radius: var(--tv-pill); min-height: 44px; padding: 10px 22px; font-size: 15px; font-weight: 600; }
+.plan-toggle { background: #1c1c1e; border: 1px solid var(--tv-border); border-radius: var(--tv-pill); padding: 5px; }
+.plan-toggle button { min-height: 42px; border-radius: var(--tv-pill); font-size: 15px; }
+.plan-toggle button.active { background: #4a4a4d; color: var(--tv-white); }
+.plan-card { background: #1c1c1e; border: 1px solid var(--tv-border); border-radius: 24px; box-shadow: none; }
+.plan-card h3 { letter-spacing: -.025em; font-size: 24px; }
+.plan-card .plan-price { letter-spacing: -.05em; }
+.plan-card .feat-check { background: #3a3a3c; color: var(--tv-white); }
+.plan-card .plan-btn { border-radius: var(--tv-pill); }
+.site-footer { background: #0b0b0c; border-top-color: var(--line); }
+.footer-col h4 { color: var(--tv-text); }
+.footer-col a, .footer-brand p, .footer-legal a { color: #a6a6ad; }
+.spotlight-backdrop { background: rgba(0,0,0,.76); }
+.spotlight-panel { background: rgba(28,28,30,.98); border-color: var(--tv-border); border-radius: 24px; }
+.spotlight-close, .spotlight-shortcut, .spotlight-search-input { background: #2c2c2e; border-color: var(--tv-border); border-radius: 12px; color: var(--tv-text); }
+.spotlight-search-input:focus { background: #313134; border-color: var(--tv-blue); box-shadow: 0 0 0 3px rgba(54,181,246,.16); }
+.spotlight-content, .spotlight-heading p, .spotlight-result-description { color: var(--tv-muted); }
+.spotlight-state, .spotlight-footer { background: #18181a; border-color: var(--tv-border); }
+@media (max-width: 600px) {
+  .plans-page { padding: 20px 20px 40px; }
+  .plans-grid { grid-template-columns: minmax(0,1fr); }
+  .no-plan-banner { padding: 20px; gap: 14px; flex-wrap: wrap; }
+  .site-footer { padding-inline: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  .reveal { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .btn-dark, .spotlight-panel { background: #2c2c2e; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}

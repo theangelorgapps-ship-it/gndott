@@ -3,6 +3,7 @@
   "name": "gndott",
   "compatibility_date": "2026-01-15",
   "compatibility_flags": ["nodejs_compat"],
+  "images": { "binding": "IMAGES" },
   "r2_buckets": [
     {
       "binding": "MEDIA",

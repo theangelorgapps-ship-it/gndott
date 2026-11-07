@@ -1,27 +1,32 @@
+import { BrandOpener } from '@/components/BrandOpener'
+import { contentPath } from '@/lib/contentRoutes'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { Outlet, Link, createRootRoute, HeadContent, Scripts, useRouterState, useNavigate } from '@tanstack/react-router'
-import { Bookmark, Clapperboard, Home, Menu, Radio, X } from 'lucide-react'
+import { Bookmark, BookOpen, ChevronRight, Clapperboard, Clock3, Home, Menu, PlaySquare, Radio, Tv, UserRound, X } from 'lucide-react'
 import { getSessionUser, getFooterData } from '../lib/api'
-import { IconSearch, IconCrown } from '../components/Poster'
+import { IconSearch } from '../components/Poster'
 import { MotionRoot } from '../components/Motion'
-import { GlassButton } from '@/components/ui/glass-button'
-import { LiquidButton } from '@/components/ui/liquid-glass-button'
+import { LiquidGlassFilter, LiquidGlassLayers } from '../components/ui/liquid-glass'
 import { AppleSpotlight } from '@/components/ui/apple-spotlight'
 import '../styles.css'
+import '../tv-theme.css'
+import '../header.css'
+import '../catalogue.css'
+import '../detail.css'
+import '../player.css'
+import '../auth-flow.css'
+import '../liquid-glass.css'
+import '../library.css'
+import '../responsive-glass.css' // Responsive glass and 4K refinements
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Streamit: Sermons, Shows & Teachings' },
-      { name: 'description', content: 'Watch sermons, shows, teachings, live TV and videos on Streamit.' },
-    ],
-    links: [
-      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-      { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous' },
-      { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap' },
+      { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+      { title: 'GoodNews Halobox: Sermons, Shows & Teachings' },
+      { name: 'description', content: 'Watch sermons, shows, teachings, live TV and videos on GoodNews Halobox.' },
     ],
   }),
   loader: async () => ({ user: await getSessionUser(), footer: await getFooterData() }),
@@ -29,6 +34,7 @@ export const Route = createRootRoute({
 })
 
 const BARE_ROUTES = ['/login', '/register', '/forgot-password', '/manage-profile']
+const MENU_ICONS = [Home, Clapperboard, BookOpen, Tv, PlaySquare, Radio]
 const NAV_ITEMS = [
   { label: 'Home', to: '/', aliases: ['/'] },
   { label: 'Sermons', to: '/movies', aliases: ['/movies', '/movie'] },
@@ -54,51 +60,59 @@ function RootComponent() {
   const navigate = useNavigate()
   const [spotlightOpen, setSpotlightOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const menuPanelRef = useRef<HTMLDivElement>(null)
+  const menuPanelRef = useRef<HTMLDialogElement>(null)
   const isAdmin = pathname.startsWith('/admin')
   const isBare = BARE_ROUTES.some((route) => pathname.startsWith(route))
-
-  useEffect(() => {
-    const lenis = (window as any).__lenis
-    if (lenis) lenis.scrollTo(0, { immediate: true })
-    else window.scrollTo(0, 0)
-  }, [pathname])
 
   useEffect(() => {
     setMenuOpen(false)
   }, [pathname])
 
   useEffect(() => {
-    if (!menuOpen) return
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const frame = window.requestAnimationFrame(() => {
-      menuPanelRef.current?.querySelector<HTMLElement>('a[href], button:not([disabled])')?.focus({ preventScroll: true })
-    })
+    if (isAdmin || isBare) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
         setMenuOpen(false)
-        return
-      }
-      if (event.key !== 'Tab' || !menuPanelRef.current) return
-      const focusable = Array.from(menuPanelRef.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]):not([tabindex="-1"])'))
-      if (!focusable.length) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && (document.activeElement === first || !menuPanelRef.current.contains(document.activeElement))) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault()
-        first.focus()
+        setSpotlightOpen((open) => !open)
       }
     }
     document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [isAdmin, isBare])
+
+  useEffect(() => {
+    const wide = window.matchMedia('(min-width: 1181px)')
+    const closeOnWide = () => { if (wide.matches) setMenuOpen(false) }
+    wide.addEventListener('change', closeOnWide)
+    return () => wide.removeEventListener('change', closeOnWide)
+  }, [])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const dialog = menuPanelRef.current
+    if (!dialog) return
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialog.showModal()
+    const containFocus = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const controls = Array.from(dialog.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'))
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last?.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first?.focus()
+      }
+    }
+    dialog.addEventListener('keydown', containFocus)
     return () => {
-      window.cancelAnimationFrame(frame)
-      document.removeEventListener('keydown', onKeyDown)
+      dialog.removeEventListener('keydown', containFocus)
+      dialog.close()
       document.body.style.overflow = previousOverflow
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
     }
@@ -108,7 +122,7 @@ function RootComponent() {
 
   const openSearch = () => {
     setMenuOpen(false)
-    setSpotlightOpen(true)
+    void navigate({ to: '/search', search: { q: '' } as any })
   }
   const toggleMenu = () => {
     setSpotlightOpen(false)
@@ -118,30 +132,26 @@ function RootComponent() {
   return (
     <RootDocument>
       <header className={`site-header${pathname === '/' ? ' on-hero' : ''}`}>
+        <div className="site-header-blur" aria-hidden="true">{Array.from({ length: 6 }, (_, i) => <span key={i} className="site-header-blur-layer" />)}</div>
         <div className="site-header-bar">
-          <Link to="/" className="brand" aria-label="Streamit home">
-            <img src="/default-image.jpg" alt="Streamit" />
-            <span className="brand-word">Streamit</span>
+          <Link to="/" className="brand" aria-label="GoodNews Halobox home">
+            <img src="/goodnews-halo-logo.webp" alt="GoodNews Halobox" width="48" height="48" />
+            <span className="brand-word"><span>GoodNews</span><strong>Halobox</strong></span>
           </Link>
           <nav className="main-nav" aria-label="Primary navigation">
             {NAV_ITEMS.map((item) => (
-              <Link key={item.to} to={item.to} className={destinationActive(pathname, item) ? 'active' : ''}>
+              <Link key={item.to} to={item.to} className={destinationActive(pathname, item) ? 'active' : ''} aria-current={destinationActive(pathname, item) ? 'page' : undefined}>
                 {item.label === 'Live TV' && <span className="live-nav-dot" aria-hidden="true" />}
                 {item.label}
               </Link>
             ))}
           </nav>
           <div className="header-actions">
-            <button type="button" className="icon-btn-plain header-search" aria-label="Search" aria-haspopup="dialog" aria-controls="catalogue-search-dialog" aria-expanded={spotlightOpen} onClick={openSearch}><IconSearch /></button>
+            <Link to="/search" search={{ q: '' } as any} className="icon-btn-plain header-search" aria-label="Search"><IconSearch size={19} /></Link>
             {user && <Link to="/notifications" className="icon-btn-plain header-notifications" aria-label="Notifications"><IconBell /></Link>}
-            <GlassButton size="sm" className="subscribe-glass" contentClassName="flex items-center gap-2 subscribe-glass-text" onClick={() => navigate({ to: '/subscription-plan' })}>
-              <IconCrown /> {user ? 'UPGRADE' : 'SUBSCRIBE'}
-            </GlassButton>
-            {user ? (
-              <Link to="/account-setting" className="avatar-link" aria-label="Account"><img className="avatar" src="/default-image.jpg" alt={user.first_name ?? 'Profile'} /></Link>
-            ) : (
-              <LiquidButton size="sm" className="login-liquid" onClick={() => navigate({ to: '/login' })}>Login</LiquidButton>
-            )}
+            {user ? <Link to="/account-setting" className="header-login">Account</Link> : <Link to="/login" className="header-login">Login</Link>}
+            <Link to={user ? '/account-setting' : '/login'} className="header-profile" aria-label={user ? 'Your account' : 'Sign in'}><UserRound size={21} aria-hidden="true" /></Link>
+            <Link to="/subscription-plan" className="header-subscribe">{user ? 'Upgrade' : 'Subscribe'}</Link>
             <button type="button" className="icon-btn-plain mobile-menu-trigger" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-controls="mobile-navigation-sheet" aria-expanded={menuOpen} onClick={toggleMenu}>
               {menuOpen ? <X size={21} /> : <Menu size={21} />}
             </button>
@@ -150,28 +160,48 @@ function RootComponent() {
       </header>
 
       {menuOpen && (
-        <div className="mobile-menu-backdrop" onClick={() => setMenuOpen(false)}>
-          <div ref={menuPanelRef} id="mobile-navigation-sheet" className="mobile-menu-sheet" role="dialog" aria-modal="true" aria-label="Site menu" onClick={(event) => event.stopPropagation()}>
-            <div className="mobile-menu-head">
-              <span>Browse Streamit</span>
-              <button type="button" className="icon-btn-plain" aria-label="Close menu" onClick={() => setMenuOpen(false)}><X size={20} /></button>
-            </div>
-            <button type="button" className="mobile-menu-search" onClick={openSearch}><IconSearch /> Search the catalogue</button>
-            <nav className="mobile-menu-nav" aria-label="Mobile navigation">
-              {NAV_ITEMS.map((item) => <Link key={item.to} to={item.to} className={destinationActive(pathname, item) ? 'active' : ''}>{item.label}</Link>)}
-            </nav>
+        <dialog ref={menuPanelRef} id="mobile-navigation-sheet" className="mobile-menu-sheet" aria-labelledby="mobile-menu-title" data-lenis-prevent
+          onCancel={(event) => { event.preventDefault(); setMenuOpen(false) }}
+          onClick={(event) => { if (event.target === event.currentTarget) setMenuOpen(false) }}>
+          <div className="mobile-menu-head">
+            <div><p>GoodNews Halobox</p><h2 id="mobile-menu-title">Explore</h2></div>
+            <button type="button" className="mobile-menu-close" aria-label="Close menu" onClick={() => setMenuOpen(false)}><X size={22} aria-hidden="true" /></button>
           </div>
-        </div>
+          <div className="mobile-menu-body">
+            <button type="button" className="mobile-menu-search" onClick={openSearch}><IconSearch size={21} /><span>Search messages, shows and more</span></button>
+            <nav className="mobile-menu-nav" aria-label="Mobile navigation" onClick={(event) => { if (event.target instanceof Element && event.target.closest('a')) setMenuOpen(false) }}>
+              {NAV_ITEMS.slice(0, 6).map((item, index) => {
+                const Icon = MENU_ICONS[index]
+                const active = destinationActive(pathname, item)
+                return <Link key={item.to} to={item.to} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><Icon size={23} className="mobile-menu-icon" aria-hidden="true" /><span>{item.label}</span>{item.to === '/live-tv' ? <span className="mobile-menu-live">Live</span> : <ChevronRight size={17} className="mobile-menu-chevron" aria-hidden="true" />}</Link>
+              })}
+            </nav>
+            <p className="mobile-menu-section-label">Your library</p>
+            <nav className="mobile-menu-library" aria-label="Your library" onClick={() => setMenuOpen(false)}>
+              <Link to="/continue-watching"><Clock3 size={22} aria-hidden="true" /><span>Continue watching</span></Link>
+              <Link to="/watchlist"><Bookmark size={22} aria-hidden="true" /><span>Watchlist</span></Link>
+            </nav>
+            <Link to={user ? '/account-setting' : '/login'} className="mobile-menu-account" onClick={() => setMenuOpen(false)}>
+              <span className="mobile-menu-avatar"><UserRound size={23} aria-hidden="true" /></span>
+              <span><strong>{user ? 'Your account' : 'Make yourself at home'}</strong><small>{user ? 'Profiles, settings and membership' : 'Sign in for your library and recommendations'}</small></span><ChevronRight size={18} aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="mobile-menu-footer"><Link to="/subscription-plan" onClick={() => setMenuOpen(false)}>{user ? 'Explore membership' : 'Explore plans'}<ChevronRight size={18} aria-hidden="true" /></Link></div>
+        </dialog>
       )}
 
-      <nav className="mobile-dock" aria-label="Quick navigation">
-        <Link to="/" className={pathname === '/' ? 'active' : ''}><Home size={19} /><span>Home</span></Link>
-        <Link to="/movies" className={destinationActive(pathname, NAV_ITEMS[1]) ? 'active' : ''}><Clapperboard size={19} /><span>Sermons</span></Link>
-        <Link to="/live-tv" className={destinationActive(pathname, NAV_ITEMS[5]) ? 'active' : ''}><Radio size={19} /><span>Live TV</span></Link>
-        <Link to="/watchlist" className={pathname.startsWith('/watchlist') ? 'active' : ''}><Bookmark size={19} /><span>Watchlist</span></Link>
-        <button type="button" className={menuOpen ? 'active' : ''} aria-label="Open menu" aria-expanded={menuOpen} onClick={toggleMenu}><Menu size={19} /><span>Menu</span></button>
-      </nav>
+      <div className={`mobile-navigation${pathname === '/search' ? ' is-search-page' : ''}`}>
+        <nav className="mobile-dock liquid-glass" aria-label="Quick navigation">
+          <LiquidGlassLayers />
+          <Link to="/" className={pathname === '/' ? 'active' : ''} aria-current={pathname === '/' ? 'page' : undefined}><Home size={23} /><span>Home</span></Link>
+          <Link to="/movies" className={destinationActive(pathname, NAV_ITEMS[1]) ? 'active' : ''} aria-current={destinationActive(pathname, NAV_ITEMS[1]) ? 'page' : undefined}><Clapperboard size={23} /><span>Sermons</span></Link>
+          <Link to="/live-tv" className={destinationActive(pathname, NAV_ITEMS[5]) ? 'active' : ''} aria-current={destinationActive(pathname, NAV_ITEMS[5]) ? 'page' : undefined}><Radio size={23} /><span>Live TV</span></Link>
+          <Link to="/account-setting" className={(['/account-setting', '/watchlist', '/continue-watching'].includes(pathname)) ? 'active' : ''} aria-current={(['/account-setting', '/watchlist', '/continue-watching'].includes(pathname)) ? 'page' : undefined}><Bookmark size={23} /><span>Library</span></Link>
+        </nav>
+        <Link to="/search" search={{ q: '' } as any} className={`mobile-search-circle liquid-glass${pathname === '/search' ? ' active' : ''}`} aria-label="Search"><LiquidGlassLayers /><IconSearch size={27} /></Link>
+      </div>
 
+      {pathname === '/' && <BrandOpener />}
       <AppleSpotlight isOpen={spotlightOpen} handleClose={() => setSpotlightOpen(false)} />
       <main key={pathname} className="page-enter"><Outlet /></main>
       <SiteFooter footer={footer} />
@@ -205,13 +235,13 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
     <footer className="site-footer">
       <div className="footer-grid">
         <div className="footer-brand">
-          <img src="/default-image.jpg" alt="Streamit" />
-          <p className="tagline">Streamit: Your Ultimate Destination for Unlimited Sermons, Shows and Teachings!</p>
-          <p className="contact"><span>hello@iqonic.design</span><span>+15265897485</span></p>
+          <img src="/goodnews-halo-logo.webp" alt="GoodNews Halobox" width="48" height="48" />
+          <p className="tagline">GoodNews Halobox: Your Ultimate Destination for Unlimited Sermons, Shows and Teachings!</p>
+          <div className="contact halo-contact"><a href="mailto:Hello@halobox.tv">Hello@halobox.tv</a><a href="tel:+14488770344">🇺🇸 +1 448 877 0344</a><a href="tel:+441244727242">🇬🇧 +44 1244 727242</a><a href="tel:+2638677211645">🇿🇼 +263 8677 211 645</a><a href="tel:+27872654913">🇿🇦 +27 872 654 913</a></div>
           <div className="socials">{SOCIALS.map((d, i) => <SocialIcon key={i} d={d} />)}</div>
         </div>
-        <div className="footer-col"><h4>Premium Shows</h4>{footer.premium.map((item: any) => <Link key={item.id} to={`/tv-show/${item.id}` as any}>› {item.name}</Link>)}</div>
-        <div className="footer-col"><h4>Latest Released</h4>{footer.latest.map((item: any) => <Link key={item.id} to={`/movie/${item.id}` as any}>› {item.name}</Link>)}</div>
+        <div className="footer-col"><h4>Premium Shows</h4>{footer.premium.map((item: any) => <Link key={item.id} to={contentPath(item,'/tv-show') as any}>› {item.name}</Link>)}</div>
+        <div className="footer-col"><h4>Latest Released</h4>{footer.latest.map((item: any) => <Link key={item.id} to={contentPath(item,'/movie') as any}>› {item.name}</Link>)}</div>
         <div className="footer-col">
           <h4>Download Our App</h4>
           <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Download our app for instant access to the best sermons, shows and teachings!</p>
@@ -219,11 +249,11 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
         </div>
       </div>
       <div className="footer-legal">{LEGAL.map((item) => <Link key={item.slug} to={`/page/${item.slug}` as any}>{item.label}</Link>)}<Link to="/faq">FAQ</Link></div>
-      <div className="footer-copy">© 2026 Streamit: Sermons, Shows & Teachings. All Rights Reserved.</div>
+      <div className="footer-copy">© 2026 GoodNews Halobox: Sermons, Shows & Teachings. All Rights Reserved.</div>
     </footer>
   )
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
-  return <html lang="en"><head><HeadContent /></head><body>{children}<Scripts /></body></html>
+  return <html lang="en"><head><HeadContent /></head><body><LiquidGlassFilter />{children}<Scripts /></body></html>
 }

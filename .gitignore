@@ -5,3 +5,6 @@ dist/
 .DS_Store
 d1-local.sqlite3
 .unlazy/
+
+# Local public catalogue used for UI verification only
+.local-fixtures/

@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { changePassword } from '../lib/api'
-import { AccountShell, NeedsAuth } from '../components/Account'
+import { AccountShell } from '../components/Account'
 
 export const Route = createFileRoute('/change-password')({
   component: ChangePassword,

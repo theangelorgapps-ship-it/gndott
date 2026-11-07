@@ -1,0 +1,264 @@
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, X, SlidersHorizontal } from 'lucide-react'
+import { BiblePanel, ContentNotes, youtubeId, type WatchSectionProps } from './Detail'
+import { img, plainText } from './Poster'
+import { createPlayerBridge, type PlayerBridge } from './playerBridge'
+import { usePlaybackProgress } from '../hooks/usePlaybackProgress'
+import { createResumeController } from './playbackResume'
+import { createDirectPlayback, type DirectPlayback, type VideoQuality } from './directPlayback'
+
+type Panel = 'notes' | 'bible' | 'info' | null
+export function playbackTime(value: number) {
+  const seconds = Math.floor(Number.isFinite(value) ? Math.max(0, value) : 0)
+  return seconds >= 3600 ? `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+function mediaUrl(value?: string | null) {
+  if (!value) return null
+  try { const url = new URL(value); return /^https?:$/.test(url.protocol) ? url.href : null } catch { return null }
+}
+export function ImmersivePlayer(props: WatchSectionProps) {
+  const { contentId, contentType, title, poster, description, metadata = [], bunnyLibraryId, bunnyVideoId, trailerUrl, directVideoUrl, viewerId } = props
+  const stageRef = useRef<HTMLDivElement>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const bridgeRef = useRef<PlayerBridge | null>(null)
+  const directRef = useRef<DirectPlayback | null>(null)
+  const resumeLoaded = useRef(false)
+  const [ready, setReady] = useState(false)
+  const [paused, setPaused] = useState(true)
+  const [muted, setMuted] = useState(false)
+  const [volume, setVolume] = useState(1)
+  const lastVolume = useRef(1)
+  const scrubbing = useRef(false)
+  const holdingControl = useRef(false)
+  const pendingSeek = useRef<{ target: number; expires: number } | null>(null)
+  const pausedIntent = useRef(true)
+  const [duration, setDuration] = useState(0)
+  const [position, setPosition] = useState(0)
+  const [panel, setPanel] = useState<Panel>(null)
+  const [providerControls, setProviderControls] = useState(false)
+  const [fallback, setFallback] = useState(false)
+  const [providerFallback, setProviderFallback] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [qualities, setQualities] = useState<VideoQuality[]>([])
+  const [quality, setQuality] = useState(-1)
+  const [speed, setSpeed] = useState(1)
+  const [mediaLoading, setMediaLoading] = useState(false)
+  const [message, setMessage] = useState('')
+  const [controlsVisible, setControlsVisible] = useState(true)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const observed = useRef({ position: 0, duration: 0, hasPlayed: false })
+  const resumeRef = useRef<ReturnType<typeof createResumeController> | null>(null)
+  if (!resumeRef.current) resumeRef.current = createResumeController({
+    seek: (seconds) => { if (bridgeRef.current) bridgeRef.current.seek(seconds); else if (videoRef.current) videoRef.current.currentTime = seconds },
+    status: setMessage,
+  })
+  const progress = usePlaybackProgress({ contentType, contentId }, viewerId != null)
+  const progressRef = useRef(progress)
+  progressRef.current = progress
+  const candidate = mediaUrl(directVideoUrl) || mediaUrl(trailerUrl)
+  const direct = !providerFallback && candidate && /\.(mp4|webm|ogg|m4v|m3u8)(?:[?#]|$)/i.test(candidate) ? candidate : null
+  const hasBunny = !direct && !!(bunnyLibraryId && bunnyVideoId)
+  const yt = !hasBunny && !direct ? youtubeId(trailerUrl) : null
+  const source = hasBunny ? `https://iframe.mediadelivery.net/embed/${bunnyLibraryId}/${bunnyVideoId}?autoplay=false&preload=true&responsive=true&compactControls=true&showSpeed=false&showHeatmap=false` : yt ? `https://www.youtube.com/embed/${yt}?autoplay=0&rel=0` : null
+  const customControls = (ready || !!direct) && !fallback && !providerControls
+
+
+  const updateTiming = useCallback((seconds: number, total: number) => {
+    if (!Number.isFinite(seconds) || !Number.isFinite(total) || total <= 0) return
+    observed.current.position = Math.max(0, Math.min(seconds, total))
+    observed.current.duration = total
+    const pending = pendingSeek.current
+    if (pending && (Math.abs(seconds - pending.target) < 2 || Date.now() >= pending.expires)) pendingSeek.current = null
+    if (!scrubbing.current && !pendingSeek.current) setPosition(observed.current.position)
+    setDuration(total)
+    const resumeConfirmed = resumeRef.current!.observe(seconds, total, observed.current.hasPlayed)
+    if (observed.current.hasPlayed && resumeConfirmed && !scrubbing.current && !pendingSeek.current) progressRef.current.record(seconds, total)
+  }, [])
+  const flushObserved = useCallback(() => {
+    const actual = observed.current
+    if (actual.hasPlayed && !resumeRef.current!.pending() && !scrubbing.current && !pendingSeek.current) progressRef.current.record(actual.position, actual.duration, true)
+  }, [])
+  useEffect(() => {
+    return () => { clearTimeout(hideTimer.current); flushObserved() }
+  }, [flushObserved])
+
+  useEffect(() => {
+    if (!direct || !videoRef.current) return
+    const player = createDirectPlayback(videoRef.current, direct, {
+      qualities: setQualities,
+      blocked: () => { pausedIntent.current = true; setPaused(true); setMediaLoading(false); setMessage('Press Play again to start this video.') },
+      failure: () => {
+        setMediaLoading(false)
+        setReady(false)
+        setQualities([])
+        setSettingsOpen(false)
+        if (bunnyLibraryId && bunnyVideoId) {
+          if (observed.current.hasPlayed && observed.current.position >= 5) { resumeRef.current!.reset({ position: observed.current.position, duration: observed.current.duration }); resumeLoaded.current = true }
+          setProviderFallback(true)
+          setMessage('Opening the video provider’s player…')
+        } else { setFallback(true); setMessage('This video could not be loaded. Try its original link.') }
+      },
+    })
+    directRef.current = player
+    return () => { player.destroy(); directRef.current = null }
+  }, [direct, bunnyLibraryId, bunnyVideoId])
+
+  useEffect(() => {
+    if (!hasBunny || !iframeRef.current) return
+    let active = true
+    const fail = () => { if (active) { setFallback(true); setMessage('Use the video player’s controls to watch.'); } }
+    const timeout = setTimeout(fail, 8000)
+    const bridge = createPlayerBridge(iframeRef.current, {
+      ready: (player) => {
+        if (!active) return
+        clearTimeout(timeout)
+        setReady(true)
+        setFallback(false)
+        setMessage('')
+        player.get('getDuration', (value) => { if (active && Number.isFinite(Number(value))) setDuration(Number(value)) })
+        player.get('getPaused', (value) => { if (active) { pausedIntent.current = Boolean(value); setPaused(Boolean(value)) } })
+        player.get('getMuted', (value) => { if (active) setMuted(Boolean(value)) })
+        player.get('getVolume', (value) => { if (active && Number.isFinite(Number(value))) { const level = Math.max(0, Math.min(1, Number(value) / 100)); setVolume(level); if (level > 0) lastVolume.current = level } })
+      },
+      play: () => { if (active) { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); resumeRef.current!.onPlay(); } },
+      pause: () => { if (active) { pausedIntent.current = true; setPaused(true); flushObserved(); } },
+      ended: () => { if (active) { pausedIntent.current = true; setPaused(true); flushObserved(); } },
+      timing: ({ seconds, duration: total }) => { if (active) updateTiming(seconds, total) },
+      error: fail,
+    })
+    bridgeRef.current = bridge
+    return () => { active = false; clearTimeout(timeout); bridge.destroy(); bridgeRef.current = null }
+  }, [hasBunny, source, flushObserved, updateTiming])
+
+  const seek = useCallback((next: number) => {
+    if (!ready || !Number.isFinite(next)) return
+    resumeRef.current!.cancel()
+    const clamped = Math.max(0, Math.min(next, observed.current.duration || duration || 0))
+    pendingSeek.current = { target: clamped, expires: Date.now() + 4000 }
+    setPosition(clamped)
+    if (bridgeRef.current && ready) bridgeRef.current.seek(clamped)
+    else if (videoRef.current && ready) videoRef.current.currentTime = clamped
+  }, [duration, ready])
+  useEffect(() => {
+    if (!ready || !progress.loaded || resumeLoaded.current) return
+    resumeLoaded.current = true
+    if (observed.current.hasPlayed && !resumeRef.current!.pending()) resumeRef.current!.cancel()
+    else resumeRef.current!.restore(progress.saved)
+  }, [ready, progress.loaded, progress.saved])
+
+  function play() {
+    if ((!ready && !direct) || fallback) return
+    pausedIntent.current = false
+    setPaused(false)
+    setMessage('')
+    if (progress.loaded && !resumeLoaded.current) { resumeLoaded.current = true; resumeRef.current!.restore(progress.saved) }
+    if (directRef.current) { setMediaLoading(true); void directRef.current.play() }
+    else if (bridgeRef.current) bridgeRef.current.play()
+  }
+  function togglePlay() {
+    if (pausedIntent.current) play()
+    else {
+      pausedIntent.current = true
+      setPaused(true)
+      setMediaLoading(false)
+      if (bridgeRef.current) bridgeRef.current.pause()
+      else directRef.current?.pause()
+    }
+  }
+  function changeVolume(next: number) {
+    const level = Math.max(0, Math.min(1, next))
+    if (level > 0) lastVolume.current = level
+    setVolume(level)
+    setMuted(level === 0)
+    if (bridgeRef.current) { bridgeRef.current.volume(level); bridgeRef.current.mute(level === 0) }
+    else if (videoRef.current) { videoRef.current.volume = level; videoRef.current.muted = level === 0 }
+  }
+  function toggleMuted() {
+    if (volume === 0) { changeVolume(lastVolume.current || 1); return }
+    const next = !muted
+    setMuted(next)
+    if (bridgeRef.current) {
+      bridgeRef.current.mute(next)
+    } else if (videoRef.current) videoRef.current.muted = next
+  }
+  function continueWatching(fromBeginning = false) {
+    if (fromBeginning) seek(0)
+    setPanel(null)
+    if (pausedIntent.current) play()
+  }
+  function revealControls() {
+    clearTimeout(hideTimer.current)
+    setControlsVisible(true)
+    if (!paused && !panel && !settingsOpen) hideTimer.current = setTimeout(() => {
+      const focused = document.activeElement
+      const keyboardFocused = focused instanceof HTMLElement && stageRef.current?.contains(focused) && focused.matches(':focus-visible')
+      if (!keyboardFocused && !holdingControl.current && !scrubbing.current) setControlsVisible(false)
+    }, 3500)
+  }
+  useEffect(() => { revealControls(); return () => clearTimeout(hideTimer.current) }, [paused, panel, settingsOpen])
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    setControlsVisible(true)
+    clearTimeout(hideTimer.current)
+    if (panel || !customControls || (event.target instanceof HTMLElement && (event.target.isContentEditable || event.target.closest('input, textarea, select, button, a, [contenteditable="true"]')))) return
+    if (event.key === ' ' || event.key.toLowerCase() === 'k') { event.preventDefault(); togglePlay() }
+    else if (event.key === 'ArrowLeft') { event.preventDefault(); seek(position - 10) }
+    else if (event.key === 'ArrowRight') { event.preventDefault(); seek(position + 10) }
+    else if (event.key.toLowerCase() === 'm') { event.preventDefault(); toggleMuted() }
+    revealControls()
+  }
+  const hasSource = !!(source || direct)
+  const showOverlay = controlsVisible || paused || !!panel || settingsOpen || mediaLoading || !customControls
+  return (
+    <div ref={stageRef} className={`tv-immersive-player${panel ? ' panel-open' : ''}${customControls ? ' has-custom-controls' : ' provider-controls'}${showOverlay ? ' controls-visible' : ''}`} data-lenis-prevent tabIndex={0} aria-label={`${title} video player`} onKeyDown={onKeyDown} onPointerMove={revealControls} onFocusCapture={revealControls}
+      onPointerDownCapture={() => { holdingControl.current = true; revealControls() }}
+      onPointerUpCapture={() => { holdingControl.current = false; revealControls() }}
+      onPointerCancel={() => { holdingControl.current = false; scrubbing.current = false; setPosition(observed.current.position); revealControls() }}>
+      <div className="tv-player-media">
+        {source ? <iframe ref={iframeRef} src={source} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen tabIndex={customControls ? -1 : 0} /> : direct ? <video ref={videoRef} poster={img(poster)} controls={!customControls} playsInline preload="none" onLoadedMetadata={(event) => { setReady(true); updateTiming(event.currentTarget.currentTime, event.currentTarget.duration) }} onRateChange={(event) => setSpeed(event.currentTarget.playbackRate)} onPlaying={() => setMediaLoading(false)} onWaiting={() => setMediaLoading(true)} onTimeUpdate={(event) => updateTiming(event.currentTarget.currentTime, event.currentTarget.duration)} onPlay={() => { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); resumeRef.current!.onPlay() }} onPause={() => { pausedIntent.current = true; setMediaLoading(false); setPaused(true); flushObserved() }} onEnded={() => { pausedIntent.current = true; setMediaLoading(false); setPaused(true); flushObserved() }} onVolumeChange={(event) => { setMuted(event.currentTarget.muted); setVolume(event.currentTarget.volume) }} onError={() => { setMediaLoading(false); if (bunnyLibraryId && bunnyVideoId) { setReady(false); setProviderFallback(true); setMessage('Opening the video provider’s player…') } else { setFallback(true); setMessage('This video could not be loaded. Try its original link.') } }} /> : <img className="tv-player-poster" src={img(poster)} alt="" />}
+      </div>
+      {customControls && <div className="tv-player-scrim" aria-hidden="true" />}
+      {customControls && !panel && <div className="tv-player-center">
+        <button type="button" onClick={() => seek(position - 10)} aria-label="Rewind 10 seconds" disabled={!duration}><RotateCcw size={29} /><span>10</span></button>
+        <button type="button" className="tv-player-toggle" onClick={togglePlay} aria-label={paused ? 'Play video' : 'Pause video'} aria-busy={mediaLoading}>{paused ? <Play size={48} fill="currentColor" /> : <Pause size={48} fill="currentColor" />}</button>
+        <button type="button" onClick={() => seek(position + 10)} aria-label="Forward 10 seconds" disabled={!duration}><RotateCw size={29} /><span>10</span></button>
+      </div>}
+      {!hasSource && <div className="tv-player-no-source"><p>No playable source is available for this title.</p>{candidate && <a href={candidate} target="_blank" rel="noreferrer">Open original video ↗</a>}</div>}
+      <div className="tv-player-bottom">
+        {!panel && <>
+          <div className="tv-player-title-row"><h2>{title}</h2><div className="tv-player-tools">
+            {(ready || direct) && <button type="button" aria-expanded={direct ? settingsOpen : undefined} aria-pressed={!direct ? providerControls : undefined} aria-label={direct ? 'Playback settings' : providerControls ? 'Use cinema controls' : 'Open video player options'} onClick={() => direct ? setSettingsOpen(!settingsOpen) : setProviderControls(!providerControls)}><SlidersHorizontal size={20} /></button>}
+            {customControls && (!hasBunny || bridgeRef.current?.supports('mute')) && <div className="tv-player-volume">
+              <button type="button" aria-label={muted || volume === 0 ? 'Unmute' : 'Mute'} onClick={toggleMuted}>{muted || volume === 0 ? <VolumeX size={22} /> : <Volume2 size={22} />}</button>
+              {(!hasBunny || bridgeRef.current?.supports('setVolume')) && <input type="range" aria-label="Volume" aria-valuetext={`${Math.round((muted ? 0 : volume) * 100)} percent`} min={0} max={1} step={.01} value={muted ? 0 : volume} onChange={event => changeVolume(Number(event.target.value))} />}
+            </div>}
+          </div></div>
+          {customControls && <div className="tv-player-timeline"><input type="range" aria-label="Playback position" aria-valuetext={`${playbackTime(position)} of ${playbackTime(duration)}`} min={0} max={duration || 1} step={1} value={position} disabled={!duration}
+            onPointerDown={event => { scrubbing.current = true; event.currentTarget.setPointerCapture(event.pointerId) }}
+            onChange={event => { const next = Number(event.target.value); setPosition(next); if (!scrubbing.current) seek(next) }}
+            onPointerUp={event => { if (scrubbing.current) { scrubbing.current = false; seek(Number(event.currentTarget.value)) } }}
+            onBlur={event => { if (scrubbing.current) { scrubbing.current = false; seek(Number(event.currentTarget.value)) } }}
+          /><div><span>{playbackTime(position)}</span><span>−{playbackTime(duration - position)}</span></div></div>}
+        </>}
+        {settingsOpen && direct && <div className="tv-player-settings" role="group" aria-label="Playback settings">
+          <label>Speed<select value={speed} onChange={(event) => { if (videoRef.current) videoRef.current.playbackRate = Number(event.target.value) }}>{[.5, .75, 1, 1.25, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate === 1 ? 'Normal' : `${rate}×`}</option>)}</select></label>
+          {qualities.length > 0 && <label>Quality<select value={quality} onChange={(event) => { const index = Number(event.target.value); directRef.current?.quality(index); setQuality(index) }}><option value={-1}>Auto</option>{qualities.map((level) => <option key={level.index} value={level.index}>{level.label}</option>)}</select></label>}
+          <button type="button" aria-label="Close playback settings" onClick={() => setSettingsOpen(false)}><X size={19} /></button>
+        </div>}
+        <div className="tv-player-tabs" role="group" aria-label="Player information">
+          {(['notes', 'bible', 'info'] as const).map((key) => <button key={key} type="button" aria-pressed={panel === key} onClick={() => setPanel(panel === key ? null : key)}>{key === 'notes' ? 'Notes' : key === 'bible' ? 'Bible' : 'Info'}</button>)}
+          {panel && <button type="button" className="tv-player-continue" onClick={() => continueWatching()}>{customControls ? 'Continue Watching' : 'Return to Video'}</button>}
+        </div>
+        {panel && <section className="tv-player-panel" aria-label={panel === 'info' ? 'Title information' : panel === 'notes' ? 'Your notes' : 'Bible reading'}>
+          <button type="button" className="tv-player-panel-close" aria-label="Close information panel" onClick={() => setPanel(null)}><X size={19} /></button>
+          {panel === 'info' ? <div className="tv-player-info"><img src={img(props.portrait || poster)} alt="" /><div><h3>{title}</h3><p>{plainText(description) || 'No description is available for this title.'}</p>{metadata.filter(Boolean).length > 0 && <p className="tv-player-meta">{metadata.filter(Boolean).join(' · ')}</p>}</div><div className="tv-player-info-actions">{customControls && <><button type="button" onClick={() => continueWatching(true)}><Play size={17} fill="currentColor" /> From Beginning</button><button type="button" onClick={() => continueWatching()}>Continue Watching</button></>}</div></div> : panel === 'notes' ? <ContentNotes contentType={contentType} contentId={contentId} title={title} /> : <BiblePanel />}
+        </section>}
+        {mediaLoading && <p className="tv-player-buffering" role="status">Loading video…</p>}
+        {progress.saveRequirement && <p className="tv-player-status"><a href={progress.saveRequirement === 'profile' ? '/manage-profile' : '/login'}>{progress.saveRequirement === 'profile' ? 'Choose a profile to save your place' : 'Sign in to save your place'}</a></p>}
+        {(message || progress.saveError) && <p className="tv-player-status" role="status">{message || 'Your latest progress could not be saved. We’ll try again as you watch.'}</p>}
+        {fallback && candidate && <a className="tv-player-original" href={candidate} target="_blank" rel="noreferrer">Open original video ↗</a>}
+      </div>
+    </div>
+  )
+}

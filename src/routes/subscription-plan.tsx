@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { getPlansPage, getCheckoutInfo, validateCoupon, subscribePlan } from '../lib/api'
 import { IconCrown } from '../components/Poster'

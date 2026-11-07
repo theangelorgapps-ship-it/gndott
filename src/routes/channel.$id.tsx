@@ -1,9 +1,10 @@
+import {contentIdFromPath} from '@/lib/contentRoutes'
 import { createFileRoute } from '@tanstack/react-router'
 import { getChannel } from '../lib/api'
 import { LiveChannelCard, Rail, img, IconPlay } from '../components/Poster'
 
 export const Route = createFileRoute('/channel/$id')({
-  loader: async ({ params }) => await getChannel({ data: Number(params.id) }),
+  loader: async ({ params }) => await getChannel({ data: contentIdFromPath(params.id) }),
   component: ChannelDetail,
 })
 

@@ -25,7 +25,26 @@ type Ctx = { request: Request }
 function json(data: any, init?: ResponseInit) {
   return Response.json(data, {
     ...init,
-    headers: { 'cache-control': 'no-store', ...(init?.headers ?? {}) },
+    headers: {
+      'cache-control': 'no-store',
+      // Public content API: the app sends the session token explicitly as a
+      // Cookie header (no ambient credentials), so a wildcard origin is safe
+      // and lets the web preview (localhost) and future web builds call it.
+      'access-control-allow-origin': '*',
+      ...(init?.headers ?? {}),
+    },
+  })
+}
+
+function handleOptions(): Response {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, POST, OPTIONS',
+      'access-control-allow-headers': 'content-type, cookie, authorization',
+      'access-control-max-age': '86400',
+    },
   })
 }
 
@@ -171,6 +190,7 @@ export const Route = createFileRoute('/api/mobile/$')({
     handlers: {
       GET: handleGet,
       POST: handlePost,
+      OPTIONS: handleOptions,
     },
   },
 })

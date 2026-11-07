@@ -1,9 +1,11 @@
-/* Open, edge-to-edge header geometry from the supplied HI2026 reference. */
+/* Open, edge-to-edge header geometry from the supplied HI2026 reference.
+   Keep the standard backdrop-filter after its prefix: production CSS optimization
+   retains the final declaration, and Chromium needs the unprefixed reset. */
 :root { --header-h: 76px; }
 .site-header, .site-header.on-hero, .site-header.scrolled, .site-header.on-hero.scrolled {
   position: fixed; inset: 0 0 auto; display: block; width: 100%; height: calc(var(--header-h) + env(safe-area-inset-top, 0px));
   padding: env(safe-area-inset-top, 0px) 0 0; border: 0; border-radius: 0; background: transparent;
-  box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; isolation: isolate; z-index: 80;
+  box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; isolation: isolate; z-index: 80;
   font-family: var(--tv-font); transition: none;
 }
 .site-header::before, .site-header::after { display: none; }

@@ -1,3 +1,3 @@
 import {createFileRoute} from '@tanstack/react-router'
-import {finishSocialSignIn} from '../lib/oauth.server'
-export const Route=createFileRoute('/auth/$provider/callback')({server:{handlers:{GET:({request,params})=>finishSocialSignIn(request,params.provider),POST:({request,params})=>finishSocialSignIn(request,params.provider)}}})
+// Legacy OAuth challenges cannot mint sessions after the Better Auth cutover.
+export const Route=createFileRoute('/auth/$provider/callback')({server:{handlers:{GET:()=>Response.redirect('https://halobox.tv/login',302),POST:()=>Response.redirect('https://halobox.tv/login',303)}}})

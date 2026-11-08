@@ -102,9 +102,11 @@ function controlsGate() {
     './Poster': { img: v => v, plainText: v => v },
     './playerBridge': {}, './directPlayback': {}, '../lib/liveSources': compile('src/lib/liveSources.ts'),
     '../hooks/usePlaybackProgress': { usePlaybackProgress: () => ({ loaded: false, record() {} }) },
+    '../hooks/useTypingViewport': { useTypingViewport() {} }, './PlayerLoading': { PlayerLoading() {} },
     './playbackResume': compile('src/components/playbackResume.ts'),
+    './playbackEnding': compile('src/components/playbackEnding.ts', {'../lib/contentRoutes': compile('src/lib/contentRoutes.ts')}), './PlaybackEndScreen': { PlaybackEndScreen() {} }, '../release2-experience.css': {},
     './playerCapabilities': compile('src/components/playerCapabilities.ts'),
-    './SeekPreview': { SeekPreview() {} },
+    './SeekPreview': { SeekPreview() {} }, './TitlePeople': { TitlePeople() {} },
     '../player-chat-refinement.css': {}, './ui/liquid-glass-navbar': { LiquidNavbar() {} }, './ui/choice-picker': { ChoicePicker() {} },
   }, { setTimeout, clearTimeout })
   const render = () => { stateIndex = refIndex = 0; return production.ImmersivePlayer({ title: 'Test', contentId: 1, contentType: 'movie', directVideoUrl: 'https://media.test/test.mp4' }) }
@@ -158,7 +160,18 @@ function controlsGate() {
   find(render(), el => el.type === 'button' && el.props?.['aria-label'] === 'Playback settings').props.onClick()
   const speed = find(render(), el => el.props?.label === 'Speed')
   speed.props.onChange('1.5');assert.equal(media.playbackRate, 1.5, 'Glass speed picker updates the actual video')
-  console.log('PLAYER_CONTROLS_OK: drag, stale timing, actual volume, mute restoration, liquid tabs, speed picker')
+  video.props.onPlay()
+  media.currentTime = 98; video.props.onTimeUpdate({ currentTarget: media })
+  let endScreen = find(render(), el => typeof el.props?.onReplay === 'function')
+  assert.ok(endScreen, 'Actual playback in the closing seconds opens the end screen')
+  assert.equal(endScreen.props.ended, false, 'Near-end must not start the next-title countdown')
+  video.props.onEnded()
+  endScreen = find(render(), el => typeof el.props?.onReplay === 'function')
+  assert.equal(endScreen.props.ended, true, 'Only the actual ended event enables next-title countdown')
+  endScreen.props.onReplay()
+  assert.equal(media.currentTime, 0, 'Replay seeks the actual video to the beginning')
+  assert.equal(find(render(), el => typeof el.props?.onReplay === 'function'), null, 'Replay restores the player controls')
+  console.log('PLAYER_CONTROLS_OK: drag, stale timing, actual volume, mute restoration, liquid tabs, speed, near-end/ended distinction and replay')
 }
 
 function initialPlaybackGate() {
@@ -185,9 +198,11 @@ function initialPlaybackGate() {
       './directPlayback': { createDirectPlayback(video, url, callbacks) { const transport = { play() { plays++; if (options.blocked) callbacks.blocked(); return Promise.resolve() }, pause() {}, destroy() { destroyed++ } }; transports.push(transport); return transport } },
       './playerBridge': { createPlayerBridge(frame, handlers) { providerHandlers = handlers; return bridge } },
       '../lib/liveSources': compile('src/lib/liveSources.ts'), '../hooks/usePlaybackProgress': { usePlaybackProgress: () => progress },
+      '../hooks/useTypingViewport': { useTypingViewport() {} }, './PlayerLoading': { PlayerLoading() {} },
       './playbackResume': compile('src/components/playbackResume.ts'),
+    './playbackEnding': compile('src/components/playbackEnding.ts', {'../lib/contentRoutes': compile('src/lib/contentRoutes.ts')}), './PlaybackEndScreen': { PlaybackEndScreen() {} }, '../release2-experience.css': {},
       './playerCapabilities': { createIdleControls: () => ({ reveal() {}, destroy() {} }), createPlaybackWakeLock: () => ({ setPlaying() {}, destroy() {} }), supportsPictureInPicture: () => false, isPictureInPicture: () => false },
-      './SeekPreview': { SeekPreview() {} }, '../player-chat-refinement.css': {}, './ui/liquid-glass-navbar': { LiquidNavbar() {} }, './ui/choice-picker': { ChoicePicker() {} },
+      './SeekPreview': { SeekPreview() {} }, './TitlePeople': { TitlePeople() {} }, '../player-chat-refinement.css': {}, './ui/liquid-glass-navbar': { LiquidNavbar() {} }, './ui/choice-picker': { ChoicePicker() {} },
     }, { setTimeout, clearTimeout, navigator: {}, document: { activeElement: null }, window: { addEventListener() {}, removeEventListener() {} }, HTMLElement: class {} })
     function render() {
       stateIndex = refIndex = effectIndex = 0
@@ -218,7 +233,7 @@ function initialPlaybackGate() {
   const provider = harness({ provider: true }); provider.progress.loaded = true; provider.render(); assert.equal(provider.plays, 0)
   provider.ready(); provider.render(); assert.equal(provider.plays, 1); assert.ok(provider.playButton(), 'An unconfirmed provider autoplay attempt keeps Play available')
   provider.confirmPlay(); assert.equal(provider.playButton(), null); provider.cleanup()
-  assert.match(readFileSync(resolve(root, 'src/components/TitleDetail.tsx'), 'utf8'), /<WatchSection \{\.\.\.playback\} initialAutoPlay \/>/, 'Only the user-opened playback dialog opts in')
+  assert.match(readFileSync(resolve(root, 'src/components/TitleDetail.tsx'), 'utf8'), /<WatchSection[^\n]*\{\.\.\.playback\}[^\n]*initialAutoPlay \/>/, 'Only the user-opened playback dialog opts in')
   console.log('PLAYER_INITIAL_PLAY_OK')
 }
 
@@ -312,6 +327,7 @@ function episodeIntentGate() {
     react: { useState: (value) => { const index = setters.length; setters.push([]); return [value, (next) => setters[index].push(next)] } },
     './Poster': { img: (value) => value || '/poster.jpg', plainText: (value) => String(value || '') }, './Detail': { hasPlaybackSource: (library, video, trailer) => !!((library && video) || trailer) },
     './TitleDetail': { TitleDetail: () => null, PlaybackDialog: () => null },
+    './playbackEnding': compile('src/components/playbackEnding.ts', {'../lib/contentRoutes': compile('src/lib/contentRoutes.ts')}),
   })
   const data = { show: { id: 10, name: 'Show', movie_access: 'paid' }, seasons: [{ id: 1 }, { id: 2 }], episodes: [{ id: 20, season_id: 1, name: 'First', bunny_video_url: 'first' }, { id: 24, season_id: 2, name: 'Saved episode', bunny_video_url: 'saved-source', access: 'paid', myPurchase: true }], bunnyLibraryId: '123', viewerId: 7 }
   const child = show.ShowDetail({ data, kind: 'tvshow' })
@@ -326,7 +342,44 @@ function episodeIntentGate() {
   shell.props.onPlay(999)
   assert.equal(setters[3].length, 1, 'Unavailable episode cannot silently play a different episode')
   assert.match(setters[1].at(-1), /no longer available/)
+  const nodes = tree => !tree || typeof tree !== 'object' ? [] : Array.isArray(tree) ? tree.flatMap(nodes) : [tree, ...nodes(tree.props?.children)]
+  const redacted = { id: 28, season_id: 1, name: 'Paid episode', access: 'paid', bunny_video_url: null, video_url_input: null, trailer_url: null }
+  for (const [parentPaid, episodePaid] of [[false, true], [true, false], [true, true]]) {
+    setters.length = 0
+    const fixture = { ...data, show: { ...data.show, movie_access: parentPaid ? 'paid' : 'free' }, episodes: [{ ...redacted, access: episodePaid ? 'paid' : 'free' }] }
+    const element = show.ShowDetail({ data: fixture, kind: 'tvshow' })
+    const view = element.type(element.props)
+    const card = nodes(view).find(node => node.props?.className === 'tv-episode-card')
+    assert.equal(card.props.disabled, false, 'Redacted paid episodes still expose the rental action')
+    assert.equal(card.props['aria-label'], 'View rental options for Paid episode')
+    card.props.onClick()
+    assert.equal(setters[3].at(-1).contentId, 28)
+    assert.equal(setters[3].at(-1).bunnyVideoId, null, 'The UI never fabricates a protected playback source')
+    assert.equal(!!setters[3].at(-1).parentGate, parentPaid)
+    view.props.onPlay(28)
+    assert.equal(setters[3].at(-1).contentId, 28, 'A resume link can reach the rental gate')
+    view.props.onPlay()
+    assert.equal(setters[3].at(-1).contentId, 28, 'The first episode rental remains reachable from the hero action')
+  }
+  setters.length = 0
+  const unavailable = show.ShowDetail({ data: { ...data, myPurchase: true, episodes: [{ ...redacted, myPurchase: true }] }, kind: 'tvshow' })
+  const unavailableView = unavailable.type(unavailable.props)
+  assert.equal(nodes(unavailableView).find(node => node.props?.className === 'tv-episode-card').props.disabled, true, 'An owned episode with no source remains unavailable')
   console.log('PLAYER_EPISODE_INTENT_OK')
+}
+
+function videoEntitlementGate() {
+  let data = { video: { id: 30, name: 'Paid video', access: 'paid' }, myPurchase: { id: 4 }, viewerId: 7 }
+  const route = compile('src/routes/video.$id.tsx', {
+    react: { useState: value => [value, () => {}] },
+    '@tanstack/react-router': { createFileRoute: () => options => ({ ...options, useLoaderData: () => data }) },
+    '../lib/contentRoutes': {}, '../lib/api': {}, '../components/Poster': {}, '../components/Detail': {},
+    '../components/TitleDetail': { TitleDetail() {} },
+  }).Route
+  assert.equal(route.component().props.playback.myPurchase.id, 4, 'The server video entitlement reaches the player gate')
+  data = { ...data, myPurchase: null }
+  assert.equal(route.component().props.playback.myPurchase, null, 'Missing entitlement remains gated')
+  console.log('PLAYER_VIDEO_ENTITLEMENT_OK')
 }
 
 async function directPlaybackGate() {
@@ -426,7 +479,7 @@ function paidGate() {
   const React = require('react'), { renderToStaticMarkup } = require('react-dom/server')
   const detail = compile('src/components/Detail.tsx', {
     './Poster': { img: (value) => value || '/poster.jpg', IconPlay: () => null, IconPlus: () => null },
-    './BibleReader': { BibleReader: () => null },
+    './BibleReader': { BibleReader: () => null }, './TitlePeople': { TitlePeople: () => null },
     './LibraryNoteEditor': { LibraryNoteEditor: () => null },
     './ScrollRail': compile('src/components/ScrollRail.tsx'),
     '@/lib/contentRoutes': {contentPath: () => '/'},
@@ -440,6 +493,9 @@ function paidGate() {
   assert.ok(render({ ...props, myPurchase: true }).includes('data-player-auto="true"'), 'The authorised player receives the dialog intent through the purchase gate')
   assert.ok(!render({ ...props, myPurchase: true, parentGate: { contentType: 'tvshow', contentId: 10, title: 'Show', movieAccess: 'paid' } }).includes('data-player-id'), 'Parent purchase is independently required')
   assert.ok(!render({ ...props, parentGate: { contentType: 'tvshow', contentId: 10, title: 'Show', movieAccess: 'paid', myPurchase: true } }).includes('data-player-id'), 'Parent ownership cannot grant episode ownership')
+  assert.ok(!render({ ...props, myPurchase: true, hasSubscriptionAccess: false }).includes('data-player-id'), 'PPV ownership cannot bypass a subscription gate')
+  assert.ok(render({ ...props, myPurchase: true, hasSubscriptionAccess: false }).includes('Subscription required'), 'Subscription denial explains how to unlock the title')
+  assert.ok(!render({ ...props, myPurchase: true, parentGate: { contentType: 'tvshow', contentId: 10, title: 'Show', hasSubscriptionAccess: false } }).includes('data-player-id'), 'Parent subscription access is independently required')
   console.log('PLAYER_PAID_GATE_OK')
 }
 bridgeGate()
@@ -447,6 +503,7 @@ await directPlaybackGate()
 await fullscreenGate()
 resumeGate()
 episodeIntentGate()
+videoEntitlementGate()
 await progressGate(true)
 await progressGate(false)
 console.log('PLAYER_PROGRESS_OK')

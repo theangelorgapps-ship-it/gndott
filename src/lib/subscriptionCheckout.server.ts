@@ -3,7 +3,7 @@ import { getRequestHeader, getRequestUrl, setResponseHeader } from '@tanstack/re
 import { getActiveViewer } from './viewer.server'
 
 const STRIPE = 'https://api.stripe.com/v1'
-const PRODUCTION_ORIGIN = 'https://gndott.theangelorgapps.workers.dev'
+const PRODUCTION_ORIGIN = 'https://halobox.tv'
 const validId = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0
 export class CheckoutError extends Error {}
 export function checkoutError(error: unknown) {

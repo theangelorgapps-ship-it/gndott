@@ -24,7 +24,7 @@ export async function socialConfiguration() {
  }
 }
 function origin() {
- const url=new URL(String((env as any).AUTH_ORIGIN||'https://gndott.theangelorgapps.workers.dev'))
+ const url=new URL(String((env as any).AUTH_ORIGIN||'https://halobox.tv'))
  if(url.protocol!=='https:'||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw new AuthError('Sign-in is not configured.')
  return url.origin
 }

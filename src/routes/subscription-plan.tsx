@@ -22,10 +22,8 @@ function featureLines(lims: any[]): string[] {
         lines.push(Number(l.limitation_value) ? 'Ads included' : 'Ad-free experience')
         break
       case 'device-limit':
-        lines.push(`You can use up to ${l.limit ?? l.limitation_value} device(s) simultaneously`)
-        break
       case 'profile-limit':
-        lines.push(`Up to ${l.limit ?? l.limitation_value} profile(s)`)
+      case 'user-limit':
         break
       case 'download-status': {
         try {
@@ -195,7 +193,7 @@ function SubscriptionPlan() {
           <span className="np-crown"><IconCrown size={30} /></span>
           <div className="np-text">
             <h2>{activeSub.name}</h2>
-            <p>Your plan is active{activeSub.end_date ? ` until ${String(activeSub.end_date).slice(0, 10)}` : ''}.</p>
+            <p>{activeSub.role === 'member' ? 'Your shared plan is active' : 'Your plan is active'}{activeSub.end_date ? ` until ${String(activeSub.end_date).slice(0, 10)}` : ''}.</p>
           </div>
         </div>
       ) : (
@@ -220,7 +218,7 @@ function SubscriptionPlan() {
 
       <div className="plans-grid">
         {shown.map((p: any) => {
-          const feats = featureLines(limits.filter((l: any) => l.plan_id === p.id))
+          const feats = [`${p.duration === 'year' ? 4 : 2} separate email logins, including you`, `${p.duration === 'year' ? 10 : 5} devices shared across the plan`, 'Private profiles, watchlists and history for each member', ...featureLines(limits.filter((l: any) => l.plan_id === p.id))]
           const price = Number(p.price || 0).toFixed(2)
           const per = `/ ${p.duration_value} ${p.duration === 'month' ? (p.duration_value > 1 ? 'Months' : 'Month') : (p.duration_value > 1 ? 'Years' : 'Year')}`
           return (

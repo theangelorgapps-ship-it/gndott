@@ -27,7 +27,7 @@ fail=true;await assert.rejects(billing.cancelSubscription({data:{id:1}}));assert
 console.log('BILLING_OWNERSHIP_AND_FAILURE_OK')
 const routes=load('src/lib/contentRoutes.ts');assert.equal(routes.contentPath({id:229,name:'A Sound From Heaven | Prophet Uebert Angel'}),'/movie/a-sound-from-heaven-prophet-uebert-angel-229');for(const input of ['229','a-sound-from-heaven-229'])assert.equal(routes.contentIdFromPath(input),229);for(const input of ['0','../229','229no','-12','NaN','x-9007199254740992'])assert.ok(Number.isNaN(routes.contentIdFromPath(input)));assert.equal(routes.titleSlug('Grâce & Truth!'),'grace-truth')
 assert.equal(routes.contentPath({id:229,slug:'a-sound-229'}),'/movie/a-sound-229');console.log('READABLE_ROUTES_OK')
-const images=load('src/lib/imageProcessing.server.ts')
+const images=load('src/lib/imageProcessing.server.ts',{'./trustedAvif':load('src/lib/trustedAvif.ts')})
 const original=new File([new Uint8Array([255,216,255,0,1])],'image.jpg')
 const avif=new Uint8Array([0,0,0,16,102,116,121,112,97,118,105,102,0,0,0,0])
 let converted=0,stored=new Map()

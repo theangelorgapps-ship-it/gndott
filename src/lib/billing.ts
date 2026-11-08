@@ -8,7 +8,7 @@ async function secret(){return(await first<{val:string}>("SELECT val FROM settin
 async function stripe(path:string,token:string,body?:URLSearchParams,transport:typeof fetch=fetch){const result=await transport(`${api}${path}`,{method:body?'POST':'GET',headers:{Authorization:`Bearer ${token}`,'Stripe-Version':'2025-04-30.basil',...(body?{'Content-Type':'application/x-www-form-urlencoded'}:{})},body:body?.toString(),signal:AbortSignal.timeout(15000)});if(!result.ok)throw new Error('Unable to reach billing. Please try again.');return result.json() as Promise<any>}
 export async function inspectBilling(record:BillingRecord,token:string|undefined,transport:typeof fetch=fetch):Promise<CancellationState & {providerId?:string}>{
  const end=record.end_date
- if(record.status!=='active')return{kind:'none',message:'No active subscription.'}
+ if(record.status!=='active'||!end||!Number.isFinite(Date.parse(end))||Date.parse(end)<=Date.now())return{kind:'none',message:'No active subscription.'}
  const provider=String(record.plan_type||'').toLowerCase(),id=String(record.payment_id||'')
  if(provider.includes('apple')||provider.includes('appstore'))return{kind:'external',id:record.id,end,message:'Manage or cancel this subscription in your Apple account.',manageUrl:'https://apps.apple.com/account/subscriptions'}
  if(provider.includes('google'))return{kind:'external',id:record.id,end,message:'Manage or cancel this subscription in Google Play.',manageUrl:'https://play.google.com/store/account/subscriptions'}

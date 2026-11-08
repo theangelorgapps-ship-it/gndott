@@ -5,7 +5,7 @@ import { getSessionUser, logout } from '../lib/api'
 import { getViewer } from '../lib/viewer'
 import type { ActiveViewer } from '../lib/viewer.server'
 
-export const ADMIN_URL = 'https://gndottadmin.theangelorgapps.workers.dev'
+export const ADMIN_URL = 'https://fort.halobox.tv'
 const LINKS = [
   { to: '/account-setting', label: 'Account settings', Icon: Settings2 },
   { to: '/continue-watching', label: 'Continue watching', Icon: Clock3 },

@@ -40,7 +40,8 @@ const database=compile('src/lib/db.ts',{'cloudflare:workers':{env:{DB:d1}}})
 const sessionModule={getSession:async()=>session,setSessionCookie:async s=>{session=s}}
 const viewer=compile('src/lib/viewer.server.ts',{'./db':database,'./session.server':sessionModule})
 const recommendations=compile('src/lib/recommendations.ts', {'./contentRoutes':compile('src/lib/contentRoutes.ts',{})})
-const imports={'@tanstack/react-start':factory,'./db':database,'./session.server':sessionModule,'./viewer.server':viewer,'./recommendations':recommendations}
+const security=compile('src/lib/api-security.ts',{})
+const imports={'./api-security':security,'@tanstack/react-start':factory,'./db':database,'./session.server':sessionModule,'./viewer.server':viewer,'./recommendations':recommendations}
 const playback=compile('src/lib/playback.ts',imports), api=compile('src/lib/api.ts',imports)
 const save=(contentType,contentId,position=120,duration=600)=>playback.recordWatchProgress({data:{contentType,contentId,position,duration}})
 const read=(contentType,contentId)=>playback.getPlaybackProgress({data:{contentType,contentId}})

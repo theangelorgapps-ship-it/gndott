@@ -39,6 +39,9 @@
 .chat-sheet .chat-welcome{display:flex;align-items:center;gap:11px;border-top:1px solid #ffffff0d;padding:16px 20px;color:#a8adba;flex:none}
 .chat-welcome>svg{flex:none;color:#9098b7}.chat-welcome>p{margin:0;font-size:12px;line-height:1.55;flex:1}
 .chat-reactions{position:relative;flex:none}.chat-sheet .chat-reactions>button{background:#ffffff0b;color:var(--royal-pastel,#a5b8ff);box-shadow:inset 0 1px 1px #ffffff23}
+/* Keep generic discussion-button padding from shifting the reaction icon. */
+.chat-sheet.live-discussion .chat-reactions>button:not(.btn){display:grid;place-items:center;padding:0;width:44px;height:44px;min-width:44px;line-height:1}
+.chat-reactions>button>svg{display:block;margin:0}
 .chat-reaction-options{position:absolute;right:-3px;bottom:52px;display:flex;flex-direction:column;gap:2px;background:#292c37f5;border:1px solid #ffffff24;border-radius:28px;padding:5px;box-shadow:0 12px 32px #0007;z-index:4}
 .chat-sheet .chat-reaction-options button{display:grid;place-items:center;background:none;width:44px;height:44px;border-radius:50%;padding:0;font-size:23px;color:#ddd}
 .chat-sheet .chat-reaction-options button:hover{background:#ffffff10}
@@ -74,3 +77,79 @@
 @media(min-width:2400px){.chat-sheet.live-discussion{border-radius:38px;font-size:23px}.chat-sheet .live-discussion-heading{padding:26px 32px}.chat-sheet .live-discussion-heading h2{font-size:38px}.chat-sheet .live-feed{max-height:650px;padding:20px 30px}.chat-sheet .live-comment-avatar{width:46px;height:46px;flex-basis:46px;font-size:16px}.chat-sheet .chat-message-content p{font-size:21px}.chat-sheet .chat-message-content blockquote{font-size:18px}.chat-sheet .chat-heading-actions button{width:56px;min-height:56px}.chat-sheet .chat-welcome{padding:24px 30px}.chat-welcome>p{font-size:18px}.chat-sheet .chat-input-pill textarea{font-size:22px;min-height:58px}.chat-sheet .chat-composer-hint{font-size:15px}.chat-sheet .live-sign-in{font-size:21px}.chat-sheet .live-composer.chat-composer{padding:22px 28px 14px}}
 
 @media(min-width:2400px){.tv-player-bottom .tv-player-settings.glass-playback-settings{max-width:800px;bottom:220px;padding:24px;border-radius:32px}.glass-playback-settings>header{font-size:22px}.glass-playback-choices .choice-trigger{min-height:76px}}
+
+/* Quiet placeholders retain the shape of the content on a slow connection. */
+.player-loading { min-width: 0; padding: 18px; border-radius: 16px; background: #ffffff04; }
+.player-loading-shapes { display: grid; gap: 14px; }
+.player-shimmer { display: block; position: relative; overflow: hidden; background: #b7c3df13; border-radius: 8px; }
+.player-shimmer::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(100deg, transparent 20%, #d8e2ff1a 50%, transparent 80%); animation: player-shimmer-pass 1.8s ease-in-out infinite; }
+.player-loading-heading { height: 38px; width: 65%; margin-bottom: 3px; }
+.player-loading-line { height: 13px; width: 100%; }
+.player-loading-line:last-child { width: 64%; }
+.player-loading-note { min-height: 180px; }
+.player-loading-chat { margin: 14px 16px; min-height: 150px; }
+.tv-player-media .player-loading-video { position: absolute; left: 25%; right: 25%; bottom: 18px; z-index: 1; padding: 0; background: transparent; pointer-events: none; }
+.player-loading-track { height: 4px; background: #ffffff24; }
+@keyframes player-shimmer-pass { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .player-shimmer::after { animation: none; transform: none; background: #d8e2ff08; } }
+
+.rte-mobile-tools .rte-done { display: none; }
+.tv-immersive-player.panel-open .tv-player-bottom { background: linear-gradient(0deg, #050609 0%, #050609ed 68%, #05060975 87%, #05060900 100%); }
+
+@media (max-width: 759px), (max-height: 500px) and (pointer: coarse) {
+  /* A soft bridge between the video's lower edge and the reading surface. */
+  .tv-immersive-player.panel-open.controls-visible .tv-player-bottom { background: linear-gradient(180deg, #08090c, #030405 140px, #000); }
+  .tv-immersive-player.panel-open.controls-visible .tv-player-bottom::before { content: ''; position: absolute; inset: -34px 0 auto; height: 34px; background: linear-gradient(180deg, #08090c00, #08090c36 35%, #08090cc9 80%, #08090c); pointer-events: none; }
+  .tv-immersive-player.panel-open .tv-player-panel .notes-panel .supplement-heading h2 { font-size: 16px; line-height: 1.35; margin: 0 0 4px; }
+  .tv-immersive-player.panel-open .tv-player-panel .notes-panel .supplement-heading p { font-size: 12px; line-height: 1.45; margin: 0; }
+  .tv-immersive-player.panel-open .tv-player-panel .notes-panel .notes-label { font-size: 12px; margin: 8px 0; }
+}
+
+/* visualViewport reports the usable space above iOS/Android keyboards. The
+   media retains a separate row; the panel alone scrolls as the caret moves. */
+.tv-immersive-player.panel-open[data-keyboard-open] {
+  top: var(--typing-viewport-top, 0px); height: var(--typing-viewport-height, 100dvh); min-height: 0;
+  --panel-media-top: max(54px, env(safe-area-inset-top));
+  --panel-media-height: clamp(48px, calc(var(--typing-viewport-height) * .2), 112px);
+}
+.tv-immersive-player.panel-open[data-keyboard-open] .tv-player-media { top: var(--panel-media-top); height: var(--panel-media-height); width: 100%; bottom: auto; transition: none; }
+.tv-immersive-player.panel-open[data-keyboard-open] .tv-player-scrim { opacity: 0; }
+.tv-immersive-player.panel-open.controls-visible[data-keyboard-open] .tv-player-bottom {
+  top: calc(var(--panel-media-top) + var(--panel-media-height) + 4px); left: 0; bottom: 0;
+  display: flex; flex-direction: column; min-height: 0; padding: 0 10px 6px;
+}
+.tv-immersive-player.panel-open[data-keyboard-open] .tv-player-bottom .tv-player-tabs { flex: none; margin: 0; width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.tv-immersive-player.panel-open[data-keyboard-open] .tv-player-bottom .tv-player-tabs button { flex: 0 0 auto; white-space: nowrap; }
+.tv-immersive-player.panel-open[data-keyboard-open] .tv-player-bottom .tv-player-panel { flex: 1; min-height: 0; max-height: none; padding: 6px 0 0; overflow-y: auto; }
+.tv-immersive-player.panel-open[data-keyboard-open] .tv-player-panel-close { display: none; }
+.tv-immersive-player.panel-open[data-keyboard-open] .tv-player-panel .notes-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 0; }
+.tv-immersive-player.panel-open[data-keyboard-open] .notes-panel :is(.supplement-heading, .notes-label, .notes-import, .notes-actions) { display: none; }
+.tv-immersive-player.panel-open[data-keyboard-open] .notes-panel .notes-status:empty { display: none; }
+.tv-immersive-player.panel-open[data-keyboard-open] .notes-panel .notes-status { flex: none; min-height: 0; font-size: 12px; margin: 4px 0; }
+.tv-immersive-player.panel-open[data-keyboard-open] .notes-panel [data-slot="rich-text-editor"] { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.tv-immersive-player.panel-open[data-keyboard-open] .notes-panel [data-slot="rich-text-editor-toolbar"] { flex: none; }
+.tv-immersive-player.panel-open[data-keyboard-open] .notes-panel [data-slot="rich-text-editor-content"],
+.tv-immersive-player.panel-open[data-keyboard-open] .notes-panel [data-slot="rich-text-editor-content"] > div { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.tv-immersive-player.panel-open[data-keyboard-open] .notes-panel [data-slot="rich-text-editor-content"] .tiptap { flex: 1; min-height: 52px; max-height: none; padding: 10px 12px; overflow-y: auto; scroll-padding-block: 12px; }
+[data-keyboard-open] .rte-desktop-tools { display: none; }
+[data-keyboard-open] .rte-mobile-tools { display: block; width: 100%; }
+[data-keyboard-open] .rte-mobile-tools .rte-mobile-primary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) 48px; }
+[data-keyboard-open] .rte-mobile-tools .rte-done { display: grid; place-items: center; padding: 4px; min-height: 44px; border: 0; background: transparent; color: var(--royal-pastel, #a5b8ff); font-size: 12px; font-weight: 600; }
+[data-keyboard-open] .rte-mobile-expanded { max-height: 88px; overflow-y: auto; }
+
+.tv-immersive-player.panel-open[data-keyboard-open] .tv-player-panel .chat-sheet { display: flex; flex-direction: column; height: 100%; min-height: 0; border-radius: 18px; }
+.tv-immersive-player.panel-open[data-keyboard-open] .chat-sheet :is(.chat-sheet-handle, .live-discussion-heading, .chat-heading-caption, .chat-welcome, .chat-composer-hint, .chat-pinned) { display: none; }
+.tv-immersive-player.panel-open[data-keyboard-open] .chat-sheet .live-discussion-heading { min-height: 44px; padding: 0 10px; }
+.tv-immersive-player.panel-open[data-keyboard-open] .chat-sheet .live-discussion-heading h2 { font-size: 16px; }
+.tv-immersive-player.panel-open[data-keyboard-open] .chat-sheet .chat-sheet-content { flex: 1; min-height: 0; overflow-y: auto; }
+.tv-immersive-player.panel-open[data-keyboard-open] .chat-sheet .live-feed { flex: 1 1 0; min-height: 0; max-height: none; padding-block: 4px; }
+.tv-immersive-player.panel-open[data-keyboard-open] .chat-sheet .chat-composer { position: sticky; bottom: 0; padding: 6px 8px; background: #16191f; z-index: 2; }
+.tv-immersive-player.panel-open[data-keyboard-open] .chat-sheet .chat-input-pill textarea { max-height: 74px; scroll-padding-block: 8px; }
+.tv-immersive-player.panel-open[data-keyboard-open] .chat-sheet .chat-notice { padding: 4px 10px; font-size: 11px; }
+
+/* In landscape the remaining height is precious; keep the video beside typing. */
+@media (min-width: 600px) {
+  .tv-immersive-player.panel-open[data-keyboard-open] .tv-player-media { top: 54px; width: 40%; height: calc(100% - 62px); }
+  .tv-immersive-player.panel-open.controls-visible[data-keyboard-open] .tv-player-bottom { top: 54px; left: 40%; }
+  .tv-immersive-player.panel-open.controls-visible[data-keyboard-open] .tv-player-bottom::before { display: none; }
+}

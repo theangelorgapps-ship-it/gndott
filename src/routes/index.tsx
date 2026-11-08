@@ -1,3 +1,4 @@
+import { PersonalityCard } from '../components/Personality'
 import { LiquidGlassLayers } from '@/components/ui/liquid-glass'
 import { contentPath } from '@/lib/contentRoutes'
 import { createFileRoute, Link } from '@tanstack/react-router'
@@ -49,7 +50,7 @@ function Home() {
       {data.popularTvShows.length > 0 && <Rail title="Popular Shows" seeAll="/shows">{data.popularTvShows.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.cast?.length > 0 && (
         <Rail title="Popular Personalities">
-          {data.cast.map((person: any) => <div key={person.id} className="c-circle"><img src={img(person.file_url)} alt={person.name} loading="lazy" /><div className="c-name">{person.name}</div><div className="c-sub">{person.designation ?? 'Actor'}</div></div>)}
+          {data.cast.map((person: any) => <PersonalityCard key={person.id} person={person} />)}
         </Rail>
       )}
       {data.free.length > 0 && <Rail title="Free Sermons" seeAll="/sermons">{data.free.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}

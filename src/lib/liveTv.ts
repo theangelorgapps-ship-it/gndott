@@ -3,6 +3,8 @@ import { getRequestHeader, getRequestUrl, setResponseHeader } from '@tanstack/re
 import { all, first, run } from './db'
 import { getActiveViewer } from './viewer.server'
 import { liveUrl, resolveLiveSource } from './liveSources'
+import { subscriptionPlaybackAccess, entitlementDatabase } from './entitlement.server'
+import { resolveEntitlement } from './entitlement-core'
 
 const id = (n: unknown) => { if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < 1) throw new Error('Choose a valid channel or message.'); return n }
 function writeOrigin() {
@@ -24,9 +26,11 @@ async function channelFor(channelId: number, a: Awaited<ReturnType<typeof actor>
  if (!c) throw new Error('Channel not available.')
  if (!a?.admin && c.access !== 'free') {
   if (!a) throw new Error('Sign in to watch this channel.')
-  const access = await first(`SELECT s.id FROM subscriptions s WHERE s.user_id=? AND s.status='active' AND s.deleted_at IS NULL AND datetime(s.end_date)>datetime('now') AND (s.start_date IS NULL OR datetime(s.start_date)<=datetime('now'))
-   AND ((COALESCE(?,0)=0 AND NOT EXISTS(SELECT 1 FROM live_tv_channel_plan_mapping WHERE tv_channel_id=? AND deleted_at IS NULL)) OR s.plan_id=? OR s.plan_id IN (SELECT plan_id FROM live_tv_channel_plan_mapping WHERE tv_channel_id=? AND deleted_at IS NULL)) LIMIT 1`,a.userId,c.plan_id,c.id,c.plan_id,c.id)
-  if (!access) throw new Error('An active channel subscription is required.')
+  const entitlement = await resolveEntitlement(entitlementDatabase(),a.userId)
+  const mappings=await all<{plan_id:number}>('SELECT plan_id FROM live_tv_channel_plan_mapping WHERE tv_channel_id=? AND deleted_at IS NULL',c.id)
+  const plans=[Number(c.plan_id),...mappings.map(row=>Number(row.plan_id))].filter(Boolean)
+  const access=entitlement&&(!plans.length||plans.includes(entitlement.plan_id))&&await subscriptionPlaybackAccess()
+  if (!access) throw new Error('An active channel subscription and an available shared device are required. Manage devices in your account.')
  }
  return c
 }

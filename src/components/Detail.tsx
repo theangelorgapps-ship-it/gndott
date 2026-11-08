@@ -1,10 +1,11 @@
 import { ScrollRail } from './ScrollRail'
-import { contentPath } from '@/lib/contentRoutes'
+import { TitlePeople } from './TitlePeople'
 import { LibraryNoteEditor } from './LibraryNoteEditor'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { BibleReader } from './BibleReader'
-import { CircleCard, img, IconPlay, IconPlus } from './Poster'
+import { img, IconPlay, IconPlus } from './Poster'
 import { ImmersivePlayer } from './ImmersivePlayer'
+import type { NextPlayback } from './playbackEnding'
 
 export function IconCheck({ size = 16 }: { size?: number }) {
   return (
@@ -54,28 +55,8 @@ export function DetailTabs({ tabs, active, onChange }: { tabs: { key: string; la
   )
 }
 
-export function AboutPanel({ cast = [] }: { cast?: any[] }) {
-  const people = Array.isArray(cast) ? cast : []
-  const personalities = people.filter((person) => person.type !== 'director')
-  const locations = people.filter((person) => person.type === 'director')
-  return (
-    <section className="section detail-supplement about-panel" aria-label="About this title">
-      <div className="about-grid">
-        <div className="about-column">
-          <div className="section-head"><h2>Personality</h2></div>
-          {personalities.length ? (
-            <div className="about-people">{personalities.map((person) => <CircleCard key={person.id} name={person.name} image={person.file_url} to={contentPath(person,'/cast')} />)}</div>
-          ) : <p className="about-empty">No personality information is available for this title.</p>}
-        </div>
-        <div className="about-column">
-          <div className="section-head"><h2>Location</h2></div>
-          {locations.length ? (
-            <div className="about-people">{locations.map((person) => <CircleCard key={person.id} name={person.name} image={person.file_url} to={contentPath(person,'/cast')} />)}</div>
-          ) : <p className="about-empty">No location information is available for this title.</p>}
-        </div>
-      </div>
-    </section>
-  )
+export function AboutPanel({ cast = [], locations = [] }: { cast?: any[]; locations?: any[] }) {
+  return <TitlePeople cast={Array.isArray(cast) ? cast : []} locations={Array.isArray(locations) ? locations : []} />
 }
 
 export function BiblePanel() { return <BibleReader /> }
@@ -163,6 +144,10 @@ export function WatchlistButton({ entertainmentId, initialAdded, viewerId }: { e
 // ---------- unified watch section (direct player, PPV gate) ----------
 
 export type WatchSectionProps = {
+  locations?: import('../lib/personalityData').TitleLocation[]
+  recommendations?: any[]
+  upNext?: NextPlayback
+  onNavigate?: () => void
   initialAutoPlay?: boolean
   live?: boolean
   liveDiscussion?: ReactNode
@@ -181,8 +166,9 @@ export type WatchSectionProps = {
   movieAccess?: string | null
   price?: number | null
   myPurchase?: any
+  hasSubscriptionAccess?: boolean
   viewerId: number | null
-  parentGate?: Pick<WatchSectionProps, 'contentType' | 'contentId' | 'title' | 'movieAccess' | 'price' | 'myPurchase'>
+  parentGate?: Pick<WatchSectionProps, 'contentType' | 'contentId' | 'title' | 'movieAccess' | 'price' | 'myPurchase' | 'hasSubscriptionAccess'>
 }
 
 export function WatchSection(props: WatchSectionProps) {
@@ -192,7 +178,7 @@ export function WatchSection(props: WatchSectionProps) {
 
 function WatchContent({
   contentType, contentId, title, poster, bunnyLibraryId, bunnyVideoId, trailerUrl,
-  movieAccess, price, myPurchase, viewerId, children, ...information
+  movieAccess, price, myPurchase, hasSubscriptionAccess, viewerId, children, ...information
 }: WatchSectionProps & { children?: ReactNode }) {
   const [stage, setStage] = useState<'idle' | 'main'>(movieAccess === 'paid' && !myPurchase ? 'idle' : 'main')
   const [rentMsg, setRentMsg] = useState<string | null>(null)
@@ -201,6 +187,8 @@ function WatchContent({
   const router = useRouter()
 
   const needsPurchase = movieAccess === 'paid' && !owned
+
+  if (hasSubscriptionAccess === false) return <div className="watch-section"><div className="trailer-wrap"><div className="trailer-poster" style={{ backgroundImage: `url(${img(poster)})` }}><div className="rent-box"><h2>Subscription required</h2><p>Choose a plan to watch {title}.</p><a className="btn btn-primary" href={viewerId ? '/subscription-plan' : '/login'}>{viewerId ? 'View subscription plans' : 'Sign in to watch'}</a></div></div></div></div>
 
   return (
     <div className="watch-section">

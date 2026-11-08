@@ -45,11 +45,12 @@ import {
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { notifyTypingCaret, registerTypingCaret } from '@/hooks/useTypingViewport';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PlayerLoading } from '@/components/PlayerLoading';
 import { Toggle } from '@/components/ui/toggle';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -224,6 +225,7 @@ const RichTextEditorButton = ({
           disabled={disabled}
           aria-label={tooltip}
           className={className}
+          onPointerDown={(event) => { if (event.pointerType !== 'mouse') event.preventDefault(); }}
           {...props}
         >
           {children}
@@ -828,7 +830,8 @@ const MobileToolbar = () => {
       <RichTextEditorButton tooltip="Highlight" pressed={state.highlight} onPressedChange={() => editor.chain().focus().toggleHighlight().run()}><Highlighter size={18} /></RichTextEditorButton>
       <RichTextEditorButton tooltip="Bullet list" pressed={state.list} onPressedChange={() => editor.chain().focus().toggleBulletList().run()}><List size={18} /></RichTextEditorButton>
       <RichTextEditorLinkPopover />
-      <button type="button" className="rte-more" aria-label={expanded ? 'Fewer formatting options' : 'More formatting options'} aria-expanded={expanded} aria-controls={moreId} onClick={() => setExpanded(value => !value)}><Ellipsis size={21} /></button>
+      <button type="button" className="rte-more" aria-label={expanded ? 'Fewer formatting options' : 'More formatting options'} aria-expanded={expanded} aria-controls={moreId} onPointerDown={(event) => event.preventDefault()} onClick={() => { setExpanded(value => !value); notifyTypingCaret(editor.view.dom); }}><Ellipsis size={21} /></button>
+      <button type="button" className="rte-done" aria-label="Finish editing and dismiss keyboard" onClick={() => { editor.commands.blur(); setExpanded(false); }}>Done</button>
     </div>
     {expanded && <div id={moreId} className="rte-mobile-expanded" role="group" aria-label="All formatting options"><DefaultToolbar /></div>}
   </div>;
@@ -901,16 +904,27 @@ const RichTextEditor = ({
     content: value ?? defaultValue,
     editable: isEditable,
     immediatelyRender: false,
-    onUpdate: ({ editor: e }) => onChangeRef.current?.(e.getHTML()),
+    onUpdate: ({ editor: e }) => { onChangeRef.current?.(e.getHTML()); notifyTypingCaret(e.view.dom); },
+    onSelectionUpdate: ({ editor: e }) => notifyTypingCaret(e.view.dom),
     onFocus: () => onFocusRef.current?.(),
     onBlur: () => onBlurRef.current?.(),
     editorProps: {
+      handleScrollToSelection: (view) => {
+        if (!view.dom.closest('[data-typing-active]')) return false;
+        notifyTypingCaret(view.dom);
+        return true;
+      },
       attributes: {
         role: 'textbox', 'aria-label': 'Your note', 'aria-multiline': 'true',
         class: 'focus:outline-none min-h-[150px] px-3 py-2 text-base md:text-sm',
       },
     },
   });
+
+  React.useEffect(() => {
+    if (!editor) return;
+    return registerTypingCaret(editor.view.dom, () => editor.view.coordsAtPos(editor.state.selection.head));
+  }, [editor]);
 
   React.useEffect(() => {
     if (!editor) return;
@@ -938,23 +952,7 @@ const RichTextEditor = ({
   }, [placeholder, editor]);
 
   if (!editor) {
-    return (
-      <div
-        data-slot="rich-text-editor"
-        className={cn('grow rounded-md border border-input bg-transparent shadow-xs', className)}
-      >
-        <div className="flex flex-wrap items-center gap-2 border-b border-border p-2">
-          {Array.from({ length: 18 }).map((_, i) => (
-            <Skeleton key={i} className="size-7 rounded" />
-          ))}
-        </div>
-        <div className="min-h-[150px] space-y-2.5 px-3 py-3">
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-5/6" />
-        </div>
-      </div>
-    );
+    return <PlayerLoading label="Opening editor…" />;
   }
 
   return (

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { ChevronDown, Heart, MessageCircle, MoreHorizontal, Send, ShieldCheck, Smile, UsersRound, X } from 'lucide-react'
 import { blockLiveViewer, getLiveDiscussion, moderateLive, reportLiveComment, sendLiveComment, unblockLiveViewer } from '../lib/liveTv'
+import { useTypingViewport } from '../hooks/useTypingViewport'
+import { PlayerLoading } from './PlayerLoading'
 import '../player-chat-refinement.css'
 
 type Discussion = Awaited<ReturnType<typeof getLiveDiscussion>>
@@ -21,6 +23,8 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
   const feed = useRef<HTMLDivElement>(null), follow = useRef(true), blockDialog = useRef<HTMLDialogElement>(null)
   const reportForm = useRef<HTMLFormElement>(null)
   const blockTrigger = useRef<HTMLElement | null>(null), composer = useRef<HTMLTextAreaElement>(null), busyRef = useRef(false)
+  const sheet = useRef<HTMLDivElement>(null)
+  useTypingViewport(sheet)
   channel.current = channelId
   const prefix = useId()
   const refresh = useCallback(() => {
@@ -61,6 +65,12 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
   const pinned = canModerate ? [] : filtered.filter(c => c.pinned)
   const comments = canModerate ? filtered : filtered.filter(c => !c.pinned).slice().reverse()
   const latestId = comments.at(-1)?.id
+  useEffect(() => {
+    const input = composer.current
+    if (!input) return
+    input.style.height = 'auto'
+    input.style.height = `${Math.min(100, input.scrollHeight)}px`
+  }, [body, collapsed, data?.canComment])
   useEffect(() => { if (follow.current && feed.current && !canModerate) feed.current.scrollTop = feed.current.scrollHeight }, [latestId, collapsed, canModerate])
   async function mutate(action: () => Promise<unknown>, success: () => void) {
     if (busyRef.current) return
@@ -98,7 +108,7 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
       </div></details>}
     </article>
   }
-  return <div className={`live-discussion chat-sheet${collapsed ? ' is-collapsed' : ''}`} data-lenis-prevent>
+  return <div ref={sheet} className={`live-discussion chat-sheet${collapsed ? ' is-collapsed' : ''}`} data-lenis-prevent>
     <span className="chat-sheet-handle" aria-hidden="true" />
     <header className="live-discussion-heading"><div><h2 id={`${prefix}-heading`}>Live chat</h2><p className="chat-heading-caption">{connection ? 'Reconnecting…' : !data ? 'Connecting…' : data.enabled ? 'Latest messages' : 'Comments paused'}</p></div><div className="chat-heading-actions">
       {data?.signedIn && !collapsed && <button type="button" aria-label="Blocked viewers" aria-expanded={blockedOpen} onClick={() => setBlockedOpen(value => !value)}><UsersRound size={21}/></button>}
@@ -110,7 +120,7 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
         if(offset || e.key==='Home' || e.key==='End'){e.preventDefault();const next=tabs[e.key==='Home'?0:e.key==='End'?3:(tabs.indexOf(name)+offset+4)%4];setTab(next);document.getElementById(`${prefix}-${next}`)?.focus()}
       }} onClick={() => {setTab(name);setReply(null)}}>{name}</button>)}</div>}
       {connection && <p role="status" className="chat-notice">{connection} <button type="button" onClick={() => void refresh()}>Retry</button></p>}
-      {!data && !connection && <p role="status" className="chat-notice">Loading conversation…</p>}
+      {!data && !connection && <PlayerLoading kind="chat" label="Loading conversation…" />}
       {data && <>
         {blockedOpen && <section className="chat-blocked" aria-label="Blocked viewers"><h3>Blocked viewers</h3>{!data.blocked?.length ? <p>No viewers blocked.</p> : data.blocked.map(viewer => <p key={viewer.id}><span>{viewer.author_name}</span><button type="button" disabled={busy} onClick={() => void mutate(() => unblockLiveViewer({data:{blockId:viewer.id}}), () => setNotice('Viewer unblocked.'))}>Unblock</button></p>)}</section>}
         {!data.enabled && <p className="live-notice">Live comments are turned off by the administrator.</p>}
@@ -131,7 +141,7 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
         {activeTab!=='Reports'&&(data.canComment?<form className="live-composer chat-composer" onSubmit={e=>{e.preventDefault();send()}}>
           {reply&&<p className="chat-replying">Replying to {reply.author_name}<button type="button" aria-label="Cancel reply" onClick={()=>setReply(null)}><X size={16}/></button></p>}
           <label className="chat-sr-only" htmlFor={`${prefix}-message`}>{canModerate&&activeTab==='Admin comments'?'Official announcement':'Your comment'}</label>
-          <div className="chat-input-row"><div className="chat-input-pill"><textarea ref={composer} id={`${prefix}-message`} rows={1} maxLength={1000} value={body} disabled={busy} onChange={e=>setBody(e.target.value)} placeholder="Chat…" required onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send()}}}/><button type="button" aria-label="Add emoji" aria-expanded={emojiOpen} disabled={busy} onClick={()=>setEmojiOpen(value=>!value)}><Smile size={22}/></button></div><button type="submit" className="chat-send" disabled={busy||!body.trim()} aria-label={busy?'Sending comment':'Send comment'}><Send size={23}/></button></div>
+          <div className="chat-input-row"><div className="chat-input-pill"><textarea ref={composer} id={`${prefix}-message`} rows={1} maxLength={1000} value={body} readOnly={busy} aria-busy={busy} onChange={e=>setBody(e.target.value)} placeholder="Chat…" required onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send()}}}/><button type="button" aria-label="Add emoji" aria-expanded={emojiOpen} disabled={busy} onClick={()=>setEmojiOpen(value=>!value)}><Smile size={22}/></button></div><button type="submit" className="chat-send" disabled={busy||!body.trim()} aria-label={busy?'Sending comment':'Send comment'}><Send size={23}/></button></div>
           {emojiOpen&&<div className="chat-emoji-options" role="group" aria-label="Add emoji to comment">{[...reactions,{emoji:'✨',label:'sparkles'},{emoji:'👏',label:'applause'},{emoji:'🔥',label:'fire'}].map(r=><button key={r.label} type="button" aria-label={`Add ${r.label}`} onClick={()=>{setBody(value=>(value+r.emoji).slice(0,1000));setEmojiOpen(false);composer.current?.focus()}}>{r.emoji}</button>)}</div>}
           <p className="chat-composer-hint">{body.length>800?`${body.length}/1,000 · `:''}{data.slowMode?`${data.slowMode}s between messages`:'Share a thought with the community'}</p>
         </form>:<p className="live-sign-in">{!data.signedIn?<>Join the conversation. <a href="/login">Sign in</a></>:data.commentReason}{data.signedIn&&!data.muted&&data.enabled?<a href="/manage-profile"> Choose profile</a>:null}</p>)}

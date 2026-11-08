@@ -23,7 +23,7 @@ function ChangePassword() {
     try {
       const res = await changePassword({ data: { current, next } })
       if (res.ok) {
-        setMsg({ ok: true, text: 'Password updated successfully.' })
+        setMsg({ ok: true, text: 'Password updated. Your other sessions have been signed out.' })
         setCurrent(''); setNext(''); setConfirm('')
       } else {
         setMsg({ ok: false, text: res.error ?? 'Could not change password.' })
@@ -42,7 +42,7 @@ function ChangePassword() {
           <div className="field"><input type="password" placeholder="Current Password" value={current} onChange={(e) => setCurrent(e.target.value)} required /></div>
           <div className="field"><input type="password" placeholder="New Password" value={next} onChange={(e) => setNext(e.target.value)} required /></div>
           <div className="field"><input type="password" placeholder="Confirm New Password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required /></div>
-          {msg && <div className="error" style={msg.ok ? { color: 'var(--success)' } : undefined}>{msg.text}</div>}
+          {msg && <div className="error" role="status" style={msg.ok ? { color: 'var(--success)' } : undefined}>{msg.text}</div>}
           <button className="btn btn-primary auth-btn" disabled={busy}>{busy ? 'Saving…' : 'Update Password'}</button>
         </form>
       </div>

@@ -1,4 +1,6 @@
+import { SubscriptionSharing } from '../components/SubscriptionSharing'
 import { SubscriptionControls } from '../components/SubscriptionControls'
+import { SocialSignIn } from '../components/SocialSignIn'
 import { ProfilePhoto } from '../components/ProfilePhoto'
 import { AccountLibrary } from '../components/AccountLibrary'
 import { createFileRoute, Link } from '@tanstack/react-router'
@@ -22,9 +24,8 @@ function maskMobile(mobile: string | null | undefined): string {
 function AccountSetting() {
   const data = Route.useLoaderData()
   if (!data?.user) return <NeedsAuth />
-  const { user, subscription, devices } = data
+  const { user, subscription, sharing } = data
   const active = subscription?.status === 'active'
-  const recordedDevices = devices.filter((device) => device.device_name || device.platform)
   return <AccountShell title="Your account.">
     <ProfilePhoto/>
     {user.user_type === 'admin' && <a className="btn btn-secondary" href="/admin/live-tv">Live TV administration</a>}
@@ -37,7 +38,7 @@ function AccountSetting() {
       <section className="acct-card" aria-labelledby="account-plan"><div className="acct-card-head"><span className="acct-ico"><Crown size={25} aria-hidden="true" /></span><div><h2 id="account-plan">{active ? subscription.name : 'Find your next great watch.'}</h2><p>{active ? 'Your current subscription' : 'Explore the available streaming plans.'}</p></div></div>
         {active && subscription.end_date && <p className="acct-expiry">Access until {String(subscription.end_date).slice(0, 10)}</p>}
         <Link to="/subscription-plan" className="btn btn-primary">{active ? 'View plans' : 'Explore plans'}</Link>
-        <SubscriptionControls/>
+        {subscription?.role !== 'member' && <SubscriptionControls/>}
         <Link to="/payment-history" className="tv-account-inline">View payment history<ArrowRight size={15} aria-hidden="true" /></Link>
       </section>
       <section className="acct-card" aria-labelledby="account-contact"><div className="acct-card-head"><span className="acct-ico"><Mail size={24} aria-hidden="true" /></span><div><h2 id="account-contact">Personal details</h2><p>Your registered contact information</p></div></div>
@@ -45,9 +46,7 @@ function AccountSetting() {
         <Link to="/profile-details" className="btn btn-dark">Update details</Link>
       </section>
     </div>
-    <section className="acct-card tv-device-card" aria-labelledby="account-devices"><div className="acct-card-head"><span className="acct-ico"><Monitor size={24} aria-hidden="true" /></span><div><h2 id="account-devices">Devices</h2><p>This browser and the devices recorded on your account.</p></div></div>
-      <div className="device-row"><Monitor size={22} aria-hidden="true" /><div className="device-info"><strong>This web browser</strong><span>Your current session</span></div><span className="device-badge">Current</span></div>
-      {recordedDevices.length > 0 && <><h3 className="acct-sub">Recorded devices</h3>{recordedDevices.map((device) => <div className="device-row" key={device.id}><div className="device-info"><strong>{device.device_name ?? device.platform ?? 'Device'}</strong>{device.last_activity && <span>Last activity: {device.last_activity}</span>}</div></div>)}</>}
-    </section>
+    <section className="acct-card" aria-labelledby="account-signin"><h2 id="account-signin">Connected sign-in</h2><p>Connect Google or Apple while signed in to keep your profiles and subscriptions on this account. Use the same email address.</p><SocialSignIn link callbackURL="/account-setting"/></section>
+    <SubscriptionSharing sharing={sharing}/>
   </AccountShell>
 }

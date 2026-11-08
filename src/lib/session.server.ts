@@ -1,36 +1,38 @@
 import { env } from 'cloudflare:workers'
-import { getCookie, setCookie, deleteCookie, getRequestUrl } from '@tanstack/react-start/server'
+import { deleteCookie, getRequest, getRequestHeaders } from '@tanstack/react-start/server'
+import { getAuth, AUTH_REALM } from './better-auth.server'
+import { eligibleUser } from './better-auth-core'
+import { sameOrigin } from './authCore'
 
-export const SESSION_COOKIE = 'streamit_session'
-const LIFETIME = 60 * 60 * 24 * 30
-async function key() {
-  const secret = (env as any).SESSION_SECRET
-  if (typeof secret !== 'string' || secret.length < 32) throw new Error('Session signing is not configured.')
-  return crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify'])
+function protectSessionWrite() {
+  const request = getRequest()
+  if (!['GET', 'HEAD'].includes(request.method)) sameOrigin(request.url, request.headers.get('origin'), request.headers.get('sec-fetch-site'))
 }
-export async function sign(payload: object): Promise<string> {
-  const bytes = new TextEncoder().encode(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + LIFETIME }))
-  const body = btoa(String.fromCharCode(...bytes))
-  const sig = await crypto.subtle.sign('HMAC', await key(), new TextEncoder().encode(body))
-  return `${body}.${btoa(String.fromCharCode(...new Uint8Array(sig)))}`
+
+// Legacy cookies no longer authenticate. Better Auth owns signed, revocable sessions.
+export const SESSION_COOKIE = '__Secure-halobox-viewer.session_token'
+export async function getSession() {
+  protectSessionWrite()
+  const result = await getAuth().api.getSession({ headers: getRequestHeaders() }).catch(() => null)
+  if (!result) return null
+  const user = await eligibleUser((env as any).DB, result.user.id, AUTH_REALM)
+  if (!user) return null
+  // Better Auth omits fields marked returned:false even from api.getSession().
+  // Read this private field only after validating the session and its owner.
+  const stored = await (env as any).DB.prepare('SELECT profileId FROM ba_viewer_session WHERE id=? AND userId=?').bind(result.session.id, user.id).first()
+  return { uid: Number(user.id), email: String(user.email), name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim(), pid: stored?.profileId as number | undefined, sessionId: result.session.id }
 }
-async function verify(token: string | undefined): Promise<any | null> {
-  if (!token || token.length > 8192) return null
-  try {
-    const parts = token.split('.')
-    if (parts.length !== 2 || !parts[0] || !parts[1]) return null
-    const signature = Uint8Array.from(atob(parts[1]), c => c.charCodeAt(0))
-    if (!await crypto.subtle.verify('HMAC', await key(), signature, new TextEncoder().encode(parts[0]))) return null
-    const payload = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(parts[0]), c => c.charCodeAt(0))))
-    if (!Number.isSafeInteger(payload.exp) || payload.exp <= Date.now() / 1000) return null
-    return payload
-  } catch { return null }
+/** Profile switching updates an existing authenticated session, never creates one. */
+export async function setSessionCookie(payload: { uid: number; pid?: number }) {
+  const current = await getSession()
+  if (!current || current.uid !== payload.uid || !Number.isSafeInteger(payload.pid)) throw new Error('Sign in again to choose a profile.')
+  const db = (env as any).DB
+  const profile = await db.prepare('SELECT id FROM user_multi_profiles WHERE id=? AND user_id=? AND deleted_at IS NULL').bind(payload.pid, current.uid).first()
+  if (!profile) throw new Error('Choose a profile belonging to your account.')
+  await db.prepare('UPDATE ba_viewer_session SET profileId=? WHERE id=? AND userId=?').bind(payload.pid, current.sessionId, current.uid).run()
 }
-export async function getSession() { return verify(getCookie(SESSION_COOKIE)) }
-export async function setSessionCookie(payload: object) {
-  setCookie(SESSION_COOKIE, await sign(payload), {
-    httpOnly: true, secure: new URL(getRequestUrl()).protocol === 'https:',
-    path: '/', maxAge: LIFETIME, sameSite: 'lax',
-  })
+export async function clearSessionCookie() {
+  protectSessionWrite()
+  await getAuth().api.signOut({ headers: getRequestHeaders() })
+  deleteCookie('streamit_session', { path: '/' })
 }
-export function clearSessionCookie() { deleteCookie(SESSION_COOKIE, { path: '/' }) }

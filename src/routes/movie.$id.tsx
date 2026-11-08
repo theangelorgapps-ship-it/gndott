@@ -33,14 +33,14 @@ function MovieDetail() {
       genres={genres}
       watchlist={{ entertainmentId: movie.id, initialAdded: !!inWatchlist, viewerId }}
       metadata={[movie.release_date && String(movie.release_date).slice(0, 4), movie.duration]}
-      playback={{ contentType: 'movie', contentId: movie.id, title: movie.name, description: movie.description, portrait: movie.poster_url, metadata: [movie.release_date && String(movie.release_date).slice(0, 4), movie.duration], directVideoUrl: movie.video_url_input, bunnyTrailerId: movie.bunny_trailer_url, poster: movie.thumbnail_url || movie.poster_url, bunnyLibraryId, bunnyVideoId: movie.bunny_video_url, trailerUrl: movie.trailer_url, movieAccess: movie.movie_access, price: movie.price, myPurchase, viewerId }}
+      playback={{ contentType: 'movie', contentId: movie.id, title: movie.name, description: movie.description, portrait: movie.poster_url, metadata: [movie.release_date && String(movie.release_date).slice(0, 4), movie.duration], directVideoUrl: movie.video_url_input, bunnyTrailerId: movie.bunny_trailer_url, poster: movie.thumbnail_url || movie.poster_url, bunnyLibraryId, bunnyVideoId: movie.bunny_video_url, trailerUrl: movie.trailer_url, movieAccess: movie.movie_access, price: movie.price, myPurchase, viewerId, hasSubscriptionAccess: movie.hasSubscriptionAccess, recommendations: data.recommendations?.forYou ?? similar }}
     >
       <ClipsRail clips={clips} />
       <DetailTabs tabs={tabs} active={tab} onChange={setTab} />
       {tab === 'more' && <RecommendationGroups recommendations={data.recommendations} fallback={similar} recentFallback={similar} />}
       {tab === 'bible' && <BiblePanel />}
       {tab === 'notes' && <ContentNotes contentType="movie" contentId={movie.id} title={movie.name} />}
-      {tab === 'about' && <AboutPanel cast={cast} />}
+      {tab === 'about' && <AboutPanel cast={cast} locations={data.locations ?? []} />}
     </TitleDetail>
   )
 }

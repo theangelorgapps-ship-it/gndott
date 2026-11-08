@@ -1,15 +1,21 @@
+import { TitlePeople } from './TitlePeople'
 import { SeekPreview } from './SeekPreview'
 import { LiquidNavbar } from './ui/liquid-glass-navbar'
 import { ChoicePicker } from './ui/choice-picker'
 import '../player-chat-refinement.css'
+import '../release2-experience.css'
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, X, SlidersHorizontal, PictureInPicture2 } from 'lucide-react'
 import { BiblePanel, ContentNotes, youtubeId, type WatchSectionProps } from './Detail'
 import { img, plainText } from './Poster'
 import { createPlayerBridge, type PlayerBridge } from './playerBridge'
 import { usePlaybackProgress } from '../hooks/usePlaybackProgress'
+import { useTypingViewport } from '../hooks/useTypingViewport'
+import { PlayerLoading } from './PlayerLoading'
 import { createResumeController } from './playbackResume'
 import { createDirectPlayback, type DirectPlayback, type VideoQuality } from './directPlayback'
+import { PlaybackEndScreen } from './PlaybackEndScreen'
+import { nearPlaybackEnd } from './playbackEnding'
 
 import { liveWindow } from '../lib/liveSources'
 import { createIdleControls, createPlaybackWakeLock, supportsPictureInPicture, isPictureInPicture, togglePictureInPicture } from './playerCapabilities'
@@ -26,6 +32,7 @@ function mediaUrl(value?: string | null) {
 export function ImmersivePlayer(props: WatchSectionProps) {
   const { initialAutoPlay = false, live = false, liveDiscussion, contentId, contentType, title, poster, description, metadata = [], bunnyLibraryId, bunnyVideoId, trailerUrl, directVideoUrl, viewerId } = props
   const stageRef = useRef<HTMLDivElement>(null)
+  useTypingViewport(stageRef)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const bridgeRef = useRef<PlayerBridge | null>(null)
@@ -43,6 +50,8 @@ export function ImmersivePlayer(props: WatchSectionProps) {
   const pausedIntent = useRef(true)
   const [duration, setDuration] = useState(0)
   const [position, setPosition] = useState(0)
+  const [ended, setEnded] = useState(false)
+  const [endingDismissed, setEndingDismissed] = useState(false)
   const [seekPreview, setSeekPreview] = useState<{ time: number; percent: number } | null>(null)
   const [panel, setPanel] = useState<Panel>(null)
   const [providerControls, setProviderControls] = useState(false)
@@ -193,7 +202,7 @@ export function ImmersivePlayer(props: WatchSectionProps) {
       },
       play: () => { if (active) { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); setMediaPlaying(true); resumeRef.current!.onPlay(); } },
       pause: () => { if (active) { pausedIntent.current = true; setPaused(true); setMediaPlaying(false); flushObserved(); } },
-      ended: () => { if (active) { pausedIntent.current = true; setPaused(true); setMediaPlaying(false); flushObserved(); } },
+      ended: () => { if (active) { pausedIntent.current = true; setPaused(true); setMediaPlaying(false); setEnded(true); flushObserved(); } },
       timing: ({ seconds, duration: total }) => { if (active) updateTiming(seconds, total) },
       error: fail,
     })
@@ -203,6 +212,8 @@ export function ImmersivePlayer(props: WatchSectionProps) {
 
   const seek = useCallback((next: number) => {
     if (!ready || !Number.isFinite(next)) return
+    setEnded(false)
+    setEndingDismissed(false)
     resumeRef.current!.cancel()
     const range = live && videoRef.current ? liveWindow(videoRef.current.seekable) : null
     const clamped = Math.max(range ? range.start : 0, Math.min(next, range ? range.edge : observed.current.duration || duration || 0))
@@ -220,6 +231,7 @@ export function ImmersivePlayer(props: WatchSectionProps) {
 
   function play(initial = false) {
     if ((!ready && !direct) || fallback) return
+    if (ended) { seek(0); setEnded(false) }
     if (!initial) initialPlayback.current.cancelled = true
     // A provider cannot report autoplay rejection through its command API.
     // Keep its Play button available until an actual play event confirms it.
@@ -292,24 +304,26 @@ export function ImmersivePlayer(props: WatchSectionProps) {
     revealControls()
   }
   const hasSource = !!(source || direct)
-  const showOverlay = controlsVisible || paused || !!panel || settingsOpen || mediaLoading || !customControls
+  const showEnding = !live && customControls && !panel && !endingDismissed && (ended || nearPlaybackEnd(position, duration, observed.current.hasPlayed))
+  const showOverlay = controlsVisible || paused || !!panel || settingsOpen || mediaLoading || !customControls || showEnding
   return (
-    <div ref={stageRef} className={`tv-immersive-player${live ? ' is-live' : ''}${panel ? ' panel-open' : ''}${customControls ? ' has-custom-controls' : ' provider-controls'}${showOverlay ? ' controls-visible' : ''}`} data-lenis-prevent tabIndex={0} aria-label={`${title} video player`} onKeyDown={onKeyDown} onPointerMove={revealControls} onFocusCapture={revealControls} onBlurCapture={revealControls}
+    <div ref={stageRef} className={`tv-immersive-player${live ? ' is-live' : ''}${panel ? ' panel-open' : ''}${showEnding ? ' ending-open' : ''}${customControls ? ' has-custom-controls' : ' provider-controls'}${showOverlay ? ' controls-visible' : ''}`} data-lenis-prevent tabIndex={0} aria-label={`${title} video player`} onKeyDown={onKeyDown} onPointerMove={revealControls} onFocusCapture={revealControls} onBlurCapture={revealControls}
       onPointerDownCapture={() => { holdingControl.current = true; revealControls() }}
       onPointerUpCapture={() => { holdingControl.current = false; revealControls() }}
       onPointerCancel={() => { holdingControl.current = false; scrubbing.current = false; setPosition(observed.current.position); revealControls() }}>
       <div className="tv-player-media">
-        {source ? <iframe ref={iframeRef} src={source} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen tabIndex={customControls ? -1 : 0} /> : direct ? <video ref={videoRef} poster={img(poster)} controls={!customControls} playsInline preload="metadata" onLoadedMetadata={(event) => { setReady(true); updateTiming(event.currentTarget.currentTime, event.currentTarget.duration) }} onRateChange={(event) => setSpeed(event.currentTarget.playbackRate)} onPlaying={() => { setMediaPlaying(true); setMediaLoading(false) }} onWaiting={() => setMediaLoading(true)} onTimeUpdate={(event) => updateTiming(event.currentTarget.currentTime, event.currentTarget.duration)} onPlay={() => { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); if (!live) resumeRef.current!.onPlay() }} onPause={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved() }} onEnded={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved(); if (live) { setFallback(true); setMessage('This broadcast has ended. Reconnect when it resumes.') } }} onVolumeChange={(event) => { setMuted(event.currentTarget.muted); setVolume(event.currentTarget.volume) }} onError={() => { setMediaPlaying(false); setMediaLoading(false); if (bunnyLibraryId && bunnyVideoId) { setReady(false); setProviderFallback(true); setMessage('Opening the video provider’s player…') } else { setFallback(true); setMessage(live ? 'The live stream is unavailable or has ended. Try reconnecting.' : 'This video could not be loaded. Try its original link.') } }} /> : <img className="tv-player-poster" src={img(poster)} alt="" />}
+        {source ? <iframe ref={iframeRef} src={source} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen tabIndex={customControls ? -1 : 0} /> : direct ? <video ref={videoRef} poster={img(poster)} controls={!customControls} playsInline preload="metadata" onLoadedMetadata={(event) => { setReady(true); updateTiming(event.currentTarget.currentTime, event.currentTarget.duration) }} onRateChange={(event) => setSpeed(event.currentTarget.playbackRate)} onPlaying={() => { setMediaPlaying(true); setMediaLoading(false) }} onWaiting={() => setMediaLoading(true)} onTimeUpdate={(event) => updateTiming(event.currentTarget.currentTime, event.currentTarget.duration)} onPlay={() => { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); if (!live) resumeRef.current!.onPlay() }} onPause={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved() }} onEnded={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); if (!live) setEnded(true); flushObserved(); if (live) { setFallback(true); setMessage('This broadcast has ended. Reconnect when it resumes.') } }} onVolumeChange={(event) => { setMuted(event.currentTarget.muted); setVolume(event.currentTarget.volume) }} onError={() => { setMediaPlaying(false); setMediaLoading(false); if (bunnyLibraryId && bunnyVideoId) { setReady(false); setProviderFallback(true); setMessage('Opening the video provider’s player…') } else { setFallback(true); setMessage(live ? 'The live stream is unavailable or has ended. Try reconnecting.' : 'This video could not be loaded. Try its original link.') } }} /> : <img className="tv-player-poster" src={img(poster)} alt="" />}
+        {(mediaLoading || (!ready && !fallback && hasSource)) && <PlayerLoading kind="video" label="Loading video…" />}
         {panel && customControls && <button className="tv-player-panel-transport" type="button" onClick={togglePlay} aria-label={paused ? 'Play video while reading' : 'Pause video while reading'}>{paused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>}
       </div>
       {customControls && <div className="tv-player-scrim" aria-hidden="true" />}
-      {customControls && !panel && <div className="tv-player-center">
+      {customControls && !panel && !showEnding && <div className="tv-player-center">
         <button type="button" onClick={() => seek(position - 10)} aria-label="Rewind 10 seconds" disabled={!duration || (live && duration - windowStart <= 30)}><RotateCcw size={29} /><span>10</span></button>
         <button type="button" className="tv-player-toggle" onClick={togglePlay} aria-label={paused ? 'Play video' : 'Pause video'} aria-busy={mediaLoading}>{paused ? <Play size={48} fill="currentColor" /> : <Pause size={48} fill="currentColor" />}</button>
         <button type="button" onClick={() => seek(position + 10)} aria-label="Forward 10 seconds" disabled={!duration || (live && duration - windowStart <= 30)}><RotateCw size={29} /><span>10</span></button>
       </div>}
       {!hasSource && <div className="tv-player-no-source"><p>No playable source is available for this title.</p>{candidate && <a href={candidate} target="_blank" rel="noreferrer">Open original video ↗</a>}</div>}
-      <div className="tv-player-bottom">
+      <div className="tv-player-bottom" inert={showEnding} aria-hidden={showEnding || undefined}>
         {!panel && <>
           <div className="tv-player-title-row"><h2>{title}</h2><div className="tv-player-tools">
             {pipSupported && <button type="button" aria-label={pipActive ? 'Exit picture in picture' : 'Picture in picture'} aria-pressed={pipActive} disabled={!ready || pipBusy} onClick={() => void togglePip()}><PictureInPicture2 size={22} /></button>}
@@ -350,15 +364,16 @@ export function ImmersivePlayer(props: WatchSectionProps) {
             setPanel(current => current === key ? null : key)
           }} />
         {panel && <section className="tv-player-panel" aria-label={panel === 'comments' ? 'Live discussion' : panel === 'info' ? 'Title information' : panel === 'notes' ? 'Your notes' : 'Bible reading'}>
-          <button type="button" className="tv-player-panel-close" aria-label="Close information panel" onClick={() => setPanel(null)}><X size={19} /></button>
-          {panel === 'comments' ? liveDiscussion : panel === 'info' ? <div className="tv-player-info"><img src={img(props.portrait || poster)} alt="" /><div><h3>{title}</h3><p>{plainText(description) || 'No description is available for this title.'}</p>{metadata.filter(Boolean).length > 0 && <p className="tv-player-meta">{metadata.filter(Boolean).join(' · ')}</p>}</div><div className="tv-player-info-actions">{customControls && <><button type="button" onClick={() => continueWatching(true)}><Play size={17} fill="currentColor" /> {live ? 'Back to live' : 'From Beginning'}</button><button type="button" onClick={() => continueWatching()}>Continue Watching</button></>}</div></div> : panel === 'notes' ? <ContentNotes contentType={contentType} contentId={contentId} title={title} /> : <BiblePanel />}
+          {panel !== 'comments' && <button type="button" className="tv-player-panel-close" aria-label="Close information panel" onClick={() => setPanel(null)}><X size={19} /></button>}
+          {panel === 'comments' ? liveDiscussion : panel === 'info' ? <div className="tv-player-info"><img src={img(props.portrait || poster)} alt="" /><div><h3>{title}</h3><p>{plainText(description) || 'No description is available for this title.'}</p>{metadata.filter(Boolean).length > 0 && <p className="tv-player-meta">{metadata.filter(Boolean).join(' · ')}</p>}</div>{Boolean(props.locations?.length) && <TitlePeople locations={props.locations} />}<div className="tv-player-info-actions">{customControls && <><button type="button" onClick={() => continueWatching(true)}><Play size={17} fill="currentColor" /> {live ? 'Back to live' : 'From Beginning'}</button><button type="button" onClick={() => continueWatching()}>Continue Watching</button></>}</div></div> : panel === 'notes' ? <ContentNotes contentType={contentType} contentId={contentId} title={title} /> : <BiblePanel />}
         </section>}
-        {mediaLoading && <p className="tv-player-buffering" role="status">Loading video…</p>}
         {!live && progress.saveRequirement && <p className="tv-player-status"><a href={progress.saveRequirement === 'profile' ? '/manage-profile' : '/login'}>{progress.saveRequirement === 'profile' ? 'Choose a profile to save your place' : 'Sign in to save your place'}</a></p>}
         {(message || progress.saveError) && <p className="tv-player-status" role="status">{message || 'Your latest progress could not be saved. We’ll try again as you watch.'}</p>}
         {fallback && live && <button type="button" className="btn btn-primary" onClick={() => { setFallback(false); setReady(false); setPaused(true); pausedIntent.current = true; setMessage('Press Play to reconnect.'); setRetry(n => n + 1) }}>Reconnect stream</button>}
         {fallback && !live && candidate && <a className="tv-player-original" href={candidate} target="_blank" rel="noreferrer">Open original video ↗</a>}
       </div>
+      {showEnding && <PlaybackEndScreen title={title} poster={poster} metadata={metadata} contentType={contentType} contentId={contentId} recommendations={props.recommendations} upNext={props.upNext} ended={ended}
+        onReplay={() => { seek(0); setEnded(false); play() }} onDismiss={() => setEndingDismissed(true)} onNavigate={props.onNavigate} />}
     </div>
   )
 }

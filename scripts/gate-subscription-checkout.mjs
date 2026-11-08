@@ -11,8 +11,8 @@ import { DatabaseSync } from 'node:sqlite'
 import { webcrypto } from 'node:crypto'
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..')
 const read=file=>readFileSync(resolve(root,file),'utf8')
-const env={}, headers={origin:'https://gndott.theangelorgapps.workers.dev','sec-fetch-site':'same-origin'}
-let viewer={userId:1}, requestUrl='https://gndott.theangelorgapps.workers.dev/subscription-plan', activeTransport
+const env={}, headers={origin:'https://halobox.tv','sec-fetch-site':'same-origin'}
+let viewer={userId:1}, requestUrl='https://halobox.tv/subscription-plan', activeTransport
 function load(source, imports) {
   const module={exports:{}}
   const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
@@ -58,7 +58,7 @@ function fixture() {
     const session={id,url:`https://checkout.stripe.com/c/pay/${id}`,expires_at:Math.floor(Date.now()/1000)+3600,mode:'payment',status:'open',payment_status:'unpaid',amount_total:Number(body.get('line_items[0][price_data][unit_amount]')),currency:body.get('line_items[0][price_data][currency]'),client_reference_id:body.get('client_reference_id'),metadata:{purpose:body.get('metadata[purpose]'),checkout_id:body.get('metadata[checkout_id]'),user_id:body.get('metadata[user_id]'),plan_id:body.get('metadata[plan_id]')}}
     sessions.set(id,session);keys.set(key,{body:options.body,session});return Response.json(session)
   }
-  function bind(){env.DB=adapter;env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET='whsec_fixture';viewer={userId:1};headers.origin='https://gndott.theangelorgapps.workers.dev';headers['sec-fetch-site']='same-origin';activeTransport=transport}
+  function bind(){env.DB=adapter;env.STRIPE_SUBSCRIPTION_WEBHOOK_SECRET='whsec_fixture';viewer={userId:1};headers.origin='https://halobox.tv';headers['sec-fetch-site']='same-origin';activeTransport=transport}
   bind()
   const input=(extra={})=>({planId:6,gateway:'stripe',requestKey:webcrypto.randomUUID(),expectedTotalCents:900,...extra})
   const create=async(extra={})=>{const data=input(extra);const result=await helpers.createSubscriptionCheckout(adapter,{id:1,email:'viewer@example.test'},data,headers.origin,'test-secret',transport);return {data,result,session:[...sessions.values()].at(-1)}}

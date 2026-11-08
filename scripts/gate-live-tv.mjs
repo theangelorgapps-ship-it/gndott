@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { DatabaseSync } from 'node:sqlite'
-import { webcrypto, createHmac } from 'node:crypto'
+import { webcrypto } from 'node:crypto'
 import vm from 'node:vm'
 import ts from 'typescript'
 const require = createRequire(import.meta.url)
@@ -24,7 +24,7 @@ if(process.argv[2]==='playback') {
  assert.equal(sources.liveWindow({length:1,start:()=>100,end:()=>120}).dvr,false)
  const states=[],refs=[];let si=0,ri=0,progressEnabled=true,records=0
  const react={useState(v){const i=si++;if(!(i in states))states[i]=v;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v]},useRef(v){const i=ri++;return refs[i]??=( {current:v})},useEffect(){},useCallback:fn=>fn}
- const p=load('src/components/ImmersivePlayer.tsx',{react,'../player-chat-refinement.css':{},'./ui/liquid-glass-navbar':{LiquidNavbar(){}},'./ui/choice-picker':{ChoicePicker(){}},'./SeekPreview':{SeekPreview(){}},'./playerCapabilities':load('src/components/playerCapabilities.ts'),'./Detail':{youtubeId:()=>null},'./Poster':{img:v=>v,plainText:v=>v},'./playerBridge':{},'./directPlayback':{},'./playbackResume':load('src/components/playbackResume.ts'),'../lib/liveSources':sources,'../hooks/usePlaybackProgress':{usePlaybackProgress:(_,enabled)=>{progressEnabled=enabled;return{loaded:true,saved:{position:55,duration:200},record(){records++}}}}})
+ const p=load('src/components/ImmersivePlayer.tsx',{react,'../hooks/useTypingViewport':{useTypingViewport(){}},'./PlayerLoading':{PlayerLoading(){}},'../player-chat-refinement.css':{},'./ui/liquid-glass-navbar':{LiquidNavbar(){}},'./ui/choice-picker':{ChoicePicker(){}},'./SeekPreview':{SeekPreview(){}},'./playerCapabilities':load('src/components/playerCapabilities.ts'),'./Detail':{youtubeId:()=>null},'./Poster':{img:v=>v,plainText:v=>v},'./playerBridge':{},'./directPlayback':{},'./playbackResume':load('src/components/playbackResume.ts'),'../lib/liveSources':sources,'../hooks/usePlaybackProgress':{usePlaybackProgress:(_,enabled)=>{progressEnabled=enabled;return{loaded:true,saved:{position:55,duration:200},record(){records++}}}}})
  const render=()=>{si=ri=0;return p.ImmersivePlayer({live:true,contentType:'video',contentId:34,title:'Channel',directVideoUrl:'https://cdn.test/output',viewerId:1})}
  const find=(t,p)=>!t||typeof t!=='object'?null:Array.isArray(t)?t.map(x=>find(x,p)).find(Boolean):p(t)?t:find(t.props?.children,p)
  let tree=render();assert.equal(progressEnabled,false);let video=find(tree,e=>e.type==='video');assert.ok(video,'Opaque HLS output uses direct shared player')
@@ -39,12 +39,38 @@ if(process.argv[2]==='playback') {
  class Hls{static isSupported(){return true}static Events={ERROR:'error',MANIFEST_PARSED:'manifest'};on(){}attachMedia(){}loadSource(u){hlsUrl=u}destroy(){}}
  const dp=direct.createDirectPlayback({canPlayType:()=>'',load(){nativeLoads++},play:async()=>{},pause(){},removeAttribute(){}},'https://cdn.test/output',{qualities(){},blocked(){assert.fail('blocked')},failure(){assert.fail('failed')}},async()=>({default:Hls}),false,true)
  await dp.play();assert.equal(hlsUrl,'https://cdn.test/output');assert.equal(nativeLoads,0);dp.destroy()
- const key='isolated-live-session-test-secret-123456789';let token
- const session=load('src/lib/session.server.ts',{'cloudflare:workers':{env:{SESSION_SECRET:key}},'@tanstack/react-start/server':{getCookie:()=>token,getRequestUrl:()=> 'https://site.test',setCookie:(_,v,o)=>{token=v;assert.ok(o.secure&&o.httpOnly)},deleteCookie(){}}})
- await session.setSessionCookie({uid:1});assert.equal((await session.getSession()).uid,1)
- token+='.';assert.equal(await session.getSession(),null)
- const expired=btoa(JSON.stringify({uid:1,exp:1}));token=expired+'.'+createHmac('sha256',key).update(expired).digest('base64');assert.equal(await session.getSession(),null)
- token=await session.sign({uid:1});const [payload,signature]=token.split('.');token=btoa(JSON.stringify({uid:2,exp:9999999999}))+'.'+signature;assert.equal(await session.getSession(),null)
+ // Better Auth owns cookie verification; exercise the live wrapper against an
+ // isolated verified-session boundary and real eligibility/ownership rules.
+ const { eligibleUser } = await import('../src/lib/better-auth-core.ts')
+ const authSql = new DatabaseSync(':memory:')
+ authSql.exec(`CREATE TABLE users(id INTEGER,email TEXT,first_name TEXT,last_name TEXT,status INTEGER,is_banned INTEGER,deleted_at TEXT,user_type TEXT);
+ INSERT INTO users VALUES(1,'one@example.test','One','Viewer',1,0,NULL,'user'),(2,'two@example.test','Two','Viewer',1,0,NULL,'user');
+ CREATE TABLE user_multi_profiles(id INTEGER,user_id INTEGER,deleted_at TEXT); INSERT INTO user_multi_profiles VALUES(11,1,NULL),(21,2,NULL);
+ CREATE TABLE ba_viewer_session(id TEXT,userId INTEGER,profileId INTEGER); INSERT INTO ba_viewer_session VALUES('verified-session',1,NULL);`)
+ const authDb={prepare:query=>({bind:(...args)=>({first:async()=>authSql.prepare(query).get(...args)||null,run:async()=>authSql.prepare(query).run(...args)})})}
+ let verified=null, method='GET', requestOrigin='https://site.test', deletedLegacy=false
+ const currentRequest=()=>new Request('https://site.test/channel/34',{method,headers:{origin:requestOrigin,cookie:'streamit_session=forged-legacy-value'}})
+ const session=load('src/lib/session.server.ts',{
+   'cloudflare:workers':{env:{DB:authDb}},
+   '@tanstack/react-start/server':{getRequest:currentRequest,getRequestHeaders:()=>currentRequest().headers,deleteCookie:name=>{assert.equal(name,'streamit_session');deletedLegacy=true}},
+   './better-auth.server':{AUTH_REALM:'viewer',getAuth:()=>({api:{getSession:async()=>verified,signOut:async()=>{verified=null}}})},
+   './better-auth-core':{eligibleUser}, './authCore':load('src/lib/authCore.ts'),
+ })
+ assert.equal(await session.getSession(),null,'A legacy cookie cannot authenticate without a verified Better Auth session')
+ await assert.rejects(session.setSessionCookie({uid:1,pid:11}),/Sign in again/)
+ verified={user:{id:'1'},session:{id:'verified-session'}}
+ assert.equal((await session.getSession()).uid,1)
+ await assert.rejects(session.setSessionCookie({uid:2,pid:21}),/Sign in again/)
+ await assert.rejects(session.setSessionCookie({uid:1,pid:21}),/belonging to your account/)
+ await assert.rejects(session.setSessionCookie({uid:1}),/Sign in again/)
+ await session.setSessionCookie({uid:1,pid:11});assert.equal((await session.getSession()).pid,11)
+ authSql.exec('UPDATE users SET is_banned=1 WHERE id=1');assert.equal(await session.getSession(),null,'Banned accounts cannot retain live sessions')
+ authSql.exec('UPDATE users SET is_banned=0 WHERE id=1')
+ method='POST';requestOrigin='https://attacker.test'
+ await assert.rejects(session.setSessionCookie({uid:1,pid:11}),/Refresh this page/)
+ await assert.rejects(session.clearSessionCookie(),/Refresh this page/)
+ requestOrigin='https://site.test';await session.clearSessionCookie();assert.equal(await session.getSession(),null);assert.equal(deletedLegacy,true)
+ authSql.close()
  console.log('LIVE_PLAYBACK_PASS');process.exit(0)
 }
 assert.equal(process.argv[2],'discussion')
@@ -59,10 +85,21 @@ db.exec(`CREATE TABLE users(id INTEGER PRIMARY KEY,user_type TEXT,first_name TEX
  CREATE TABLE live_tv_channel_plan_mapping(tv_channel_id INTEGER,plan_id INTEGER,deleted_at TEXT);`)
 db.exec(readFileSync('migrations/20261108_live_tv.sql','utf8'))
 db.exec(readFileSync('migrations/20261108_live_chat_blocks.sql','utf8'))
+// Use the real shared-subscription database policy for paid-channel access.
+db.exec(`ALTER TABLE users ADD COLUMN email TEXT;
+ UPDATE users SET email='viewer'||id||'@example.test';
+ CREATE TABLE plan(id INTEGER PRIMARY KEY,duration TEXT);INSERT INTO plan VALUES(9,'month');
+ ALTER TABLE subscriptions ADD COLUMN name TEXT;ALTER TABLE subscriptions ADD COLUMN level INTEGER;ALTER TABLE subscriptions ADD COLUMN duration TEXT;
+ CREATE TABLE ba_viewer_session(id TEXT PRIMARY KEY,userId INTEGER,expiresAt TEXT);
+ INSERT INTO ba_viewer_session VALUES('live-1',1,'2999-01-01'),('live-2',2,'2999-01-01');`)
+db.exec(readFileSync('migrations/20261108_release2_shared_entitlements.sql','utf8'))
+const entitlementCore=load('src/lib/entitlement-core.ts')
+const entitlementDB={prepare(query){return{query,args:[],bind(...args){return{...this,args}},async first(){return db.prepare(this.query).get(...this.args)||null},async run(){return db.prepare(this.query).run(...this.args)}}}}
+
 const adapter={all:async(s,...p)=>db.prepare(s).all(...p),first:async(s,...p)=>db.prepare(s).get(...p)||null,run:async(s,...p)=>db.prepare(s).run(...p)}
 let viewer=null,origin='https://site.test';const asUser=n=>viewer=n?{userId:n,profileId:n===1?11:n===2?21:null,profileName:'Viewer'}:null
 const factory={createServerFn(){let validate=x=>x;return{validator(fn){validate=fn;return this},handler(fn){return async(input={})=>fn({data:validate(input.data)})}}}}
-const api=load('src/lib/liveTv.ts',{'@tanstack/react-start':factory,'@tanstack/react-start/server':{setResponseHeader(){},getRequestHeader:k=>k==='origin'?origin:null,getRequestUrl:()=> 'https://site.test/channel/34'},'./db':adapter,'./viewer.server':{getActiveViewer:async()=>viewer},'./liveSources':sources})
+const api=load('src/lib/liveTv.ts',{'@tanstack/react-start':factory,'@tanstack/react-start/server':{setResponseHeader(){},getRequestHeader:k=>k==='origin'?origin:null,getRequestUrl:()=> 'https://site.test/channel/34'},'./db':adapter,'./viewer.server':{getActiveViewer:async()=>viewer},'./liveSources':sources,'./entitlement-core':entitlementCore,'./entitlement.server':{entitlementDatabase:()=>entitlementDB,subscriptionPlaybackAccess:async()=>!!viewer&&entitlementCore.admitSubscriptionDevice(entitlementDB,{uid:viewer.userId,email:'viewer'+viewer.userId+'@example.test',sessionId:'live-'+viewer.userId},'Test browser')}})
 const call=(fn,data)=>api[fn]({data});const read=()=>call('getLiveDiscussion',{channelId:34});let sequence=0
 const post=(extra={})=>call('sendLiveComment',{channelId:34,body:'Hello',requestId:'test-message-'+String(++sequence).padStart(12,'0'),...extra})
 const age=()=>db.exec("UPDATE live_comments SET created_at=datetime('now','-3 minutes')")
@@ -82,7 +119,7 @@ asUser(3);await call('moderateLive',{channelId:34,targetId:firstId,action:'hide'
 asUser(3);const reportId=(await read()).reports[0].id;await call('moderateLive',{channelId:34,targetId:reportId,action:'resolve'});assert.equal((await read()).reports[0].status,'resolved')
 await assert.rejects(call('saveLiveSettings',{...settings,hlsUrl:''}));await assert.rejects(call('saveLiveSettings',{...settings,hlsUrl:'https://127.0.0.1/private'}));assert.equal((await call('getLiveChannel',34)).streamUrl,settings.hlsUrl)
 origin='https://attacker.test';await assert.rejects(call('saveLiveSettings',settings));await assert.rejects(post());origin='https://site.test'
-asUser(1);await assert.rejects(call('getLiveChannel',36));db.exec("INSERT INTO subscriptions VALUES(1,1,9,'active',NULL,NULL,'2099-01-01')");assert.equal((await call('getLiveChannel',36)).channel.id,36);db.exec("UPDATE subscriptions SET end_date='2000-01-01'");await assert.rejects(call('getLiveChannel',36))
+asUser(1);await assert.rejects(call('getLiveChannel',36));db.exec("INSERT INTO subscriptions(id,user_id,plan_id,status,deleted_at,start_date,end_date) VALUES(1,1,9,'active',NULL,NULL,'2099-01-01')");assert.equal((await call('getLiveChannel',36)).channel.id,36);db.exec("UPDATE subscriptions SET end_date='2000-01-01'");await assert.rejects(call('getLiveChannel',36))
 assert.ok(db.prepare('SELECT count(*) AS n FROM live_moderation_log').get().n>=6)
 // Viewer blocking is mutual, account-scoped, and cannot hide evidence from moderators.
 asUser(2);age();await post({body:'Second viewer message'});const secondId=(await read()).comments.find(c=>c.body==='Second viewer message').id

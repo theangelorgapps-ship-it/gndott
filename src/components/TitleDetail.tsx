@@ -49,7 +49,7 @@ export function PlaybackDialog({ playback, onClose }: { playback: WatchSectionPr
           <button type="button" className="tv-detail-utility tv-player-fullscreen" aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'} onClick={() => { setFullscreenMessage(''); void togglePlayerFullscreen(surfaceRef.current).catch(() => setFullscreenMessage('Start the video, then tap full screen again. If your browser does not support it, the player will continue filling this window.')) }}>{fullscreen ? <Minimize size={22} /> : <Maximize size={22} />}</button>
         </header>
         {fullscreenMessage && <p className="tv-fullscreen-status" role="status">{fullscreenMessage}</p>}
-        <WatchSection {...playback} initialAutoPlay />
+        <WatchSection key={`${playback.contentType}:${playback.contentId}`} {...playback} onNavigate={onClose} initialAutoPlay />
       </div>
     </dialog>, document.body,
   )
@@ -139,7 +139,8 @@ export function TitleDetail({ title, poster, landscape, description, kind, genre
           <img src={img(poster || landscape)} alt="" fetchPriority="high" />
         </picture>
         <TitlePreview title={title} trailerUrl={playback.trailerUrl} bunnyLibraryId={playback.bunnyLibraryId} bunnyTrailerId={playback.bunnyTrailerId}
-          directVideoUrl={playback.movieAccess !== 'paid' || playback.myPurchase ? playback.directVideoUrl : null} />
+          bunnyVideoId={playback.hasSubscriptionAccess !== false && (playback.movieAccess !== 'paid' || playback.myPurchase) ? playback.bunnyVideoId : null}
+          directVideoUrl={playback.hasSubscriptionAccess !== false && (playback.movieAccess !== 'paid' || playback.myPurchase) ? playback.directVideoUrl : null} />
         <div className="tv-title-shade" />
         <div className="tv-title-utilities">
           <button type="button" className="tv-detail-utility" aria-label="Go back" onClick={() => { if (router.history.canGoBack()) router.history.back(); else router.navigate({ to: '/' }) }}><ChevronLeft size={26} /></button>

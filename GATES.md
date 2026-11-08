@@ -29,3 +29,29 @@ Scope: deliver every browser comment plus the migrated Bible reader and smooth a
 ## Follow-up: horizontal thumbnails and blue upload badges
 
 Continue Watching and Discover Something Different now use horizontal thumbnail sources. Recently Updated retains portrait cards and adds the requested blue “Recently Uploaded” badges. Browser screenshots and measured results are recorded in docs/HALO-UPDATE.md. The checks above document the preceding completed phase; the follow-up passed the playback-data SQLite regression, TypeScript and a fresh production build. No recommendation ranking, Bible or playback-control changes were made in this follow-up.
+
+## November 8 domain, mail and responsive UI
+
+- [ ] NOV08-player: All outcomes in gates/nov08-domain-ui/player.md verified.
+  EVIDENCE: Implementation, regressions and responsive browser checks complete. P1 physical-keyboard and authenticated live-chat proof remains open; see docs/qa/nov08-domain-ui/verification.md.
+- [x] NOV08-navigation: All outcomes in gates/nov08-domain-ui/navigation.md verified.
+  EVIDENCE: Navigation, contrast and AVIF checks passed; live phone/tablet/4K screenshots in docs/qa/nov08-domain-ui.
+- [x] NOV08-security: All outcomes in gates/nov08-domain-ui/security.md verified.
+  EVIDENCE: Auth/API negative regressions passed; fixed findings and residual risks recorded in docs/security-audit-2026-11-08.md.
+- [x] NOV08-cloud: All outcomes in gates/nov08-domain-ui/cloud.md verified.
+  EVIDENCE: Canonical domains live, sender enabled with zero setup messages, Google/Apple callbacks saved and four provider initiation checks passed. Actual delivery and completed provider login were not tested.
+- [ ] NOV08-integration: All outcomes in gates/nov08-domain-ui/integration.md verified.
+  EVIDENCE: Builds, deployment and live checks complete. I2 retains physical keyboard/authenticated chat verification as an explicit limitation.
+
+## November 8 release 2
+
+- [ ] R2-entitlement: All outcomes in gates/nov08-release2/entitlement.md independently verified.
+  EVIDENCE: pending
+- [ ] R2-experience: All outcomes in gates/nov08-release2/experience.md independently verified.
+  EVIDENCE: pending
+- [ ] R2-content: All outcomes in gates/nov08-release2/content.md independently verified.
+  EVIDENCE: pending
+- [ ] R2-visual: All outcomes in gates/nov08-release2/visual.md independently verified.
+  EVIDENCE: pending
+- [ ] R2-integration: All outcomes in gates/nov08-release2/integration.md independently verified.
+  EVIDENCE: pending

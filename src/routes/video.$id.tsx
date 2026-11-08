@@ -15,7 +15,7 @@ function VideoDetail() {
   const data = Route.useLoaderData() as any
   const [tab, setTab] = useState('more')
   if (!data) return <div className="empty">Video not found.</div>
-  const { video, similar, clips = [], bunnyLibraryId, viewerId } = data
+  const { video, similar, clips = [], bunnyLibraryId, viewerId, myPurchase } = data
   const tabs = [
     { key: 'more', label: 'Featured' },
     { key: 'bible', label: 'Bible' },
@@ -31,14 +31,14 @@ function VideoDetail() {
       description={video.description}
       kind="Video"
       metadata={[video.release_date && String(video.release_date).slice(0, 4), video.duration]}
-      playback={{ contentType: 'video', contentId: video.id, title: video.name, description: video.description, portrait: video.poster_url, metadata: [video.release_date && String(video.release_date).slice(0, 4), video.duration], directVideoUrl: video.video_url_input, bunnyTrailerId: video.bunny_trailer_url, poster: video.thumbnail_url || video.poster_url, bunnyLibraryId, bunnyVideoId: video.bunny_video_url, trailerUrl: video.trailer_url, movieAccess: video.access, price: video.price, viewerId }}
+      playback={{ contentType: 'video', contentId: video.id, title: video.name, description: video.description, portrait: video.poster_url, metadata: [video.release_date && String(video.release_date).slice(0, 4), video.duration], directVideoUrl: video.video_url_input, bunnyTrailerId: video.bunny_trailer_url, poster: video.thumbnail_url || video.poster_url, bunnyLibraryId, bunnyVideoId: video.bunny_video_url, trailerUrl: video.trailer_url, movieAccess: video.access, price: video.price, myPurchase, viewerId, hasSubscriptionAccess: video.hasSubscriptionAccess, recommendations: data.recommendations?.forYou ?? similar }}
     >
       <ClipsRail clips={clips} />
       <DetailTabs tabs={tabs} active={tab} onChange={setTab} />
       {tab === 'more' && <RecommendationGroups recommendations={data.recommendations} fallback={similar} recentFallback={similar} />}
       {tab === 'bible' && <BiblePanel />}
       {tab === 'notes' && <ContentNotes contentType="video" contentId={video.id} title={video.name} />}
-      {tab === 'about' && <AboutPanel cast={data.cast ?? []} />}
+      {tab === 'about' && <AboutPanel cast={data.cast ?? []} locations={data.locations ?? []} />}
     </TitleDetail>
   )
 }

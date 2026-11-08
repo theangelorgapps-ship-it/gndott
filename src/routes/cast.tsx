@@ -1,10 +1,9 @@
-import { contentPath } from '@/lib/contentRoutes'
 import { createFileRoute } from '@tanstack/react-router'
-import { getCastCrewList } from '../lib/api'
-import { CircleCard } from '../components/Poster'
+import { getPersonalities } from '../lib/people'
+import { PersonalityCard } from '../components/Personality'
 
 export const Route = createFileRoute('/cast')({
-  loader: async () => await getCastCrewList(),
+  loader: async () => await getPersonalities(),
   component: CastList,
 })
 
@@ -12,11 +11,11 @@ function CastList() {
   const people = Route.useLoaderData() as any[]
   return (
     <div>
-      <h1 className="page-title-center" style={{ margin: '34px 0 34px' }}>Your Favourite Personality List</h1>
+      <h1 className="page-title-center" style={{ margin: '34px 0 34px' }}>Personalities</h1>
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="cast-grid">
           {people.map((p) => (
-            <CircleCard key={p.id} name={p.name} image={p.file_url} to={contentPath(p,'/cast')} />
+            <PersonalityCard key={p.id} person={p} />
           ))}
         </div>
         {people.length === 0 && <div className="empty">No personalities available yet.</div>}

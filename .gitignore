@@ -12,3 +12,7 @@ d1-local.sqlite3
 # Server-only local secrets
 .dev.vars*
 .env*
+
+# Local secrets and browser verification artifacts
+.playwright-cli/
+output/

@@ -22,7 +22,7 @@ function ShopIndex() {
   const featured = products.find(p => p.is_in_stock && p.images.length)
   const chooseCategory = (slug: string) => { setCategory(slug); results.current?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' }) }
   return <>
-    <header className="store-hero"><div><span>GOODNEWS HALOBOX</span><h1>Store.</h1><p>Inspiration for your everyday.</p></div><span className="store-hero-symbol" aria-hidden="true"><ShoppingBag /></span></header>
+    <header className="store-hero"><div><h1>Store.</h1><p>Inspiration for your everyday.</p></div><span className="store-hero-symbol" aria-hidden="true"><ShoppingBag /></span></header>
     {!error && <>
       <section className="store-collections" aria-labelledby="store-collections-title"><h2 id="store-collections-title">Find your next good thing.</h2>
         <div className="store-category-rail">{cats.map(c => {

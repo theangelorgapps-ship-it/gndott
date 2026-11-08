@@ -43,7 +43,7 @@ function discussion(data, moderation = false) {
     useRef(initial) { const i = ri++; return refs[i] ??= { current: i === 0 ? true : initial } },
     useEffect() {}, useCallback: fn => fn, useId: () => 'test-chat',
   }
-  const component = load('src/components/LiveDiscussion.tsx', { react, '../player-chat-refinement.css': {}, '../lib/liveTv': {
+  const component = load('src/components/LiveDiscussion.tsx', { react, '../hooks/useTypingViewport': { useTypingViewport() {} }, './PlayerLoading': { PlayerLoading() {} }, '../player-chat-refinement.css': {}, '../lib/liveTv': {
     getLiveDiscussion: async () => data,
     sendLiveComment: async ({ data }) => { if (rejectSend) throw new Error('Please retry'); calls.push(['send', data]) },
     reportLiveComment: async ({ data }) => { calls.push(['report', data]) },

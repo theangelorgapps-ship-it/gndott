@@ -4,14 +4,13 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createPreviewPlayback } from './previewPlayback'
+import { TitlePreview } from './TitlePreview'
 import { img, DEFAULT_IMG } from '../lib/imageUrls'
 import { getWatchlist, toggleWatchlist } from '../lib/api'
 import { Check, Info, Pause, Volume2, VolumeX } from 'lucide-react'
 
 export { img, DEFAULT_IMG }
-const PREVIEW_DELAY_MS = 3000
 const ADVANCE_DELAY_MS = 8000
-const HERO_START_SECONDS = 80
 const VIEWPORT_GUTTER = 12
 
 export function contentBase(type: unknown) {
@@ -52,7 +51,8 @@ export function plainText(value: unknown): string {
 }
 
 function trailerFor(item: any): string | null {
-  const value = [item?.trailer_url, item?.trailerUrl, item?.bunny_trailer_url, item?.video_url_input]
+  const fullAccess = item?.hasSubscriptionAccess !== false && ((item?.movie_access !== 'paid' && item?.access !== 'paid') || item?.myPurchase)
+  const value = [item?.trailer_url, item?.trailerUrl, item?.bunny_trailer_url, fullAccess ? item?.video_url_input : null]
     .find((candidate) => typeof candidate === 'string' && /^https?:\/\//i.test(candidate.trim()))
   return typeof value === 'string' ? value.trim() : null
 }
@@ -61,27 +61,6 @@ function youtubeId(url: string | null | undefined): string | null {
   if (!url) return null
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/)
   return match?.[1] ?? null
-}
-
-type HeroMedia = { kind: 'video' | 'youtube' | 'bunny'; url: string }
-
-function heroMediaFor(hero: any, muted: boolean, bunnyLibraryId?: string | null): HeroMedia | null {
-  const direct = trailerFor(hero)
-  if (direct) {
-    const yt = youtubeId(direct)
-    return yt
-      ? { kind: 'youtube', url: `https://www.youtube.com/embed/${yt}?autoplay=1&mute=${muted ? 1 : 0}&start=${HERO_START_SECONDS}&controls=0&playsinline=1&loop=1&playlist=${yt}&rel=0` }
-      : { kind: 'video', url: direct }
-  }
-  const videoId = typeof hero?.bunny_video_url === 'string' ? hero.bunny_video_url.trim() : ''
-  const libraryId = typeof bunnyLibraryId === 'string' ? bunnyLibraryId.trim() : ''
-  if (videoId && libraryId) {
-    return {
-      kind: 'bunny',
-      url: `https://iframe.mediadelivery.net/embed/${encodeURIComponent(libraryId)}/${encodeURIComponent(videoId)}?autoplay=true&muted=${muted}&t=${HERO_START_SECONDS}&playsinline=true&loop=true&controls=false`,
-    }
-  }
-  return null
 }
 
 export function PosterCard({ item, base, landscape = false, badge }: { item: any; base: string; landscape?: boolean; badge?: string }) {
@@ -154,6 +133,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
         clearTimeout(removal)
         present = true
         window.dispatchEvent(new CustomEvent('halo-preview', { detail: host }))
+        window.dispatchEvent(new CustomEvent('gndott:preview-active', { detail: host }))
         setPosition(previewPosition(host, 300))
         setMounted(true); setFailed(false); setOpen(true)
       }
@@ -174,6 +154,8 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
     window.addEventListener('scroll', dismiss, true)
     window.addEventListener('resize', dismiss)
     window.addEventListener('halo-preview', other)
+    window.addEventListener('gndott:preview-active', other)
+    window.addEventListener('gndott:playback-open', dismiss)
     window.addEventListener('keydown', key)
     document.addEventListener('visibilitychange', dismiss)
     return () => {
@@ -182,6 +164,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
       host.removeEventListener('focusout', blur)
       host.removeEventListener('mouseenter', enter); host.removeEventListener('mouseleave', leave); host.removeEventListener('focusin', enter)
       window.removeEventListener('scroll', dismiss, true); window.removeEventListener('resize', dismiss)
+      window.removeEventListener('gndott:preview-active', other); window.removeEventListener('gndott:playback-open', dismiss)
       window.removeEventListener('halo-preview', other); window.removeEventListener('keydown', key)
       document.removeEventListener('visibilitychange', dismiss)
     }
@@ -224,49 +207,6 @@ export function LiveChannelCard({ channel }: { channel: any }) {
   )
 }
 
-function HeroPreview({ hero, preview, media, mediaRef, muted }: {
-  hero: any
-  preview: boolean
-  media: HeroMedia | null
-  mediaRef: React.RefObject<HTMLVideoElement | null>
-  muted: boolean
-}) {
-  const [ready, setReady] = useState(false)
-  useEffect(() => { setReady(false) }, [hero?.id, preview])
-  if (!preview || !media) return null
-  return (
-    <div className={`hero-preview${ready ? ' is-ready' : ''}`} aria-hidden="true">
-      {media.kind === 'video' ? (
-        <video
-          key={`${hero.id}-${media.url}`}
-          ref={mediaRef}
-          src={media.url}
-          poster={img(hero.thumbnail_url || hero.poster_url)}
-          autoPlay
-          muted={muted}
-          loop
-          playsInline
-          preload="none"
-          onCanPlay={() => setReady(true)}
-          onError={() => setReady(false)}
-          onLoadedMetadata={(event) => {
-            event.currentTarget.currentTime = Math.min(HERO_START_SECONDS, Math.max(0, event.currentTarget.duration - 1))
-          }}
-        />
-      ) : (
-        <iframe
-          key={`${hero.id}-${media.kind}-${media.url}`}
-          onLoad={() => setReady(true)}
-          src={media.url}
-          title=""
-          tabIndex={-1}
-          allow="autoplay; encrypted-media"
-        />
-      )}
-    </div>
-  )
-}
-
 function heroGenres(item: any): string[] {
   const raw = item.genre_names ?? item.genres
   const values = Array.isArray(raw) ? raw.map((genre: any) => typeof genre === 'string' ? genre : genre.name) : typeof raw === 'string' ? raw.split(',') : []
@@ -288,37 +228,28 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
 }) {
   const navigate = useNavigate()
   const [slide, setSlide] = useState(0)
-  const [preview, setPreview] = useState(false)
-  const [muted, setMuted] = useState(true)
   const [paused, setPaused] = useState(false)
   const [interacting, setInteracting] = useState(false)
   const [reducedMotion, setReducedMotion] = useState(true)
-  const [desktopPreview, setDesktopPreview] = useState(false)
   const [pageVisible, setPageVisible] = useState(true)
   const [saved, setSaved] = useState<number[]>([])
   const [libraryReady, setLibraryReady] = useState(false)
   const [libraryFailed, setLibraryFailed] = useState(false)
   const [saving, setSaving] = useState<number | null>(null)
   const [saveStatus, setSaveStatus] = useState('')
-  const videoRef = useRef<HTMLVideoElement>(null)
   const touchStart = useRef<{ x: number; y: number } | null>(null)
   const idx = Math.min(slide, Math.max(slides.length - 1, 0))
   const hero = slides[idx]
-  const media = heroMediaFor(hero, muted, bunnyLibraryId)
-  const mediaIdentity = media ? `${media.kind}:${media.kind === 'video' ? media.url : hero.id}` : null
 
   useEffect(() => {
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const desktop = window.matchMedia('(min-width: 861px) and (hover: hover)')
-    const update = () => { setReducedMotion(motion.matches); setDesktopPreview(desktop.matches) }
+    const update = () => setReducedMotion(motion.matches)
     const visibility = () => setPageVisible(!document.hidden)
     update(); visibility()
     motion.addEventListener('change', update)
-    desktop.addEventListener('change', update)
     document.addEventListener('visibilitychange', visibility)
     return () => {
       motion.removeEventListener('change', update)
-      desktop.removeEventListener('change', update)
       document.removeEventListener('visibilitychange', visibility)
     }
   }, [])
@@ -333,20 +264,15 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
   }, [live])
 
   useEffect(() => {
-    setPreview(false)
     if (reducedMotion || paused || interacting || !pageVisible || !hero) return
-    const previewTimer = desktopPreview && mediaIdentity ? setTimeout(() => setPreview(true), PREVIEW_DELAY_MS) : undefined
     const advanceTimer = slides.length > 1 ? setTimeout(() => {
-      setMuted(true)
       setSlide((idx + 1) % slides.length)
     }, ADVANCE_DELAY_MS) : undefined
-    return () => { clearTimeout(previewTimer); clearTimeout(advanceTimer); videoRef.current?.pause() }
-  }, [idx, slides.length, reducedMotion, paused, interacting, pageVisible, desktopPreview, mediaIdentity])
+    return () => clearTimeout(advanceTimer)
+  }, [idx, slides.length, reducedMotion, paused, interacting, pageVisible])
 
   if (!slides.length || !hero) return null
   const selectSlide = (next: number) => {
-    setPreview(false)
-    setMuted(true)
     setPaused(true)
     setSaveStatus('')
     setSlide((next + slides.length) % slides.length)
@@ -370,7 +296,7 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
 
   return (
     <section className={`hero tv-hero${live ? ' hero-live' : ''}`} aria-roledescription="carousel" aria-label={live ? 'Featured live channels' : 'Featured titles'}
-      data-hero-slide={idx} data-preview-state={reducedMotion ? 'reduced-motion' : preview && desktopPreview && !paused ? media?.kind ?? 'poster' : 'poster'}
+      data-hero-slide={idx}
       onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}
       onFocusCapture={() => setInteracting(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false) }}
       onTouchStart={(event) => { const touch = event.touches[0]; touchStart.current = { x: touch.clientX, y: touch.clientY } }}
@@ -386,7 +312,7 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
           <img src={img(item.thumbnail_url || item.poster_url)} alt="" fetchPriority={index === 0 ? 'high' : 'auto'} decoding="async" />
         </picture>)}
       </div>
-      <HeroPreview hero={hero} preview={preview && desktopPreview && !paused && !interacting && pageVisible && !reducedMotion} media={media} mediaRef={videoRef} muted={muted} />
+      {!live && <TitlePreview key={`${hero.type}:${hero.id}`} title={hero.name} trailerUrl={hero.trailer_url || hero.trailerUrl} bunnyLibraryId={bunnyLibraryId} bunnyTrailerId={hero.bunny_trailer_url} bunnyVideoId={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.bunny_video_url : null} directVideoUrl={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.video_url_input : null} suspended={!pageVisible || reducedMotion} startSeconds={80} />}
       {slides.map((item, index) => {
         const inLibrary = saved.includes(Number(item.id))
         const canSave = !live && !libraryFailed && !['/video', '/channel'].includes(baseFor(item))
@@ -412,7 +338,6 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
         <div className="hero-dots">{slides.map((item, index) => <button type="button" key={`${item.type}-${item.id}`} className={index === idx ? 'active' : ''} aria-label={`Show ${item.name}`} aria-current={index === idx ? 'true' : undefined} onClick={() => selectSlide(index)}><span /></button>)}</div>
         {!reducedMotion && <button type="button" className="hero-pause" aria-label={paused ? 'Resume slideshow' : 'Pause slideshow'} aria-pressed={paused} onClick={() => { setInteracting(false); setPaused((value) => !value) }}>{paused ? <IconPlay size={15} /> : <Pause size={15} />}</button>}
       </>}
-      {preview && desktopPreview && !paused && <button type="button" className="hero-sound-toggle" aria-label={muted ? 'Unmute preview' : 'Mute preview'} aria-pressed={!muted} onClick={() => setMuted((value) => !value)}>{muted ? <VolumeX size={18} /> : <Volume2 size={18} />}</button>}
       <p className="hero-save-status" role="status">{saveStatus}</p>
     </section>
   )

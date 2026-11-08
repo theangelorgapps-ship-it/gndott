@@ -36,10 +36,11 @@ function compile(path, imports) {
   const result = ts.transpileModule(readFileSync(file, 'utf8'), { fileName: file, compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS }, reportDiagnostics: true })
   assert.deepEqual((result.diagnostics ?? []).filter(item => item.category === ts.DiagnosticCategory.Error), [])
   const exports = {}
-  vm.runInNewContext(result.outputText, { exports, require: (name) => { assert.ok(name in imports, `Unexpected import ${name}`); return imports[name] }, crypto: webcrypto, TextEncoder, btoa, atob, console }, { filename: path })
+  vm.runInNewContext(result.outputText, { exports, require: (name) => { assert.ok(name in imports, `Unexpected import ${name}`); return imports[name] }, crypto: webcrypto, URL, TextEncoder, TextDecoder, btoa, atob, console }, { filename: path })
   return exports
 }
-const sessionApi = compile('src/lib/session.server.ts', { '@tanstack/react-start/server': {
+const sessionApi = compile('src/lib/session.server.ts', { 'cloudflare:workers': { env: { SESSION_SECRET: 'isolated-test-secret-never-use-in-production' } }, '@tanstack/react-start/server': {
+  getRequestUrl: () => 'https://example.test',
   getCookie: (name) => cookies.get(name),
   setCookie: (name, value, options) => { cookies.set(name, value); writes.push({ name, value, options }) },
   deleteCookie: (name) => cookies.delete(name),
@@ -107,7 +108,7 @@ try {
     const result = await boundary.selectViewerProfile({ data: { profileId: 12 } })
     assert.equal(result.ok, true)
     assert.deepEqual(plain(result.viewer), { userId: 1, profileId: 12, profileName: 'Sam' })
-    assert.deepEqual(plain(await sessionApi.getSession()), { ...claims, pid: 12 })
+    const { exp, ...savedClaims } = plain(await sessionApi.getSession()); assert.ok(exp > Date.now() / 1000); assert.deepEqual(savedClaims, { ...claims, pid: 12 }); assert.equal(writes[0].options.secure, true)
     assert.equal(writes.length, 1)
     assert.equal(writes[0].options.httpOnly, true)
     assert.equal(writes[0].options.sameSite, 'lax')

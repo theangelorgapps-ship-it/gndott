@@ -18,6 +18,7 @@ import '../player.css'
 import '../auth-flow.css'
 import '../liquid-glass.css'
 import '../library.css'
+import '../live-tv.css'
 import '../responsive-glass.css' // Responsive glass and 4K refinements
 
 export const Route = createRootRoute({

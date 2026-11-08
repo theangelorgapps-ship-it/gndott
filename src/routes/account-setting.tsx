@@ -27,6 +27,7 @@ function AccountSetting() {
   const recordedDevices = devices.filter((device) => device.device_name || device.platform)
   return <AccountShell title="Your account.">
     <ProfilePhoto/>
+    {user.user_type === 'admin' && <a className="btn btn-secondary" href="/admin/live-tv">Live TV administration</a>}
     <AccountLibrary />
     <div className="tv-library-shortcuts">
       <Link to="/continue-watching"><Clock3 size={23} aria-hidden="true" /><span><strong>Continue watching</strong><small>Pick up where you left off</small></span><ArrowRight size={20} aria-hidden="true" /></Link>

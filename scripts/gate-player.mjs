@@ -100,7 +100,7 @@ function controlsGate() {
     react,
     './Detail': { BiblePanel() {}, ContentNotes() {}, youtubeId: () => null },
     './Poster': { img: v => v, plainText: v => v },
-    './playerBridge': {}, './directPlayback': {},
+    './playerBridge': {}, './directPlayback': {}, '../lib/liveSources': compile('src/lib/liveSources.ts'),
     '../hooks/usePlaybackProgress': { usePlaybackProgress: () => ({ loaded: false, record() {} }) },
     './playbackResume': compile('src/components/playbackResume.ts'),
   }, { setTimeout, clearTimeout })

@@ -8,3 +8,7 @@ d1-local.sqlite3
 
 # Local public catalogue used for UI verification only
 .local-fixtures/
+
+# Server-only local secrets
+.dev.vars*
+.env*

@@ -13,13 +13,13 @@ export function createDirectPlayback(video: HTMLVideoElement, url: string, callb
   qualities: (levels: VideoQuality[]) => void
   failure: () => void
   blocked: () => void
-}, loadHls: () => Promise<{ default: typeof Hls }> = () => import('hls.js'), preferNative = prefersNativeHls()): DirectPlayback {
+}, loadHls: () => Promise<{ default: typeof Hls }> = () => import('hls.js'), preferNative = prefersNativeHls(), forceHls = false): DirectPlayback {
   let disposed = false
   let hls: Hls | null = null
   let initialized: Promise<void> | null = null
   let playRequest = 0
   async function initialize() {
-    if (!/\.m3u8(?:[?#]|$)/i.test(url) || (preferNative && video.canPlayType('application/vnd.apple.mpegurl'))) {
+    if ((!forceHls && !/\.m3u8(?:[?#]|$)/i.test(url)) || (preferNative && video.canPlayType('application/vnd.apple.mpegurl'))) {
       video.src = url
       video.load()
       return

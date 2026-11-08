@@ -37,6 +37,7 @@ import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as TvShowsRouteImport } from './routes/tv-shows'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
+import { Route as AdminLiveTvRouteImport } from './routes/admin.live-tv'
 import { Route as CastIdRouteImport } from './routes/cast.$id'
 import { Route as ChannelIdRouteImport } from './routes/channel.$id'
 import { Route as MediaSplatRouteImport } from './routes/media/$'
@@ -186,6 +187,11 @@ const WatchlistRoute = WatchlistRouteImport.update({
   path: '/watchlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminLiveTvRoute = AdminLiveTvRouteImport.update({
+  id: '/admin/live-tv',
+  path: '/admin/live-tv',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CastIdRoute = CastIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -256,6 +262,7 @@ export interface FileRoutesByFullPath {
   '/tv-shows': typeof TvShowsRoute
   '/videos': typeof VideosRoute
   '/watchlist': typeof WatchlistRoute
+  '/admin/live-tv': typeof AdminLiveTvRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
@@ -294,6 +301,7 @@ export interface FileRoutesByTo {
   '/tv-shows': typeof TvShowsRoute
   '/videos': typeof VideosRoute
   '/watchlist': typeof WatchlistRoute
+  '/admin/live-tv': typeof AdminLiveTvRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
@@ -333,6 +341,7 @@ export interface FileRoutesById {
   '/tv-shows': typeof TvShowsRoute
   '/videos': typeof VideosRoute
   '/watchlist': typeof WatchlistRoute
+  '/admin/live-tv': typeof AdminLiveTvRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
@@ -373,6 +382,7 @@ export interface FileRouteTypes {
     | '/tv-shows'
     | '/videos'
     | '/watchlist'
+    | '/admin/live-tv'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
@@ -411,6 +421,7 @@ export interface FileRouteTypes {
     | '/tv-shows'
     | '/videos'
     | '/watchlist'
+    | '/admin/live-tv'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/tv-shows'
     | '/videos'
     | '/watchlist'
+    | '/admin/live-tv'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
@@ -488,6 +500,7 @@ export interface RootRouteChildren {
   TvShowsRoute: typeof TvShowsRoute
   VideosRoute: typeof VideosRoute
   WatchlistRoute: typeof WatchlistRoute
+  AdminLiveTvRoute: typeof AdminLiveTvRoute
   ChannelIdRoute: typeof ChannelIdRoute
   MediaSplatRoute: typeof MediaSplatRoute
   MovieIdRoute: typeof MovieIdRoute
@@ -695,6 +708,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WatchlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/live-tv': {
+      id: '/admin/live-tv'
+      path: '/admin/live-tv'
+      fullPath: '/admin/live-tv'
+      preLoaderRoute: typeof AdminLiveTvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cast/$id': {
       id: '/cast/$id'
       path: '/$id'
@@ -793,6 +813,7 @@ const rootRouteChildren: RootRouteChildren = {
   TvShowsRoute: TvShowsRoute,
   VideosRoute: VideosRoute,
   WatchlistRoute: WatchlistRoute,
+  AdminLiveTvRoute: AdminLiveTvRoute,
   ChannelIdRoute: ChannelIdRoute,
   MediaSplatRoute: MediaSplatRoute,
   MovieIdRoute: MovieIdRoute,

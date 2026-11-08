@@ -152,12 +152,10 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
   useEffect(() => {
     const host = marker.current?.closest('.p-card') as HTMLElement | null
     if (!host) return
-    let timer: ReturnType<typeof setTimeout> | undefined
     let removal: ReturnType<typeof setTimeout> | undefined
     let frame = 0
     let present = false
     const hide = () => {
-      clearTimeout(timer)
       if (closeTimer.current) clearTimeout(closeTimer.current)
       cancelAnimationFrame(frame)
       if (!present) return
@@ -170,18 +168,17 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
     hideRef.current = hide
     const enter = () => {
       if (!window.matchMedia('(min-width: 861px) and (hover: hover) and (pointer: fine)').matches) return
-      clearTimeout(timer)
       if (closeTimer.current) clearTimeout(closeTimer.current)
-      timer = setTimeout(() => {
+      if (!present) {
         clearTimeout(removal)
         present = true
         window.dispatchEvent(new CustomEvent('halo-preview', { detail: host }))
         setPosition(previewPosition(host, 300))
         setMounted(true); setFailed(false)
         frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => setOpen(true)) })
-      }, 400)
+      }
     }
-    const leave = () => { clearTimeout(timer); closeTimer.current = setTimeout(hide, 180) }
+    const leave = () => { closeTimer.current = setTimeout(hide, 180) }
     const other = (event: Event) => { if ((event as CustomEvent).detail !== host) hide() }
     const key = (event: KeyboardEvent) => { if (event.key === 'Escape') hide() }
     const blur = (event: FocusEvent) => { if (!host.contains(event.relatedTarget as Node) && !popup.current?.contains(event.relatedTarget as Node)) leave() }
@@ -195,7 +192,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
     window.addEventListener('keydown', key)
     document.addEventListener('visibilitychange', hide)
     return () => {
-      clearTimeout(timer); clearTimeout(removal); cancelAnimationFrame(frame)
+      clearTimeout(removal); cancelAnimationFrame(frame)
       if (closeTimer.current) clearTimeout(closeTimer.current)
       host.removeEventListener('focusout', blur)
       host.removeEventListener('mouseenter', enter); host.removeEventListener('mouseleave', leave); host.removeEventListener('focusin', enter)
@@ -221,7 +218,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) hideRef.current() }}>
       <img className="halo-preview-art" src={img(item.thumbnail_url || item.poster_url)} alt="" />
       {direct && <video ref={video} className={ready && !failed ? 'is-ready' : ''} playsInline preload="none" aria-hidden="true" />}
-      {ready && !failed && <button className="halo-preview-sound liquid-glass" type="button" aria-label={muted ? 'Enable preview sound' : 'Mute preview sound'} onClick={() => void playback.current?.sound(muted)}>{muted ? <VolumeX size={19} /> : <Volume2 size={19} />}</button>}
+      {direct && !failed && <button className="halo-preview-sound liquid-glass" type="button" aria-label={muted ? 'Enable preview sound' : 'Mute preview sound'} aria-pressed={!muted} disabled={!ready} onClick={() => void playback.current?.sound(muted)}>{muted ? <VolumeX size={19} /> : <Volume2 size={19} />}<span>{muted ? 'Sound on' : 'Mute'}</span></button>}
       <div className="halo-preview-gradient">
         <strong className="pv-name">{item.name}</strong>
         <span className="pv-meta">{year && <span>{year}</span>}{item.duration && <span>{item.duration}</span>}</span>

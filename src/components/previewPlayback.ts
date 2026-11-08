@@ -6,33 +6,39 @@ export const PREVIEW_START_SECONDS = 30
  * the clip playing muted and exposes a real user-gesture sound control. */
 export function createPreviewPlayback(video: HTMLVideoElement, url: string, callbacks: {
   ready: () => void; muted: (value: boolean) => void; failure: () => void
-}, create = createDirectPlayback) {
+}, create = createDirectPlayback, options: { start?: number; volume?: number; sound?: boolean } = {}) {
   let disposed = false
   let revealed = false
-  let target = PREVIEW_START_SECONDS
+  const start = Number.isFinite(options.start) ? Math.max(0, options.start!) : PREVIEW_START_SECONDS
+  let target = start
+  let soundIntent = options.sound ?? true
+  let soundAttempt = 0
   video.muted = true
+  video.volume = Number.isFinite(options.volume) ? Math.max(0, Math.min(1, options.volume!)) : 1
   const failed = () => { if (!disposed) { video.pause(); callbacks.failure() } }
   const direct = create(video, url, { qualities: () => {}, failure: failed, blocked: failed })
   async function sound(enabled: boolean) {
     if (disposed) return
+    soundIntent = enabled
+    const attempt = ++soundAttempt
     video.muted = !enabled
     try { await video.play() }
     catch {
-      if (disposed) return
+      if (disposed || attempt !== soundAttempt) return
       video.muted = true
       try { await video.play() } catch { failed() }
     }
-    if (!disposed) callbacks.muted(video.muted)
+    if (!disposed && attempt === soundAttempt) callbacks.muted(video.muted)
   }
   function reveal() {
     if (disposed || revealed || Math.abs(video.currentTime - target) > 2) return
     revealed = true
     callbacks.ready()
-    void sound(true)
+    void sound(soundIntent)
   }
   function seek() {
     if (disposed || revealed) return
-    target = Number.isFinite(video.duration) && video.duration <= PREVIEW_START_SECONDS ? 0 : PREVIEW_START_SECONDS
+    target = Number.isFinite(video.duration) && video.duration <= start ? 0 : start
     video.currentTime = target
     if (target === 0 && video.readyState >= 2) reveal()
   }

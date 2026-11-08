@@ -3,11 +3,11 @@ import { contentPath } from '@/lib/contentRoutes'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { Outlet, Link, createRootRoute, HeadContent, Scripts, useRouterState, useNavigate } from '@tanstack/react-router'
-import { Bookmark, BookOpen, ChevronRight, Clapperboard, Clock3, Home, Menu, PlaySquare, Radio, Tv, UserRound, X } from 'lucide-react'
+import { Bookmark, BookOpen, ChevronRight, Clapperboard, Clock3, Home, Layers, Menu, PlaySquare, Radio, ShoppingBag, Tv, UserRound, X } from 'lucide-react'
 import { getSessionUser, getFooterData } from '../lib/api'
 import { IconSearch } from '../components/Poster'
 import { MotionRoot } from '../components/Motion'
-import { LiquidGlassFilter, LiquidGlassLayers } from '../components/ui/liquid-glass'
+import { LiquidGlassFilter, LiquidGlassLayers, MobileLiquidGlass } from '../components/ui/liquid-glass'
 import { AppleSpotlight } from '@/components/ui/apple-spotlight'
 import '../styles.css'
 import '../tv-theme.css'
@@ -20,6 +20,8 @@ import '../liquid-glass.css'
 import '../library.css'
 import '../live-tv.css'
 import '../responsive-glass.css' // Responsive glass and 4K refinements
+import '../mobile-glass.css'
+import '../subscription-checkout.css'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -35,7 +37,7 @@ export const Route = createRootRoute({
 })
 
 const BARE_ROUTES = ['/login', '/register', '/forgot-password', '/manage-profile']
-const MENU_ICONS = [Home, Clapperboard, BookOpen, Tv, PlaySquare, Radio]
+const MENU_ICONS = [Home, Clapperboard, BookOpen, Tv, PlaySquare, Radio, Layers, ShoppingBag]
 const NAV_ITEMS = [
   { label: 'Home', to: '/', aliases: ['/'] },
   { label: 'Sermons', to: '/movies', aliases: ['/movies', '/movie'] },
@@ -43,6 +45,8 @@ const NAV_ITEMS = [
   { label: 'Shows', to: '/tv-shows', aliases: ['/tv-shows', '/tv-show'] },
   { label: 'Videos', to: '/videos', aliases: ['/videos', '/video'] },
   { label: 'Live TV', to: '/live-tv', aliases: ['/live-tv', '/channel'] },
+  { label: 'Series', to: '/series', aliases: ['/series'] },
+  { label: 'Shop', to: '/shop', aliases: ['/shop'] },
   { label: 'Watchlist', to: '/watchlist', aliases: ['/watchlist'] },
 ]
 
@@ -171,7 +175,7 @@ function RootComponent() {
           <div className="mobile-menu-body">
             <button type="button" className="mobile-menu-search" onClick={openSearch}><IconSearch size={21} /><span>Search messages, shows and more</span></button>
             <nav className="mobile-menu-nav" aria-label="Mobile navigation" onClick={(event) => { if (event.target instanceof Element && event.target.closest('a')) setMenuOpen(false) }}>
-              {NAV_ITEMS.slice(0, 6).map((item, index) => {
+              {NAV_ITEMS.slice(0, 8).map((item, index) => {
                 const Icon = MENU_ICONS[index]
                 const active = destinationActive(pathname, item)
                 return <Link key={item.to} to={item.to} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><Icon size={23} className="mobile-menu-icon" aria-hidden="true" /><span>{item.label}</span>{item.to === '/live-tv' ? <span className="mobile-menu-live">Live</span> : <ChevronRight size={17} className="mobile-menu-chevron" aria-hidden="true" />}</Link>
@@ -192,14 +196,13 @@ function RootComponent() {
       )}
 
       <div className={`mobile-navigation${pathname === '/search' ? ' is-search-page' : ''}`}>
-        <nav className="mobile-dock liquid-glass" aria-label="Quick navigation">
-          <LiquidGlassLayers />
+        <MobileLiquidGlass asChild><nav className="mobile-dock liquid-glass" aria-label="Quick navigation">
           <Link to="/" className={pathname === '/' ? 'active' : ''} aria-current={pathname === '/' ? 'page' : undefined}><Home size={23} /><span>Home</span></Link>
           <Link to="/movies" className={destinationActive(pathname, NAV_ITEMS[1]) ? 'active' : ''} aria-current={destinationActive(pathname, NAV_ITEMS[1]) ? 'page' : undefined}><Clapperboard size={23} /><span>Sermons</span></Link>
           <Link to="/live-tv" className={destinationActive(pathname, NAV_ITEMS[5]) ? 'active' : ''} aria-current={destinationActive(pathname, NAV_ITEMS[5]) ? 'page' : undefined}><Radio size={23} /><span>Live TV</span></Link>
           <Link to="/account-setting" className={(['/account-setting', '/watchlist', '/continue-watching'].includes(pathname)) ? 'active' : ''} aria-current={(['/account-setting', '/watchlist', '/continue-watching'].includes(pathname)) ? 'page' : undefined}><Bookmark size={23} /><span>Library</span></Link>
-        </nav>
-        <Link to="/search" search={{ q: '' } as any} className={`mobile-search-circle liquid-glass${pathname === '/search' ? ' active' : ''}`} aria-label="Search"><LiquidGlassLayers /><IconSearch size={27} /></Link>
+        </nav></MobileLiquidGlass>
+        <MobileLiquidGlass asChild interactive><Link to="/search" search={{ q: '' } as any} className={`mobile-search-circle liquid-glass${pathname === '/search' ? ' active' : ''}`} aria-label="Search"><IconSearch size={27} /></Link></MobileLiquidGlass>
       </div>
 
       {pathname === '/' && <BrandOpener />}

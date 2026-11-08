@@ -15,13 +15,15 @@ function ChannelDetail() {
   const { channel, related, streamUrl, viewerId, isAdmin, unavailable } = Route.useLoaderData()
   const [watching, setWatching] = useState(false)
   return <div className="live-channel">
-    <section className="detail-hero" style={{ backgroundImage: `url(${img(channel.poster_url)})` }}>
+    <section className="live-channel-hero" aria-labelledby="live-channel-title">
+      {channel.poster_url && <img className="live-channel-artwork" src={img(channel.poster_url)} alt="" fetchPriority="high" />}
+      <div className="live-channel-shade" aria-hidden="true" />
       <div className="detail-inner">
-        <div className="chips"><span className="live-badge" style={{ position: 'static' }}>LIVE TV</span><span className="chip">{channel.access === 'free' ? 'Free' : 'Premium'}</span></div>
-        <h1 className="hero-title">{channel.name}</h1>
+        <div className="chips"><span className="live-badge">LIVE TV</span><span className="chip">{channel.access === 'free' ? 'Free' : 'Premium'}</span></div>
+        <h1 id="live-channel-title" className="hero-title">{channel.name}</h1>
         {channel.description && <p className="hero-desc">{String(channel.description).replace(/<[^>]*>/g, '')}</p>}
         <div className="hero-actions"><button className="btn btn-primary" disabled={!streamUrl} onClick={() => setWatching(true)}><IconPlay /> Watch live</button>{isAdmin && <a className="btn btn-ghost" href="/admin/live-tv">Manage Live TV</a>}</div>
-        {unavailable && <p role="status">{unavailable}</p>}
+        {unavailable && <p className="live-channel-status" role="status">{unavailable}</p>}
       </div>
     </section>
     {!watching && <section className="section live-channel-discussion"><LiveDiscussion key={channel.id} channelId={channel.id} /></section>}

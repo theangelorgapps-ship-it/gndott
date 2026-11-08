@@ -103,6 +103,7 @@ function controlsGate() {
     './playerBridge': {}, './directPlayback': {}, '../lib/liveSources': compile('src/lib/liveSources.ts'),
     '../hooks/usePlaybackProgress': { usePlaybackProgress: () => ({ loaded: false, record() {} }) },
     './playbackResume': compile('src/components/playbackResume.ts'),
+    './playerCapabilities': compile('src/components/playerCapabilities.ts'),
   }, { setTimeout, clearTimeout })
   const render = () => { stateIndex = refIndex = 0; return production.ImmersivePlayer({ title: 'Test', contentId: 1, contentType: 'movie', directVideoUrl: 'https://media.test/test.mp4' }) }
   function find(tree, predicate) {

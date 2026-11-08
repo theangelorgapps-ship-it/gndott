@@ -31,6 +31,8 @@ import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
 import { Route as ProfileDetailsRouteImport } from './routes/profile-details'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as SeriesRouteImport } from './routes/series'
+import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SubscriptionPlanRouteImport } from './routes/subscription-plan'
 import { Route as TeachingsRouteImport } from './routes/teachings'
 import { Route as TrendingRouteImport } from './routes/trending'
@@ -38,11 +40,16 @@ import { Route as TvShowsRouteImport } from './routes/tv-shows'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as AdminLiveTvRouteImport } from './routes/admin.live-tv'
+import { Route as AdminShopRouteImport } from './routes/admin.shop'
+import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
 import { Route as CastIdRouteImport } from './routes/cast.$id'
 import { Route as ChannelIdRouteImport } from './routes/channel.$id'
 import { Route as MediaSplatRouteImport } from './routes/media/$'
 import { Route as MovieIdRouteImport } from './routes/movie.$id'
 import { Route as PageSlugRouteImport } from './routes/page.$slug'
+import { Route as ShopIndexRouteImport } from './routes/shop.index'
+import { Route as ShopSlugRouteImport } from './routes/shop.$slug'
+import { Route as ShopCheckoutRouteImport } from './routes/shop.checkout'
 import { Route as TeachingIdRouteImport } from './routes/teaching.$id'
 import { Route as TvShowIdRouteImport } from './routes/tv-show.$id'
 import { Route as VideoIdRouteImport } from './routes/video.$id'
@@ -157,6 +164,16 @@ const SearchRoute = SearchRouteImport.update({
   path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SeriesRoute = SeriesRouteImport.update({
+  id: '/series',
+  path: '/series',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShopRoute = ShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SubscriptionPlanRoute = SubscriptionPlanRouteImport.update({
   id: '/subscription-plan',
   path: '/subscription-plan',
@@ -192,6 +209,16 @@ const AdminLiveTvRoute = AdminLiveTvRouteImport.update({
   path: '/admin/live-tv',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminShopRoute = AdminShopRouteImport.update({
+  id: '/admin/shop',
+  path: '/admin/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
+  id: '/api/stripe-webhook',
+  path: '/api/stripe-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CastIdRoute = CastIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -216,6 +243,21 @@ const PageSlugRoute = PageSlugRouteImport.update({
   id: '/page/$slug',
   path: '/page/$slug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ShopIndexRoute = ShopIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopSlugRoute = ShopSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopCheckoutRoute = ShopCheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => ShopRoute,
 } as any)
 const TeachingIdRoute = TeachingIdRouteImport.update({
   id: '/teaching/$id',
@@ -256,6 +298,8 @@ export interface FileRoutesByFullPath {
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
+  '/series': typeof SeriesRoute
+  '/shop': typeof ShopRouteWithChildren
   '/subscription-plan': typeof SubscriptionPlanRoute
   '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
@@ -263,14 +307,19 @@ export interface FileRoutesByFullPath {
   '/videos': typeof VideosRoute
   '/watchlist': typeof WatchlistRoute
   '/admin/live-tv': typeof AdminLiveTvRoute
+  '/admin/shop': typeof AdminShopRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/shop/$slug': typeof ShopSlugRoute
+  '/shop/checkout': typeof ShopCheckoutRoute
   '/teaching/$id': typeof TeachingIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
+  '/shop/': typeof ShopIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -295,6 +344,7 @@ export interface FileRoutesByTo {
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
+  '/series': typeof SeriesRoute
   '/subscription-plan': typeof SubscriptionPlanRoute
   '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
@@ -302,14 +352,19 @@ export interface FileRoutesByTo {
   '/videos': typeof VideosRoute
   '/watchlist': typeof WatchlistRoute
   '/admin/live-tv': typeof AdminLiveTvRoute
+  '/admin/shop': typeof AdminShopRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/shop/$slug': typeof ShopSlugRoute
+  '/shop/checkout': typeof ShopCheckoutRoute
   '/teaching/$id': typeof TeachingIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
+  '/shop': typeof ShopIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -335,6 +390,8 @@ export interface FileRoutesById {
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
+  '/series': typeof SeriesRoute
+  '/shop': typeof ShopRouteWithChildren
   '/subscription-plan': typeof SubscriptionPlanRoute
   '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
@@ -342,14 +399,19 @@ export interface FileRoutesById {
   '/videos': typeof VideosRoute
   '/watchlist': typeof WatchlistRoute
   '/admin/live-tv': typeof AdminLiveTvRoute
+  '/admin/shop': typeof AdminShopRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/shop/$slug': typeof ShopSlugRoute
+  '/shop/checkout': typeof ShopCheckoutRoute
   '/teaching/$id': typeof TeachingIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
+  '/shop/': typeof ShopIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -376,6 +438,8 @@ export interface FileRouteTypes {
     | '/profile-details'
     | '/register'
     | '/search'
+    | '/series'
+    | '/shop'
     | '/subscription-plan'
     | '/teachings'
     | '/trending'
@@ -383,14 +447,19 @@ export interface FileRouteTypes {
     | '/videos'
     | '/watchlist'
     | '/admin/live-tv'
+    | '/admin/shop'
+    | '/api/stripe-webhook'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/shop/$slug'
+    | '/shop/checkout'
     | '/teaching/$id'
     | '/tv-show/$id'
     | '/video/$id'
+    | '/shop/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -415,6 +484,7 @@ export interface FileRouteTypes {
     | '/profile-details'
     | '/register'
     | '/search'
+    | '/series'
     | '/subscription-plan'
     | '/teachings'
     | '/trending'
@@ -422,14 +492,19 @@ export interface FileRouteTypes {
     | '/videos'
     | '/watchlist'
     | '/admin/live-tv'
+    | '/admin/shop'
+    | '/api/stripe-webhook'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/shop/$slug'
+    | '/shop/checkout'
     | '/teaching/$id'
     | '/tv-show/$id'
     | '/video/$id'
+    | '/shop'
   id:
     | '__root__'
     | '/'
@@ -454,6 +529,8 @@ export interface FileRouteTypes {
     | '/profile-details'
     | '/register'
     | '/search'
+    | '/series'
+    | '/shop'
     | '/subscription-plan'
     | '/teachings'
     | '/trending'
@@ -461,14 +538,19 @@ export interface FileRouteTypes {
     | '/videos'
     | '/watchlist'
     | '/admin/live-tv'
+    | '/admin/shop'
+    | '/api/stripe-webhook'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/shop/$slug'
+    | '/shop/checkout'
     | '/teaching/$id'
     | '/tv-show/$id'
     | '/video/$id'
+    | '/shop/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -494,6 +576,8 @@ export interface RootRouteChildren {
   ProfileDetailsRoute: typeof ProfileDetailsRoute
   RegisterRoute: typeof RegisterRoute
   SearchRoute: typeof SearchRoute
+  SeriesRoute: typeof SeriesRoute
+  ShopRoute: typeof ShopRouteWithChildren
   SubscriptionPlanRoute: typeof SubscriptionPlanRoute
   TeachingsRoute: typeof TeachingsRoute
   TrendingRoute: typeof TrendingRoute
@@ -501,6 +585,8 @@ export interface RootRouteChildren {
   VideosRoute: typeof VideosRoute
   WatchlistRoute: typeof WatchlistRoute
   AdminLiveTvRoute: typeof AdminLiveTvRoute
+  AdminShopRoute: typeof AdminShopRoute
+  ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   ChannelIdRoute: typeof ChannelIdRoute
   MediaSplatRoute: typeof MediaSplatRoute
   MovieIdRoute: typeof MovieIdRoute
@@ -666,6 +752,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/series': {
+      id: '/series'
+      path: '/series'
+      fullPath: '/series'
+      preLoaderRoute: typeof SeriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shop': {
+      id: '/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof ShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/subscription-plan': {
       id: '/subscription-plan'
       path: '/subscription-plan'
@@ -715,6 +815,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLiveTvRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/shop': {
+      id: '/admin/shop'
+      path: '/admin/shop'
+      fullPath: '/admin/shop'
+      preLoaderRoute: typeof AdminShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stripe-webhook': {
+      id: '/api/stripe-webhook'
+      path: '/api/stripe-webhook'
+      fullPath: '/api/stripe-webhook'
+      preLoaderRoute: typeof ApiStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cast/$id': {
       id: '/cast/$id'
       path: '/$id'
@@ -750,6 +864,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PageSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/shop/': {
+      id: '/shop/'
+      path: '/'
+      fullPath: '/shop/'
+      preLoaderRoute: typeof ShopIndexRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/$slug': {
+      id: '/shop/$slug'
+      path: '/$slug'
+      fullPath: '/shop/$slug'
+      preLoaderRoute: typeof ShopSlugRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/checkout': {
+      id: '/shop/checkout'
+      path: '/checkout'
+      fullPath: '/shop/checkout'
+      preLoaderRoute: typeof ShopCheckoutRouteImport
+      parentRoute: typeof ShopRoute
+    }
     '/teaching/$id': {
       id: '/teaching/$id'
       path: '/teaching/$id'
@@ -784,6 +919,20 @@ const CastRouteChildren: CastRouteChildren = {
 
 const CastRouteWithChildren = CastRoute._addFileChildren(CastRouteChildren)
 
+interface ShopRouteChildren {
+  ShopSlugRoute: typeof ShopSlugRoute
+  ShopCheckoutRoute: typeof ShopCheckoutRoute
+  ShopIndexRoute: typeof ShopIndexRoute
+}
+
+const ShopRouteChildren: ShopRouteChildren = {
+  ShopSlugRoute: ShopSlugRoute,
+  ShopCheckoutRoute: ShopCheckoutRoute,
+  ShopIndexRoute: ShopIndexRoute,
+}
+
+const ShopRouteWithChildren = ShopRoute._addFileChildren(ShopRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountSettingRoute: AccountSettingRoute,
@@ -807,6 +956,8 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileDetailsRoute: ProfileDetailsRoute,
   RegisterRoute: RegisterRoute,
   SearchRoute: SearchRoute,
+  SeriesRoute: SeriesRoute,
+  ShopRoute: ShopRouteWithChildren,
   SubscriptionPlanRoute: SubscriptionPlanRoute,
   TeachingsRoute: TeachingsRoute,
   TrendingRoute: TrendingRoute,
@@ -814,6 +965,8 @@ const rootRouteChildren: RootRouteChildren = {
   VideosRoute: VideosRoute,
   WatchlistRoute: WatchlistRoute,
   AdminLiveTvRoute: AdminLiveTvRoute,
+  AdminShopRoute: AdminShopRoute,
+  ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   ChannelIdRoute: ChannelIdRoute,
   MediaSplatRoute: MediaSplatRoute,
   MovieIdRoute: MovieIdRoute,

@@ -926,165 +926,49 @@ async function settingVal(name: string): Promise<string | null> {
   return row?.val != null && row.val !== '' ? String(row.val) : null
 }
 
-export const getCheckoutInfo = createServerFn({ method: 'GET' }).handler(async () => {
-  const gateways: { id: string; label: string }[] = []
-  if (await settingVal('cash_payment_method') === '1') gateways.push({ id: 'cash', label: 'Cash / Manual (instant activation)' })
-  if ((await settingVal('str_payment_method')) === '1' && (await settingVal('stripe_secretkey')))
-    gateways.push({ id: 'stripe', label: 'Card (Stripe)' })
-  return { gateways }
-})
-
-export const validateCoupon = createServerFn({ method: 'GET' })
-  .validator((d: { code: string; amount: number }) => d)
+export const getCheckoutInfo = createServerFn({ method: 'GET' })
+  .validator((d: { planId: number }) => d)
   .handler(async ({ data }) => {
-    const code = data.code?.trim()
-    if (!code) return { ok: false, error: 'Enter a coupon code.' }
-    const c = await first<any>(
-      `SELECT id, code, discount_type, discount, start_date, expire_date FROM coupons WHERE code = ? AND status = 1 AND deleted_at IS NULL`,
-      code,
-    ).catch(() => null)
-    if (!c) return { ok: false, error: 'Invalid coupon code.' }
-    const today = new Date().toISOString().slice(0, 10)
-    if (c.start_date && c.start_date > today) return { ok: false, error: 'This coupon is not active yet.' }
-    if (c.expire_date && c.expire_date < today) return { ok: false, error: 'This coupon has expired.' }
-    const amount = Number(data.amount) || 0
-    const off = c.discount_type === 'percent' || c.discount_type === 'percentage'
-      ? (amount * Number(c.discount)) / 100
-      : Number(c.discount)
-    const discount = Math.min(amount, Math.max(0, off))
-    return { ok: true, discount, finalAmount: Math.max(0, amount - discount), description: `${c.discount}${c.discount_type === 'percent' || c.discount_type === 'percentage' ? '%' : ' USD'} off` }
+    const checkout = await import('./subscriptionCheckout.server')
+    try { return await checkout.getSubscriptionCheckoutInfo(data.planId) }
+    catch (error) { return { gateways: [], quote: null, error: checkout.checkoutError(error) } }
   })
 
-function planEndDate(duration: string | null, durationValue: number | null): string {
-  const d = new Date()
-  const v = Number(durationValue) || 1
-  if (duration === 'year') d.setFullYear(d.getFullYear() + v)
-  else if (duration === 'week') d.setDate(d.getDate() + 7 * v)
-  else if (duration === 'day') d.setDate(d.getDate() + v)
-  else d.setMonth(d.getMonth() + v)
-  return d.toISOString().slice(0, 10)
-}
-
-async function createSubscriptionRecord(opts: {
-  uid: number; plan: any; gateway: string; transactionId: string; discount?: number
-}) {
-  const { uid, plan, gateway, transactionId, discount } = opts
-  const start = new Date().toISOString().slice(0, 10)
-  const end = planEndDate(plan.duration, plan.duration_value)
-  const amount = Number(plan.price) || 0
-  const disc = Math.min(amount, Math.max(0, Number(discount) || 0))
-  const total = Math.max(0, amount - disc)
-  await run(
-    `UPDATE subscriptions SET status = 'inactive', updated_at = datetime('now') WHERE user_id = ? AND status = 'active' AND deleted_at IS NULL`,
-    uid,
-  ).catch(() => null)
-  const res = await run(
-    `INSERT INTO subscriptions (plan_id, user_id, start_date, end_date, status, is_manual, amount, discount_percentage, tax_amount, coupon_discount, total_amount, name, identifier, type, duration, level, plan_type, payment_id, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-    plan.id, uid, start, end, 'active', gateway === 'cash' ? 1 : 0,
-    amount, plan.discount_percentage ?? 0, disc, total,
-    plan.name, plan.identifier ?? plan.name, 'subscription', plan.duration ?? 'month', plan.level ?? 0,
-    gateway, transactionId,
-  )
-  const subId = (res as any)?.meta?.last_row_id
-  await run(
-    `INSERT INTO subscriptions_transactions (subscriptions_id, user_id, amount, payment_type, payment_status, transaction_id, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-    subId, uid, total, gateway, 'paid', transactionId,
-  )
-  await run(`UPDATE users SET is_subscribe = 1, updated_at = datetime('now') WHERE id = ?`, uid)
-  return { subId, total, end }
-}
+export const validateCoupon = createServerFn({ method: 'GET' })
+  .validator((d: { code: string; planId: number }) => d)
+  .handler(async ({ data }) => {
+    const checkout = await import('./subscriptionCheckout.server')
+    try {
+      const { db } = await checkout.stripeConfiguration()
+      const { quote } = await checkout.readSubscriptionQuote(db, data.planId, data.code)
+      return { ok: true as const, quote }
+    } catch (error) { return { ok: false as const, error: checkout.checkoutError(error) } }
+  })
 
 export const subscribePlan = createServerFn({ method: 'POST' })
-  .validator((d: { planId: number; gateway: string; couponCode?: string; origin?: string }) => d)
+  .validator((d: { planId: number; gateway: string; couponCode?: string; requestKey: string; expectedTotalCents: number }) => d)
   .handler(async ({ data }) => {
-    const session = await getSession()
-    if (!session) return { ok: false, needsAuth: true, error: 'Sign in to subscribe.' }
-    const plan = await first<any>(`SELECT * FROM plan WHERE id = ? AND status = 1 AND deleted_at IS NULL`, data.planId)
-    if (!plan) return { ok: false, error: 'Plan not found.' }
-    let discount = 0
-    if (data.couponCode?.trim()) {
-      const c = await first<any>(
-        `SELECT * FROM coupons WHERE code = ? AND status = 1 AND deleted_at IS NULL`,
-        data.couponCode.trim(),
-      ).catch(() => null)
-      if (c) {
-        const today = new Date().toISOString().slice(0, 10)
-        if ((!c.start_date || c.start_date <= today) && (!c.expire_date || c.expire_date >= today)) {
-          const amount = Number(plan.price) || 0
-          discount = c.discount_type === 'percent' || c.discount_type === 'percentage'
-            ? Math.min(amount, (amount * Number(c.discount)) / 100)
-            : Math.min(amount, Number(c.discount))
-        }
-      }
-    }
-    if (data.gateway === 'cash') {
-      if (await settingVal('cash_payment_method') !== '1') return { ok: false, error: 'Cash payment is disabled.' }
-      const txn = `CASH-${Date.now()}`
-      const { total, end } = await createSubscriptionRecord({
-        uid: session.uid, plan, gateway: 'cash', transactionId: txn, discount,
-      })
-      return { ok: true, activated: true, total, end, transactionId: txn }
-    }
-    if (data.gateway === 'stripe') {
-      const secret = await settingVal('stripe_secretkey')
-      if (!secret) return { ok: false, error: 'Stripe is not configured.' }
-      const origin = data.origin || 'https://gndott.theangelorgapps.workers.dev'
-      const total = Math.max(0, (Number(plan.price) || 0) - discount)
-      const body = new URLSearchParams({
-        mode: 'payment',
-        'line_items[0][price_data][currency]': 'usd',
-        'line_items[0][price_data][product_data][name]': `${plan.name} subscription`,
-        'line_items[0][price_data][unit_amount]': String(Math.round(total * 100)),
-        'line_items[0][quantity]': '1',
-        success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/subscription-plan?cancelled=1`,
-        'metadata[plan_id]': String(plan.id),
-        'metadata[user_id]': String(session.uid),
-        'metadata[coupon_code]': data.couponCode?.trim() ?? '',
-        'metadata[discount]': String(discount),
-        customer_email: session.email,
-      })
-      const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-      })
-      const json: any = await resp.json()
-      if (!resp.ok || !json.url) {
-        return { ok: false, error: `Stripe: ${json?.error?.message ?? 'could not create checkout session'}` }
-      }
-      return { ok: true, checkoutUrl: json.url }
-    }
-    return { ok: false, error: 'Choose a payment method.' }
+    const checkout = await import('./subscriptionCheckout.server')
+    try {
+      const origin = checkout.subscriptionWriteOrigin()
+      const user = await checkout.subscriptionActor()
+      if (!user) return { ok: false as const, needsAuth: true, error: 'Sign in with an active account to subscribe.' }
+      const { db, secret, enabled } = await checkout.stripeConfiguration()
+      if (!enabled || !secret) return { ok: false as const, error: 'Online checkout is temporarily unavailable. Please try again later.' }
+      return await checkout.createSubscriptionCheckout(db, user, data, origin, secret)
+    } catch (error) { return { ok: false as const, error: checkout.checkoutError(error) } }
   })
 
 export const confirmStripeSession = createServerFn({ method: 'POST' })
   .validator((d: { sessionId: string }) => d)
   .handler(async ({ data }) => {
-    const session = await getSession()
-    if (!session) return { ok: false, needsAuth: true, error: 'Sign in required.' }
-    const secret = await settingVal('stripe_secretkey')
-    if (!secret) return { ok: false, error: 'Stripe is not configured.' }
-    const resp = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(data.sessionId)}`, {
-      headers: { Authorization: `Bearer ${secret}` },
-    })
-    const json: any = await resp.json()
-    if (!resp.ok) return { ok: false, error: `Stripe: ${json?.error?.message ?? 'could not verify session'}` }
-    if (json.payment_status !== 'paid') return { ok: false, error: 'Payment not completed.' }
-    if (String(json.metadata?.user_id) !== String(session.uid)) return { ok: false, error: 'Session mismatch.' }
-    const plan = await first<any>(`SELECT * FROM plan WHERE id = ?`, Number(json.metadata?.plan_id))
-    if (!plan) return { ok: false, error: 'Plan not found.' }
-    const existing = await first<any>(
-      `SELECT id FROM subscriptions_transactions WHERE transaction_id = ?`, json.id,
-    ).catch(() => null)
-    if (existing) return { ok: true, already: true }
-    const { total, end } = await createSubscriptionRecord({
-      uid: session.uid, plan, gateway: 'stripe', transactionId: json.id,
-      discount: Number(json.metadata?.discount) || 0,
-    })
-    return { ok: true, total, end }
+    const checkout = await import('./subscriptionCheckout.server')
+    try {
+      checkout.subscriptionWriteOrigin()
+      const user = await checkout.subscriptionActor()
+      if (!user) return { ok: false as const, needsAuth: true, error: 'Sign in to the account used at checkout to verify your payment.' }
+      return await checkout.confirmSubscriptionCheckout(data.sessionId, user.id)
+    } catch (error) { return { ok: false as const, error: checkout.checkoutError(error) } }
   })
 
 // ---------- pay per view ----------

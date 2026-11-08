@@ -1,0 +1,97 @@
+/* The mobile dock uses the supplied measured refraction material. Its painted
+   rim is intentionally absent; the reference's content, capsule and separate
+   search circle stay in one aligned row. Import after responsive-glass.css. */
+.mobile-glass-surface > [data-glass-rim] { display: none; }
+.mobile-glass-surface { border: 0; }
+
+@media (max-width: 860px) {
+  .mobile-navigation {
+    --dock-height: 64px;
+    position: fixed;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--dock-height);
+    align-items: stretch;
+    gap: 9px;
+    width: min(430px, calc(100% - 24px));
+    max-width: none;
+    height: var(--dock-height);
+    left: 50%;
+    right: auto;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    margin: 0;
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .mobile-navigation :is(.mobile-dock, .mobile-search-circle)[data-liquid-glass] {
+    position: relative;
+    isolation: isolate;
+    box-sizing: border-box;
+    width: 100%;
+    height: var(--dock-height);
+    min-height: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ffffff0c, #ffffff02 60%, #ffffff0a);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    pointer-events: auto;
+    overflow: hidden;
+    color: #f5f5f7;
+  }
+  .mobile-navigation .mobile-dock[data-liquid-glass] {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    inset: auto;
+    padding: 4px;
+  }
+  .mobile-navigation .mobile-dock[data-liquid-glass] a {
+    height: 100%;
+    min-height: 44px;
+    padding: 3px 1px;
+    gap: 3px;
+    font-size: 10px;
+    line-height: 1.1;
+    font-weight: 600;
+    color: #f5f5f7;
+    text-shadow: 0 1px 5px #0009;
+  }
+  .mobile-navigation .mobile-dock[data-liquid-glass] a.active { color: #3cbbff; }
+  .mobile-navigation .mobile-dock[data-liquid-glass] a.active::before {
+    background: linear-gradient(145deg, #ffffff28, #ffffff0e);
+    border: 0;
+  }
+  .mobile-navigation .mobile-search-circle[data-liquid-glass] {
+    display: grid;
+    place-items: center;
+    width: var(--dock-height);
+    min-width: var(--dock-height);
+    padding: 0;
+  }
+  .mobile-navigation .mobile-search-circle[data-liquid-glass] > svg {
+    width: 29px;
+    height: 29px;
+    display: block;
+    margin: 0;
+    filter: drop-shadow(0 1px 4px #0005);
+  }
+  .mobile-navigation .mobile-search-circle.active[data-liquid-glass] { color: #3cbbff; }
+  .mobile-navigation [data-liquid-glass] :focus-visible,
+  .mobile-navigation [data-liquid-glass]:focus-visible { outline: 2px solid #70caff; outline-offset: -4px; }
+}
+@media (max-width: 360px) {
+  .mobile-navigation { --dock-height: 60px; width: calc(100% - 16px); gap: 7px; }
+  .mobile-navigation .mobile-dock[data-liquid-glass] a { font-size: 9px; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .mobile-navigation .mobile-glass-surface[data-liquid-glass] { background: #242426f5; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .mobile-navigation .mobile-glass-surface[data-liquid-glass] { background: #242426; }
+  .mobile-navigation .mobile-glass-surface > span[aria-hidden] { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mobile-navigation .mobile-glass-surface,
+  .mobile-navigation .mobile-glass-surface a,
+  .mobile-navigation .mobile-glass-surface a::before { transition: none; animation: none; }
+}

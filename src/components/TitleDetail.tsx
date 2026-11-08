@@ -138,7 +138,8 @@ export function TitleDetail({ title, poster, landscape, description, kind, genre
           <source media="(min-width: 760px)" srcSet={img(landscape || poster)} />
           <img src={img(poster || landscape)} alt="" fetchPriority="high" />
         </picture>
-        <TitlePreview title={title} trailerUrl={playback.trailerUrl} bunnyLibraryId={playback.bunnyLibraryId} bunnyTrailerId={playback.bunnyTrailerId} />
+        <TitlePreview title={title} trailerUrl={playback.trailerUrl} bunnyLibraryId={playback.bunnyLibraryId} bunnyTrailerId={playback.bunnyTrailerId}
+          directVideoUrl={playback.movieAccess !== 'paid' || playback.myPurchase ? playback.directVideoUrl : null} />
         <div className="tv-title-shade" />
         <div className="tv-title-utilities">
           <button type="button" className="tv-detail-utility" aria-label="Go back" onClick={() => { if (router.history.canGoBack()) router.history.back(); else router.navigate({ to: '/' }) }}><ChevronLeft size={26} /></button>

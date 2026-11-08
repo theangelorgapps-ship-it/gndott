@@ -77,6 +77,5 @@ export function BibleReader({initial}:{initial?:{version:string;book:string;chap
       </>}
     </div>
     <nav className="bible-reader-navigation" aria-label="Bible chapters"><button type="button" disabled={chapter<=1 || loading} onClick={() => setChapter(value => value-1)}><ChevronLeft size={18} /> Previous</button><button type="button" disabled={!selected || chapter>=selected.chapters || loading} onClick={() => setChapter(value => value+1)}>Next chapter <ChevronRight size={18} /></button></nav>
-    <a className="bible-reader-source" href="https://prayerpulse.io" target="_blank" rel="noreferrer">Bible text via Prayer Pulse</a>
   </section>
 }

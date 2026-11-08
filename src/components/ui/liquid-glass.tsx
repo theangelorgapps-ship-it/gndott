@@ -1,3 +1,10 @@
+import { LiquidGlass, type LiquidGlassProps } from './apple-tahoe-liquid-glass-button'
+
+/** Clear, low-blur dock material. The optical rim is hidden by mobile-glass.css. */
+export function MobileLiquidGlass({ className, ...props }: LiquidGlassProps) {
+  return <LiquidGlass material="clear" appearance="dark" mode="auto" refraction={18} bezel={22} blur={0.7} fallbackBlur={3} saturation={1.35} brightness={1.08} motion="full" fluid={false} {...props} className={`mobile-glass-surface${className ? ` ${className}` : ''}`} />
+}
+
 /** Adapted from the supplied layered glass reference. Decoration never catches input. */
 export function LiquidGlassLayers() {
   return <span className="liquid-glass-layers" aria-hidden="true"><span className="liquid-glass-refraction" /><span className="liquid-glass-tint" /><span className="liquid-glass-light" /></span>

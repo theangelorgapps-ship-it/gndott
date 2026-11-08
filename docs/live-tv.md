@@ -33,3 +33,7 @@ Messages are bounded to 1,000 characters; reports to 500. Plain text is rendered
 - `node scripts/gate-live-tv-ui.mjs`: local-only browser integration with temporary accounts and cleanup; actual configured Bunny playback, comments/replies/admin messages/report handling, comments switch, admin denial, volume and mobile/tablet/4K layouts. Requires a local server at port 5206, the migration/public catalogue, `.dev.vars`, and an installed Playwright Python runtime (`LIVE_TV_PYTHON` can select it). `LIVE_TV_BASE_URL` only accepts localhost.
 
 No production comments or test accounts are created by these checks.
+
+### Production verification — 8 November 2026
+
+Both migrations and Worker version `34e36c54-f196-4fcd-be2b-927d76b87599` were deployed to the current canonical site. Read-only browser checks confirmed actual Bunny playback, volume changes, the four discussion tabs, anonymous admin denial, and layouts at 390px and 3840px without horizontal overflow or page errors. Both Castr channels request the supplied feed; those requests returned HTTP 403 and the player offered reconnect. Castr's source/access configuration must be restored before those two channels can play.

@@ -38,21 +38,21 @@ function Home() {
       {data.top10.length > 0 && <Rail title="Top 10">{data.top10.map((item: any, index: number) => <Top10Card key={item.id} item={item} rank={index + 1} base={contentBase(item.type)} />)}</Rail>}
       <RecommendationGroups recommendations={data.recommendations} fallback={data.popularMovies} recentFallback={data.latest} />
       <HomeAds ads={data.homeAds} />
-      {data.latest.length > 0 && <Rail title="New Released Sermons" seeAll="/movies">{data.latest.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
-      {data.payPerView?.length > 0 && <Rail title="Pay Per View" seeAll="/movies">{data.payPerView.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
-      {data.popularMovies.length > 0 && <Rail title="Popular Sermons" seeAll="/movies">{data.popularMovies.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
+      {data.latest.length > 0 && <Rail title="New Released Sermons" seeAll="/sermons">{data.latest.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
+      {data.payPerView?.length > 0 && <Rail title="Pay Per View" seeAll="/sermons">{data.payPerView.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
+      {data.popularMovies.length > 0 && <Rail title="Popular Sermons" seeAll="/sermons">{data.popularMovies.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.channels.length > 0 && (
         <Rail title="Top Channels" seeAll="/live-tv">
           {data.channels.map((channel: any) => <Link key={channel.id} to={contentPath(channel,'/channel') as any} className="c-circle"><img src={img(channel.poster_url)} alt={channel.name} loading="lazy" /><div className="c-name">{channel.name}</div></Link>)}
         </Rail>
       )}
-      {data.popularTvShows.length > 0 && <Rail title="Popular Shows" seeAll="/tv-shows">{data.popularTvShows.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
+      {data.popularTvShows.length > 0 && <Rail title="Popular Shows" seeAll="/shows">{data.popularTvShows.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.cast?.length > 0 && (
         <Rail title="Popular Personalities">
           {data.cast.map((person: any) => <div key={person.id} className="c-circle"><img src={img(person.file_url)} alt={person.name} loading="lazy" /><div className="c-name">{person.name}</div><div className="c-sub">{person.designation ?? 'Actor'}</div></div>)}
         </Rail>
       )}
-      {data.free.length > 0 && <Rail title="Free Sermons" seeAll="/movies">{data.free.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
+      {data.free.length > 0 && <Rail title="Free Sermons" seeAll="/sermons">{data.free.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.genres.length > 0 && (
         <Rail title="Categories">
           {data.genres.map((genre: any) => <Link key={genre.id} to="/search" search={{ q: '', type: 'all', genre: Number(genre.id) }} className="home-genre-link liquid-glass"><LiquidGlassLayers /><span>{genre.name}</span></Link>)}

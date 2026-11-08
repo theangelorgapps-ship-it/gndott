@@ -32,7 +32,9 @@ import { Route as ProfileDetailsRouteImport } from './routes/profile-details'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SeriesRouteImport } from './routes/series'
+import { Route as SermonsRouteImport } from './routes/sermons'
 import { Route as ShopRouteImport } from './routes/shop'
+import { Route as ShowsRouteImport } from './routes/shows'
 import { Route as SubscriptionPlanRouteImport } from './routes/subscription-plan'
 import { Route as TeachingsRouteImport } from './routes/teachings'
 import { Route as TrendingRouteImport } from './routes/trending'
@@ -42,6 +44,7 @@ import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as AdminLiveTvRouteImport } from './routes/admin.live-tv'
 import { Route as AdminShopRouteImport } from './routes/admin.shop'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
+import { Route as AuthProviderRouteImport } from './routes/auth.$provider'
 import { Route as CastIdRouteImport } from './routes/cast.$id'
 import { Route as ChannelIdRouteImport } from './routes/channel.$id'
 import { Route as MediaSplatRouteImport } from './routes/media/$'
@@ -53,6 +56,7 @@ import { Route as ShopCheckoutRouteImport } from './routes/shop.checkout'
 import { Route as TeachingIdRouteImport } from './routes/teaching.$id'
 import { Route as TvShowIdRouteImport } from './routes/tv-show.$id'
 import { Route as VideoIdRouteImport } from './routes/video.$id'
+import { Route as AuthProviderCallbackRouteImport } from './routes/auth.$provider.callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -169,9 +173,19 @@ const SeriesRoute = SeriesRouteImport.update({
   path: '/series',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SermonsRoute = SermonsRouteImport.update({
+  id: '/sermons',
+  path: '/sermons',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShopRoute = ShopRouteImport.update({
   id: '/shop',
   path: '/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShowsRoute = ShowsRouteImport.update({
+  id: '/shows',
+  path: '/shows',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SubscriptionPlanRoute = SubscriptionPlanRouteImport.update({
@@ -217,6 +231,11 @@ const AdminShopRoute = AdminShopRouteImport.update({
 const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   id: '/api/stripe-webhook',
   path: '/api/stripe-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthProviderRoute = AuthProviderRouteImport.update({
+  id: '/auth/$provider',
+  path: '/auth/$provider',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CastIdRoute = CastIdRouteImport.update({
@@ -274,6 +293,11 @@ const VideoIdRoute = VideoIdRouteImport.update({
   path: '/video/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthProviderCallbackRoute = AuthProviderCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthProviderRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -299,7 +323,9 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
   '/series': typeof SeriesRoute
+  '/sermons': typeof SermonsRoute
   '/shop': typeof ShopRouteWithChildren
+  '/shows': typeof ShowsRoute
   '/subscription-plan': typeof SubscriptionPlanRoute
   '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
@@ -309,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/admin/live-tv': typeof AdminLiveTvRoute
   '/admin/shop': typeof AdminShopRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/auth/$provider': typeof AuthProviderRouteWithChildren
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
@@ -320,6 +347,7 @@ export interface FileRoutesByFullPath {
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
   '/shop/': typeof ShopIndexRoute
+  '/auth/$provider/callback': typeof AuthProviderCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -345,6 +373,8 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
   '/series': typeof SeriesRoute
+  '/sermons': typeof SermonsRoute
+  '/shows': typeof ShowsRoute
   '/subscription-plan': typeof SubscriptionPlanRoute
   '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
@@ -354,6 +384,7 @@ export interface FileRoutesByTo {
   '/admin/live-tv': typeof AdminLiveTvRoute
   '/admin/shop': typeof AdminShopRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/auth/$provider': typeof AuthProviderRouteWithChildren
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
@@ -365,6 +396,7 @@ export interface FileRoutesByTo {
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
   '/shop': typeof ShopIndexRoute
+  '/auth/$provider/callback': typeof AuthProviderCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -391,7 +423,9 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
   '/series': typeof SeriesRoute
+  '/sermons': typeof SermonsRoute
   '/shop': typeof ShopRouteWithChildren
+  '/shows': typeof ShowsRoute
   '/subscription-plan': typeof SubscriptionPlanRoute
   '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
@@ -401,6 +435,7 @@ export interface FileRoutesById {
   '/admin/live-tv': typeof AdminLiveTvRoute
   '/admin/shop': typeof AdminShopRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/auth/$provider': typeof AuthProviderRouteWithChildren
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
@@ -412,6 +447,7 @@ export interface FileRoutesById {
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
   '/shop/': typeof ShopIndexRoute
+  '/auth/$provider/callback': typeof AuthProviderCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -439,7 +475,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/search'
     | '/series'
+    | '/sermons'
     | '/shop'
+    | '/shows'
     | '/subscription-plan'
     | '/teachings'
     | '/trending'
@@ -449,6 +487,7 @@ export interface FileRouteTypes {
     | '/admin/live-tv'
     | '/admin/shop'
     | '/api/stripe-webhook'
+    | '/auth/$provider'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
@@ -460,6 +499,7 @@ export interface FileRouteTypes {
     | '/tv-show/$id'
     | '/video/$id'
     | '/shop/'
+    | '/auth/$provider/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -485,6 +525,8 @@ export interface FileRouteTypes {
     | '/register'
     | '/search'
     | '/series'
+    | '/sermons'
+    | '/shows'
     | '/subscription-plan'
     | '/teachings'
     | '/trending'
@@ -494,6 +536,7 @@ export interface FileRouteTypes {
     | '/admin/live-tv'
     | '/admin/shop'
     | '/api/stripe-webhook'
+    | '/auth/$provider'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
@@ -505,6 +548,7 @@ export interface FileRouteTypes {
     | '/tv-show/$id'
     | '/video/$id'
     | '/shop'
+    | '/auth/$provider/callback'
   id:
     | '__root__'
     | '/'
@@ -530,7 +574,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/search'
     | '/series'
+    | '/sermons'
     | '/shop'
+    | '/shows'
     | '/subscription-plan'
     | '/teachings'
     | '/trending'
@@ -540,6 +586,7 @@ export interface FileRouteTypes {
     | '/admin/live-tv'
     | '/admin/shop'
     | '/api/stripe-webhook'
+    | '/auth/$provider'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
@@ -551,6 +598,7 @@ export interface FileRouteTypes {
     | '/tv-show/$id'
     | '/video/$id'
     | '/shop/'
+    | '/auth/$provider/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -577,7 +625,9 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   SearchRoute: typeof SearchRoute
   SeriesRoute: typeof SeriesRoute
+  SermonsRoute: typeof SermonsRoute
   ShopRoute: typeof ShopRouteWithChildren
+  ShowsRoute: typeof ShowsRoute
   SubscriptionPlanRoute: typeof SubscriptionPlanRoute
   TeachingsRoute: typeof TeachingsRoute
   TrendingRoute: typeof TrendingRoute
@@ -587,6 +637,7 @@ export interface RootRouteChildren {
   AdminLiveTvRoute: typeof AdminLiveTvRoute
   AdminShopRoute: typeof AdminShopRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
+  AuthProviderRoute: typeof AuthProviderRouteWithChildren
   ChannelIdRoute: typeof ChannelIdRoute
   MediaSplatRoute: typeof MediaSplatRoute
   MovieIdRoute: typeof MovieIdRoute
@@ -759,11 +810,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SeriesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sermons': {
+      id: '/sermons'
+      path: '/sermons'
+      fullPath: '/sermons'
+      preLoaderRoute: typeof SermonsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shop': {
       id: '/shop'
       path: '/shop'
       fullPath: '/shop'
       preLoaderRoute: typeof ShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shows': {
+      id: '/shows'
+      path: '/shows'
+      fullPath: '/shows'
+      preLoaderRoute: typeof ShowsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/subscription-plan': {
@@ -827,6 +892,13 @@ declare module '@tanstack/react-router' {
       path: '/api/stripe-webhook'
       fullPath: '/api/stripe-webhook'
       preLoaderRoute: typeof ApiStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/$provider': {
+      id: '/auth/$provider'
+      path: '/auth/$provider'
+      fullPath: '/auth/$provider'
+      preLoaderRoute: typeof AuthProviderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cast/$id': {
@@ -906,6 +978,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VideoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/$provider/callback': {
+      id: '/auth/$provider/callback'
+      path: '/callback'
+      fullPath: '/auth/$provider/callback'
+      preLoaderRoute: typeof AuthProviderCallbackRouteImport
+      parentRoute: typeof AuthProviderRoute
+    }
   }
 }
 
@@ -933,6 +1012,18 @@ const ShopRouteChildren: ShopRouteChildren = {
 
 const ShopRouteWithChildren = ShopRoute._addFileChildren(ShopRouteChildren)
 
+interface AuthProviderRouteChildren {
+  AuthProviderCallbackRoute: typeof AuthProviderCallbackRoute
+}
+
+const AuthProviderRouteChildren: AuthProviderRouteChildren = {
+  AuthProviderCallbackRoute: AuthProviderCallbackRoute,
+}
+
+const AuthProviderRouteWithChildren = AuthProviderRoute._addFileChildren(
+  AuthProviderRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountSettingRoute: AccountSettingRoute,
@@ -957,7 +1048,9 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   SearchRoute: SearchRoute,
   SeriesRoute: SeriesRoute,
+  SermonsRoute: SermonsRoute,
   ShopRoute: ShopRouteWithChildren,
+  ShowsRoute: ShowsRoute,
   SubscriptionPlanRoute: SubscriptionPlanRoute,
   TeachingsRoute: TeachingsRoute,
   TrendingRoute: TrendingRoute,
@@ -967,6 +1060,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminLiveTvRoute: AdminLiveTvRoute,
   AdminShopRoute: AdminShopRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
+  AuthProviderRoute: AuthProviderRouteWithChildren,
   ChannelIdRoute: ChannelIdRoute,
   MediaSplatRoute: MediaSplatRoute,
   MovieIdRoute: MovieIdRoute,

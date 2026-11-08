@@ -1,15 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { Catalogue } from '../components/Catalogue'
-import { getCatalogue } from '../lib/catalogue'
-import { parseCatalogueSearch } from '../lib/catalogueFilters'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
+/** Keep saved links and filter URLs working after the listing rename. */
 export const Route = createFileRoute('/movies')({
-  validateSearch: parseCatalogueSearch,
-  loader: () => getCatalogue({ data: 'sermons' }),
-  component: Movies,
+  beforeLoad: ({ location }) => {
+    throw redirect({ href: '/sermons' + location.searchStr + (location.hash ? '#' + location.hash.replace(/^#/, '') : ''), statusCode: 301 })
+  },
 })
-
-function Movies() {
-  const navigate = Route.useNavigate()
-  return <Catalogue title="Sermons" singular="sermon" base="/movie" data={Route.useLoaderData()} search={Route.useSearch()} onSearchChange={search => { void navigate({ search, resetScroll: false }) }} />
-}

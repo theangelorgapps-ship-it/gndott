@@ -1,4 +1,7 @@
 import { SeekPreview } from './SeekPreview'
+import { LiquidNavbar } from './ui/liquid-glass-navbar'
+import { ChoicePicker } from './ui/choice-picker'
+import '../player-chat-refinement.css'
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, X, SlidersHorizontal, PictureInPicture2 } from 'lucide-react'
 import { BiblePanel, ContentNotes, youtubeId, type WatchSectionProps } from './Detail'
@@ -21,12 +24,13 @@ function mediaUrl(value?: string | null) {
   try { const url = new URL(value); return /^https?:$/.test(url.protocol) ? url.href : null } catch { return null }
 }
 export function ImmersivePlayer(props: WatchSectionProps) {
-  const { live = false, liveDiscussion, contentId, contentType, title, poster, description, metadata = [], bunnyLibraryId, bunnyVideoId, trailerUrl, directVideoUrl, viewerId } = props
+  const { initialAutoPlay = false, live = false, liveDiscussion, contentId, contentType, title, poster, description, metadata = [], bunnyLibraryId, bunnyVideoId, trailerUrl, directVideoUrl, viewerId } = props
   const stageRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const bridgeRef = useRef<PlayerBridge | null>(null)
   const directRef = useRef<DirectPlayback | null>(null)
+  const initialPlayback = useRef<{ transport: DirectPlayback | PlayerBridge | null; cancelled: boolean }>({ transport: null, cancelled: false })
   const resumeLoaded = useRef(false)
   const [ready, setReady] = useState(false)
   const [paused, setPaused] = useState(true)
@@ -214,16 +218,27 @@ export function ImmersivePlayer(props: WatchSectionProps) {
     else resumeRef.current!.restore(progress.saved)
   }, [ready, progress.loaded, progress.saved, live])
 
-  function play() {
+  function play(initial = false) {
     if ((!ready && !direct) || fallback) return
-    pausedIntent.current = false
-    setPaused(false)
+    if (!initial) initialPlayback.current.cancelled = true
+    // A provider cannot report autoplay rejection through its command API.
+    // Keep its Play button available until an actual play event confirms it.
+    if (!initial || directRef.current) { pausedIntent.current = false; setPaused(false) }
     setMessage('')
     if (!live && progress.loaded && !resumeLoaded.current) { resumeLoaded.current = true; resumeRef.current!.restore(progress.saved) }
     if (directRef.current) { setMediaLoading(true); void directRef.current.play() }
     else if (bridgeRef.current) bridgeRef.current.play()
   }
+  useEffect(() => {
+    const transport = directRef.current || (ready ? bridgeRef.current : null)
+    if (!initialAutoPlay || fallback || (!live && !progress.loaded) || !transport || observed.current.hasPlayed || initialPlayback.current.cancelled || initialPlayback.current.transport === transport) return
+    // One attempt per transport, including a freshly recreated Strict Mode
+    // transport or provider fallback. Browser policy denial never retries.
+    initialPlayback.current.transport = transport
+    play(true)
+  }, [initialAutoPlay, direct, ready, fallback, live, progress.loaded])
   function togglePlay() {
+    initialPlayback.current.cancelled = true
     if (pausedIntent.current) play()
     else {
       pausedIntent.current = true
@@ -315,15 +330,25 @@ export function ImmersivePlayer(props: WatchSectionProps) {
             onBlur={event => { setSeekPreview(null); if (scrubbing.current) { scrubbing.current = false; seek(Number(event.currentTarget.value)) } }}
           /><div><span>{live ? 'DVR' : playbackTime(position)}</span><span>−{playbackTime(duration - position)}{live ? ' from live' : ''}</span></div></div>}
         </>}
-        {settingsOpen && direct && <div className="tv-player-settings" role="group" aria-label="Playback settings">
-          {!live && <label>Speed<select value={speed} onChange={(event) => { if (videoRef.current) videoRef.current.playbackRate = Number(event.target.value) }}>{[.5, .75, 1, 1.25, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate === 1 ? 'Normal' : `${rate}×`}</option>)}</select></label>}
-          {qualities.length > 0 && <label>Quality<select value={quality} onChange={(event) => { const index = Number(event.target.value); directRef.current?.quality(index); setQuality(index) }}><option value={-1}>Auto</option>{qualities.map((level) => <option key={level.index} value={level.index}>{level.label}</option>)}</select></label>}
-          <button type="button" aria-label="Close playback settings" onClick={() => setSettingsOpen(false)}><X size={19} /></button>
+        {settingsOpen && direct && <div className="tv-player-settings glass-playback-settings" role="group" aria-label="Playback settings">
+          <header><strong>Playback</strong><button type="button" aria-label="Close playback settings" onClick={() => setSettingsOpen(false)}><X size={19} /></button></header>
+          <div className="glass-playback-choices">
+            {!live && <ChoicePicker label="Speed" value={String(speed)} options={[.5, .75, 1, 1.25, 1.5, 2].map(rate => ({ value: String(rate), label: rate === 1 ? 'Normal' : `${rate}×` }))} onChange={next => { if (videoRef.current) videoRef.current.playbackRate = Number(next) }} />}
+            {qualities.length > 0 && <ChoicePicker label="Quality" value={String(quality)} options={[{ value: '-1', label: 'Auto' }, ...qualities.map(level => ({ value: String(level.index), label: level.label }))]} onChange={next => { const index = Number(next); directRef.current?.quality(index); setQuality(index) }} />}
+          </div>
         </div>}
-        <div className="tv-player-tabs" role="group" aria-label="Player information">
-          {((live ? ['comments', 'bible', 'info'] : ['notes', 'bible', 'info']) as Exclude<Panel, null>[]).map((key) => <button key={key} type="button" aria-label={key === 'comments' ? 'Live discussion' : undefined} aria-pressed={panel === key} onClick={() => setPanel(panel === key ? null : key)}>{key === 'comments' ? 'Comments' : key === 'notes' ? 'Notes' : key === 'bible' ? 'Bible' : 'Info'}</button>)}
-          {panel && <button type="button" className="tv-player-continue" onClick={() => continueWatching()}>{customControls ? 'Continue Watching' : 'Return to Video'}</button>}
-        </div>
+        <LiquidNavbar className="tv-player-tabs" tone="dark" label="Player information"
+          active={panel ? (live ? ['comments', 'bible', 'info'] : ['notes', 'bible', 'info']).indexOf(panel) : -1}
+          items={[
+            ...(live ? [{ label: 'Comments', ariaLabel: 'Live discussion' }] : [{ label: 'Notes' }]),
+            { label: 'Bible' }, { label: 'Info' },
+            ...(panel ? [{ label: customControls ? 'Continue Watching' : 'Return to Video', className: 'tv-player-continue', action: true }] : []),
+          ]}
+          onChange={index => {
+            if (index === 3) { continueWatching(); return }
+            const key = (live ? ['comments', 'bible', 'info'] : ['notes', 'bible', 'info'])[index] as Exclude<Panel, null>
+            setPanel(current => current === key ? null : key)
+          }} />
         {panel && <section className="tv-player-panel" aria-label={panel === 'comments' ? 'Live discussion' : panel === 'info' ? 'Title information' : panel === 'notes' ? 'Your notes' : 'Bible reading'}>
           <button type="button" className="tv-player-panel-close" aria-label="Close information panel" onClick={() => setPanel(null)}><X size={19} /></button>
           {panel === 'comments' ? liveDiscussion : panel === 'info' ? <div className="tv-player-info"><img src={img(props.portrait || poster)} alt="" /><div><h3>{title}</h3><p>{plainText(description) || 'No description is available for this title.'}</p>{metadata.filter(Boolean).length > 0 && <p className="tv-player-meta">{metadata.filter(Boolean).join(' · ')}</p>}</div><div className="tv-player-info-actions">{customControls && <><button type="button" onClick={() => continueWatching(true)}><Play size={17} fill="currentColor" /> {live ? 'Back to live' : 'From Beginning'}</button><button type="button" onClick={() => continueWatching()}>Continue Watching</button></>}</div></div> : panel === 'notes' ? <ContentNotes contentType={contentType} contentId={contentId} title={title} /> : <BiblePanel />}

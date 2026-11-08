@@ -4,33 +4,15 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createPreviewPlayback } from './previewPlayback'
-import manifest from '../lib/img-manifest.json'
+import { img, DEFAULT_IMG } from '../lib/imageUrls'
 import { getWatchlist, toggleWatchlist } from '../lib/api'
 import { Check, Info, Pause, Volume2, VolumeX } from 'lucide-react'
 
-export const DEFAULT_IMG = '/default-image.jpg'
+export { img, DEFAULT_IMG }
 const PREVIEW_DELAY_MS = 3000
 const ADVANCE_DELAY_MS = 8000
 const HERO_START_SECONDS = 80
 const VIEWPORT_GUTTER = 12
-
-const MANIFEST = manifest as Record<string, string>
-
-export function img(url: string | null | undefined): string {
-  if (!url) return DEFAULT_IMG
-  if (url.startsWith('/images/') || url.startsWith('/media/')) return url
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    if (/^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(url)) {
-      const base = url.split('/').pop() ?? url
-      const stem = base.replace(/\.(png|jpe?g|webp)$/i, '')
-      return MANIFEST[base] ?? MANIFEST[stem] ?? DEFAULT_IMG
-    }
-    return url
-  }
-  const base = url.split('/').pop() ?? url
-  const stem = base.replace(/\.(png|jpe?g|webp)$/i, '')
-  return MANIFEST[base] ?? MANIFEST[stem] ?? DEFAULT_IMG
-}
 
 export function contentBase(type: unknown) {
   return type === 'teaching' ? '/teaching'

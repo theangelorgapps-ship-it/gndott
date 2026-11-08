@@ -1,3 +1,4 @@
+import { img } from '@/lib/imageUrls'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { ShoppingBag, X, ArrowRight } from 'lucide-react'
@@ -18,7 +19,7 @@ export function StoreCartProvider({children}:{children:ReactNode}){
  return <StoreContext.Provider value={{cart,busy,error,update,refresh}}>{children}
   {path!=='/shop/checkout' && <aside className={`store-floating-cart${open?' expanded':''}`} aria-label="Shopping cart">
     <button className="store-cart-toggle" aria-expanded={open} onClick={()=>setOpen(!open)}><ShoppingBag size={21}/><span>Cart <b>{cart?.items_count||0}</b></span>{open?<X size={19}/>:<span>{cart?.totals?storeMoney(cart.totals.total_items,cart.totals.currency_code,cart.totals.currency_minor_unit):''}</span>}</button>
-    {open && <div className="store-mini-cart"><h2>Your cart</h2>{cart?.items?.length?cart.items.map((item:any)=><div key={item.key} className="store-mini-item"><img src={item.images?.[0]?.thumbnail||item.images?.[0]?.src} alt=""/><div><strong>{storeText(item.name)}</strong>{item.variation?.map((v:any)=><small key={v.attribute}>{storeText(v.attribute)}: {storeText(v.value)} </small>)}<p>{item.quantity} × {storeMoney(item.prices.price,item.prices.currency_code,item.prices.currency_minor_unit)}</p></div></div>):<p>Your cart is empty.</p>}
+    {open && <div className="store-mini-cart"><h2>Your cart</h2>{cart?.items?.length?cart.items.map((item:any)=><div key={item.key} className="store-mini-item"><img src={img(item.images?.[0]?.thumbnail||item.images?.[0]?.src)} alt=""/><div><strong>{storeText(item.name)}</strong>{item.variation?.map((v:any)=><small key={v.attribute}>{storeText(v.attribute)}: {storeText(v.value)} </small>)}<p>{item.quantity} × {storeMoney(item.prices.price,item.prices.currency_code,item.prices.currency_minor_unit)}</p></div></div>):<p>Your cart is empty.</p>}
     {error&&<p role="alert">{error}<button onClick={()=>void refresh()}>Retry</button></p>}
     {!!cart?.items?.length&&<Link className="btn btn-primary" to="/shop/checkout">Review & checkout <ArrowRight size={18}/></Link>}
     </div>}

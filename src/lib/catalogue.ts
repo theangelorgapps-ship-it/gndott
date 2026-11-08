@@ -4,7 +4,7 @@ import { all, first } from './db'
 import { getActiveViewer } from './viewer.server'
 import { catalogueCategories, catalogueYears, type CatalogueCategory } from './catalogueFilters'
 
-export type CatalogueKind = 'sermons' | 'shows' | 'teachings' | 'series'
+export type CatalogueKind = 'sermons' | 'shows' | 'teachings' | 'series' | 'videos'
 export type CatalogueTitle = Content & {
   categories: CatalogueCategory[]
   genre_names: string
@@ -15,7 +15,7 @@ export type CatalogueTitle = Content & {
   video_upload_type: string | null
 }
 
-const types = { sermons: 'movie', shows: 'tvshow', teachings: 'teaching', series: 'tvshow' } as const
+const types = { sermons: 'movie', shows: 'tvshow', teachings: 'teaching', series: 'tvshow', videos: 'video' } as const
 
 export const getCatalogue = createServerFn({ method: 'GET' })
   .validator((kind: CatalogueKind): CatalogueKind => {
@@ -30,7 +30,22 @@ export const getCatalogue = createServerFn({ method: 'GET' })
     ) : null
     const child = profile?.is_child_profile ? 1 : 0
     // Series is the episodic subset of Shows, not a new/invented content type.
-    const rows = await all<Omit<CatalogueTitle, 'categories' | 'genre_names'> & { categories_json: string }>(
+    type CatalogueRow = Omit<CatalogueTitle, 'categories' | 'genre_names'> & { categories_json: string }
+    const rows = kind === 'videos' ? await all<CatalogueRow>(
+      `SELECT v.id, v.name, v.slug, v.description, 'video' AS type, v.poster_url, v.thumbnail_url,
+        v.release_date, v.IMDb_rating, v.duration, NULL AS language, v.access AS movie_access, v.content_rating,
+        v.trailer_url, v.bunny_video_url, NULL AS bunny_trailer_url, v.video_url_input, v.video_upload_type,
+        (SELECT json_group_array(json_object('id', category.id, 'name', category.name))
+          FROM (SELECT DISTINCT g.id, g.name FROM genres g
+            JOIN video_gener_mappings m ON m.genre_id = g.id
+            WHERE m.video_id = v.id AND m.deleted_at IS NULL
+              AND g.status = 1 AND g.deleted_at IS NULL AND TRIM(COALESCE(g.name, '')) != '') category
+        ) AS categories_json
+       FROM videos v
+       WHERE v.status = 1 AND v.deleted_at IS NULL AND TRIM(COALESCE(v.name, '')) != ''
+         AND (? = 0 OR COALESCE(v.is_restricted, 0) = 0)
+       ORDER BY v.name COLLATE NOCASE, v.id`, child,
+    ) : await all<CatalogueRow>(
       `SELECT e.id, e.name, e.slug, e.description, e.type, e.poster_url, e.thumbnail_url,
         e.release_date, e.IMDb_rating, e.duration, e.language, e.movie_access, e.content_rating,
         e.trailer_url, e.bunny_video_url, e.bunny_trailer_url, e.video_url_input, e.video_upload_type,

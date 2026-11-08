@@ -24,7 +24,7 @@ if(process.argv[2]==='playback') {
  assert.equal(sources.liveWindow({length:1,start:()=>100,end:()=>120}).dvr,false)
  const states=[],refs=[];let si=0,ri=0,progressEnabled=true,records=0
  const react={useState(v){const i=si++;if(!(i in states))states[i]=v;return[states[i],v=>states[i]=typeof v==='function'?v(states[i]):v]},useRef(v){const i=ri++;return refs[i]??=( {current:v})},useEffect(){},useCallback:fn=>fn}
- const p=load('src/components/ImmersivePlayer.tsx',{react,'./Detail':{youtubeId:()=>null},'./Poster':{img:v=>v,plainText:v=>v},'./playerBridge':{},'./directPlayback':{},'./playbackResume':load('src/components/playbackResume.ts'),'../lib/liveSources':sources,'../hooks/usePlaybackProgress':{usePlaybackProgress:(_,enabled)=>{progressEnabled=enabled;return{loaded:true,saved:{position:55,duration:200},record(){records++}}}}})
+ const p=load('src/components/ImmersivePlayer.tsx',{react,'../player-chat-refinement.css':{},'./ui/liquid-glass-navbar':{LiquidNavbar(){}},'./ui/choice-picker':{ChoicePicker(){}},'./SeekPreview':{SeekPreview(){}},'./playerCapabilities':load('src/components/playerCapabilities.ts'),'./Detail':{youtubeId:()=>null},'./Poster':{img:v=>v,plainText:v=>v},'./playerBridge':{},'./directPlayback':{},'./playbackResume':load('src/components/playbackResume.ts'),'../lib/liveSources':sources,'../hooks/usePlaybackProgress':{usePlaybackProgress:(_,enabled)=>{progressEnabled=enabled;return{loaded:true,saved:{position:55,duration:200},record(){records++}}}}})
  const render=()=>{si=ri=0;return p.ImmersivePlayer({live:true,contentType:'video',contentId:34,title:'Channel',directVideoUrl:'https://cdn.test/output',viewerId:1})}
  const find=(t,p)=>!t||typeof t!=='object'?null:Array.isArray(t)?t.map(x=>find(x,p)).find(Boolean):p(t)?t:find(t.props?.children,p)
  let tree=render();assert.equal(progressEnabled,false);let video=find(tree,e=>e.type==='video');assert.ok(video,'Opaque HLS output uses direct shared player')
@@ -58,6 +58,7 @@ db.exec(`CREATE TABLE users(id INTEGER PRIMARY KEY,user_type TEXT,first_name TEX
  CREATE TABLE subscriptions(id INTEGER,user_id INTEGER,plan_id INTEGER,status TEXT,deleted_at TEXT,start_date TEXT,end_date TEXT);
  CREATE TABLE live_tv_channel_plan_mapping(tv_channel_id INTEGER,plan_id INTEGER,deleted_at TEXT);`)
 db.exec(readFileSync('migrations/20261108_live_tv.sql','utf8'))
+db.exec(readFileSync('migrations/20261108_live_chat_blocks.sql','utf8'))
 const adapter={all:async(s,...p)=>db.prepare(s).all(...p),first:async(s,...p)=>db.prepare(s).get(...p)||null,run:async(s,...p)=>db.prepare(s).run(...p)}
 let viewer=null,origin='https://site.test';const asUser=n=>viewer=n?{userId:n,profileId:n===1?11:n===2?21:null,profileName:'Viewer'}:null
 const factory={createServerFn(){let validate=x=>x;return{validator(fn){validate=fn;return this},handler(fn){return async(input={})=>fn({data:validate(input.data)})}}}}
@@ -83,4 +84,25 @@ await assert.rejects(call('saveLiveSettings',{...settings,hlsUrl:''}));await ass
 origin='https://attacker.test';await assert.rejects(call('saveLiveSettings',settings));await assert.rejects(post());origin='https://site.test'
 asUser(1);await assert.rejects(call('getLiveChannel',36));db.exec("INSERT INTO subscriptions VALUES(1,1,9,'active',NULL,NULL,'2099-01-01')");assert.equal((await call('getLiveChannel',36)).channel.id,36);db.exec("UPDATE subscriptions SET end_date='2000-01-01'");await assert.rejects(call('getLiveChannel',36))
 assert.ok(db.prepare('SELECT count(*) AS n FROM live_moderation_log').get().n>=6)
+// Viewer blocking is mutual, account-scoped, and cannot hide evidence from moderators.
+asUser(2);age();await post({body:'Second viewer message'});const secondId=(await read()).comments.find(c=>c.body==='Second viewer message').id
+asUser(1);const ownId=(await read()).comments.find(c=>c.mine).id
+const officialId=(await read()).comments.find(c=>c.official).id
+await assert.rejects(call('blockLiveViewer',{channelId:35,commentId:secondId}))
+await assert.rejects(call('blockLiveViewer',{channelId:34,commentId:ownId}))
+await assert.rejects(call('blockLiveViewer',{channelId:34,commentId:officialId}))
+await call('blockLiveViewer',{channelId:34,commentId:secondId});await call('blockLiveViewer',{channelId:34,commentId:secondId})
+const blockId=(await read()).blocked[0].id;assert.equal((await read()).blocked.length,1,'Blocks are idempotent')
+assert.ok(!(await read()).comments.some(c=>c.id===secondId),'Blocker cannot see blocked viewer messages')
+await assert.rejects(post({parentId:secondId}),/no longer available/)
+asUser(2);assert.equal((await read()).blocked.length,0,'Blocked list stays private');assert.ok(!(await read()).comments.some(c=>c.id===ownId),'Blocked viewer cannot see blocker messages')
+await call('unblockLiveViewer',{blockId});assert.equal(db.prepare('SELECT COUNT(*) AS n FROM live_chat_blocks').get().n,1,'Cannot unblock another account’s record')
+age();await assert.rejects(post({parentId:ownId}),/no longer available/)
+asUser(3);assert.ok((await read()).comments.some(c=>c.id===ownId)&& (await read()).comments.some(c=>c.id===secondId),'Moderators retain evidence')
+age();await post({body:'Moderator response',parentId:secondId});const quotedId=(await read()).comments.find(c=>c.body==='Moderator response').id
+asUser(1);const quote=(await read()).comments.find(c=>c.id===quotedId);assert.equal(quote.reply_body,null,'A third-party reply cannot leak blocked text');assert.equal(quote.reply_author,null)
+asUser(null);assert.ok((await read()).comments.some(c=>c.id===secondId),'Public channel remains public for signed-out viewers');await assert.rejects(call('blockLiveViewer',{channelId:34,commentId:secondId}));await assert.rejects(call('unblockLiveViewer',{blockId}))
+asUser(1);origin='https://attacker.test';await assert.rejects(call('blockLiveViewer',{channelId:34,commentId:secondId}));await assert.rejects(call('unblockLiveViewer',{blockId}));origin='https://site.test'
+await call('unblockLiveViewer',{blockId});assert.equal((await read()).blocked.length,0);assert.ok((await read()).comments.some(c=>c.id===secondId),'Unblocking restores messages')
+age();await post({body:'❤️',requestId:'real-reaction-000000001'});await post({body:'❤️',requestId:'real-reaction-000000001'});assert.equal((await read()).comments.filter(c=>c.body==='❤️').length,1,'Reactions use authenticated idempotent messages');await assert.rejects(post({body:'❤️'}),/quickly/)
 console.log('LIVE_DISCUSSION_PASS');db.close()

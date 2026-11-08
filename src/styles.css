@@ -118,7 +118,7 @@ button { font-family: inherit; }
 .top10-item { display: flex; align-items: flex-end; }
 .top10-rank {
   font-size: 150px; font-weight: 900; line-height: 0.72; margin-right: -26px; z-index: 2;
-  background: url('/texture.jpg') center/cover; -webkit-background-clip: text; background-clip: text;
+  background: url('/texture.avif') center/cover; -webkit-background-clip: text; background-clip: text;
   color: transparent; -webkit-text-stroke: 2px rgba(255,255,255,0.85); user-select: none;
 }
 .top10-item .p-poster { width: 172px; flex-shrink: 0; }
@@ -226,7 +226,7 @@ button { font-family: inherit; }
 /* ================= Batch A: Laravel-exact chrome & auth ================= */
 
 /* ---------- auth (poster-collage backdrop, transparent card) ---------- */
-.auth-wrap { background: url('/login_banner.jpg') center / cover no-repeat fixed; }
+.auth-wrap { background: url('/login_banner.avif') center / cover no-repeat fixed; }
 .auth-wrap::before {
   content: ''; position: absolute; inset: 0;
   background: linear-gradient(180deg, rgba(1, 10, 15, 0.78), rgba(1, 10, 15, 0.9));

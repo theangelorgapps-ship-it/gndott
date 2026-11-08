@@ -1,27 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { getVideos } from '../lib/api'
-import { PosterCard, HeroSlider } from '../components/Poster'
+import { Catalogue } from '../components/Catalogue'
+import { getCatalogue } from '../lib/catalogue'
+import { parseCatalogueSearch } from '../lib/catalogueFilters'
 
 export const Route = createFileRoute('/videos')({
-  loader: async () => await getVideos(),
+  validateSearch: parseCatalogueSearch,
+  loader: () => getCatalogue({ data: 'videos' }),
   component: Videos,
 })
 
 function Videos() {
-  const videos = Route.useLoaderData()
-  const slides = videos.filter((m: any) => m.thumbnail_url || m.poster_url).slice(0, 5)
-  return (
-    <div>
-      <HeroSlider slides={slides} baseFor={() => '/video'} ctaLabel="Watch now" />
-      <section className="section">
-        <div className="section-head">
-          <h2>Videos</h2>
-        </div>
-        <div className="grid" style={{ padding: 0 }}>
-          {videos.map((m: any) => <PosterCard key={m.id} item={m} base="/video" />)}
-        </div>
-        {videos.length === 0 && <div className="empty">No videos available yet.</div>}
-      </section>
-    </div>
-  )
+  const navigate = Route.useNavigate()
+  return <Catalogue title="Videos" singular="video" base="/video" data={Route.useLoaderData()} search={Route.useSearch()} onSearchChange={search => { void navigate({ search, resetScroll: false }) }} />
 }

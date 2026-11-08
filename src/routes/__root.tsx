@@ -41,9 +41,9 @@ const BARE_ROUTES = ['/login', '/register', '/forgot-password', '/manage-profile
 const MENU_ICONS = [Home, Clapperboard, BookOpen, Tv, PlaySquare, Radio, Layers, ShoppingBag]
 const NAV_ITEMS = [
   { label: 'Home', to: '/', aliases: ['/'] },
-  { label: 'Sermons', to: '/movies', aliases: ['/movies', '/movie'] },
+  { label: 'Sermons', to: '/sermons', aliases: ['/sermons', '/movies', '/movie'] },
   { label: 'Teachings', to: '/teachings', aliases: ['/teachings', '/teaching'] },
-  { label: 'Shows', to: '/tv-shows', aliases: ['/tv-shows', '/tv-show'] },
+  { label: 'Shows', to: '/shows', aliases: ['/shows', '/tv-shows', '/tv-show'] },
   { label: 'Videos', to: '/videos', aliases: ['/videos', '/video'] },
   { label: 'Live TV', to: '/live-tv', aliases: ['/live-tv', '/channel'] },
   { label: 'Series', to: '/series', aliases: ['/series'] },
@@ -155,7 +155,7 @@ function RootComponent() {
         <div className="site-header-blur" aria-hidden="true">{Array.from({ length: 6 }, (_, i) => <span key={i} className="site-header-blur-layer" />)}</div>
         <div className="site-header-bar">
           <Link to="/" className="brand" aria-label="GoodNews Halobox home">
-            <img src="/goodnews-halo-logo.webp" alt="GoodNews Halobox" width="48" height="48" />
+            <img src="/goodnews-halo-logo.avif" alt="GoodNews Halobox" width="48" height="48" />
             <span className="brand-word"><span>GoodNews</span><strong>Halobox</strong></span>
           </Link>
           <nav className="main-nav" aria-label="Primary navigation">
@@ -211,9 +211,9 @@ function RootComponent() {
       )}
 
       <div ref={watchRef} className={`mobile-navigation${pathname === '/search' ? ' is-search-page' : ''}`}>
-        {watchOpen && <MobileLiquidGlass className="watch-submenu" role="region" aria-label="Watch categories" id="watch-submenu">
+        {watchOpen && <MobileLiquidGlass blur={8} fallbackBlur={18} refraction={12} className="watch-submenu" role="region" aria-label="Watch categories" id="watch-submenu">
           <div className="watch-submenu-head"><strong>Watch</strong><button type="button" aria-label="Close Watch menu" onClick={() => { setWatchOpen(false); watchButton.current?.focus() }}><X size={19} /></button></div>
-          <nav aria-label="Watch"><Link to="/movies" onClick={() => setWatchOpen(false)}><Clapperboard /><span>Sermons</span></Link><Link to="/teachings" onClick={() => setWatchOpen(false)}><BookOpen /><span>Teachings</span></Link><Link to="/tv-shows" onClick={() => setWatchOpen(false)}><Tv /><span>Shows</span></Link><Link to="/videos" onClick={() => setWatchOpen(false)}><PlaySquare /><span>Videos</span></Link></nav>
+          <nav aria-label="Watch"><Link to="/sermons" onClick={() => setWatchOpen(false)}><Clapperboard /><span>Sermons</span></Link><Link to="/teachings" onClick={() => setWatchOpen(false)}><BookOpen /><span>Teachings</span></Link><Link to="/shows" onClick={() => setWatchOpen(false)}><Tv /><span>Shows</span></Link><Link to="/videos" onClick={() => setWatchOpen(false)}><PlaySquare /><span>Videos</span></Link></nav>
         </MobileLiquidGlass>}
         <MobileLiquidGlass asChild><nav className="mobile-dock liquid-glass" aria-label="Quick navigation">
           <Link to="/" className={pathname === '/' ? 'active' : ''} aria-current={pathname === '/' ? 'page' : undefined}><Home size={23} /><span>Home</span></Link>
@@ -258,7 +258,7 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
     <footer className="site-footer">
       <div className="footer-grid">
         <div className="footer-brand">
-          <img src="/goodnews-halo-logo.webp" alt="GoodNews Halobox" width="48" height="48" />
+          <img src="/goodnews-halo-logo.avif" alt="GoodNews Halobox" width="48" height="48" />
           <p className="tagline">GoodNews Halobox: Your Ultimate Destination for Unlimited Sermons, Shows and Teachings!</p>
           <div className="contact halo-contact"><a href="mailto:Hello@halobox.tv">Hello@halobox.tv</a><a href="tel:+14488770344">🇺🇸 +1 448 877 0344</a><a href="tel:+441244727242">🇬🇧 +44 1244 727242</a><a href="tel:+2638677211645">🇿🇼 +263 8677 211 645</a><a href="tel:+27872654913">🇿🇦 +27 872 654 913</a></div>
           <div className="socials">{SOCIALS.map((d, i) => <SocialIcon key={i} d={d} />)}</div>
@@ -268,7 +268,7 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
         <div className="footer-col">
           <h4>Download Our App</h4>
           <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Download our app for instant access to the best sermons, shows and teachings!</p>
-          <div className="store-badges"><img src="/play_store.png" alt="Get it on Google Play" /><img src="/app_store.png" alt="Download on the App Store" /></div>
+          <div className="store-badges"><img src="/play_store.avif" alt="Get it on Google Play" /><img src="/app_store.avif" alt="Download on the App Store" /></div>
         </div>
       </div>
       <div className="footer-legal">{LEGAL.map((item) => <Link key={item.slug} to={`/page/${item.slug}` as any}>{item.label}</Link>)}<Link to="/faq">FAQ</Link></div>

@@ -49,7 +49,7 @@ export function PlaybackDialog({ playback, onClose }: { playback: WatchSectionPr
           <button type="button" className="tv-detail-utility tv-player-fullscreen" aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'} onClick={() => { setFullscreenMessage(''); void togglePlayerFullscreen(surfaceRef.current).catch(() => setFullscreenMessage('Start the video, then tap full screen again. If your browser does not support it, the player will continue filling this window.')) }}>{fullscreen ? <Minimize size={22} /> : <Maximize size={22} />}</button>
         </header>
         {fullscreenMessage && <p className="tv-fullscreen-status" role="status">{fullscreenMessage}</p>}
-        <WatchSection {...playback} />
+        <WatchSection {...playback} initialAutoPlay />
       </div>
     </dialog>, document.body,
   )

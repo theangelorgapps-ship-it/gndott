@@ -1,5 +1,5 @@
 export type CatalogueCategory = { id: number; name: string }
-export type CatalogueSearch = { q?: string; category?: number; year?: number }
+export type CatalogueSearch = { q?: string; category?: number; year?: number; sort?: 'newest' | 'oldest' }
 export type FilterableTitle = { name?: string | null; description?: string | null; release_date?: string | null; categories?: CatalogueCategory[] }
 
 export function parseCategory(value: unknown): number | undefined {
@@ -28,7 +28,7 @@ export function catalogueYear(value: string | null | undefined): number | undefi
 
 export function parseCatalogueSearch(search: Record<string, unknown>): CatalogueSearch {
   const q = typeof search.q === 'string' ? search.q.replace(/\s+/g, ' ').trim().slice(0, 120) : ''
-  return { q: q || undefined, category: parseCategory(search.category), year: parseYear(search.year) }
+  return { q: q || undefined, category: parseCategory(search.category), year: parseYear(search.year), sort: search.sort === 'newest' || search.sort === 'oldest' ? search.sort : undefined }
 }
 
 export function catalogueCategories(items: { categories?: CatalogueCategory[] }[]): CatalogueCategory[] {
@@ -48,13 +48,31 @@ function searchable(value: string): string {
 
 /** All selected filters combine with AND. Each word can match a different title field. */
 export function filterCatalogue<T extends FilterableTitle>(items: T[], search: CatalogueSearch | number = {}): T[] {
-  const { q, category, year } = typeof search === 'number' ? { category: search } : search
+  const { q, category, year, sort } = typeof search === 'number' ? { category: search } : search
   const words = searchable(q ?? '').trim().split(/\s+/).filter(Boolean)
-  return items.filter(item => {
+  const result = items.filter(item => {
     if (category && !item.categories?.some(entry => entry.id === category)) return false
     if (year && catalogueYear(item.release_date) !== year) return false
     if (!words.length) return true
     const haystack = searchable([item.name, item.description, ...(item.categories ?? []).map(entry => entry.name)].filter(Boolean).join(' '))
     return words.every(word => haystack.includes(word))
   })
+  if (sort) {
+    // Unknown dates always remain last; never substitute migration timestamps.
+    const date = (item: T) => catalogueYear(item.release_date) ? Date.parse(item.release_date!.trim().length === 4 ? `${item.release_date!.trim()}-01-01` : item.release_date!.trim().slice(0, 10)) : NaN
+    result.sort((a, b) => {
+      const left = date(a), right = date(b)
+      if (!Number.isFinite(left)) return Number.isFinite(right) ? 1 : 0
+      if (!Number.isFinite(right)) return -1
+      return sort === 'newest' ? right - left : left - right
+    })
+  } else if (words.length) {
+    const phrase = searchable(q ?? '').trim()
+    const score = (item: T) => {
+      const name = searchable(item.name ?? '')
+      return (name === phrase ? 100 : name.startsWith(phrase) ? 50 : name.includes(phrase) ? 25 : 0) + words.filter(word => name.includes(word)).length
+    }
+    result.sort((a, b) => score(b) - score(a))
+  }
+  return result
 }

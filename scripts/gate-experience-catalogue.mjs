@@ -44,12 +44,17 @@ request=json.load(sys.stdin)
 c=sqlite3.connect(':memory:');c.row_factory=sqlite3.Row
 c.executescript('''
 CREATE TABLE entertainments (id INTEGER,name TEXT,slug TEXT,description TEXT,type TEXT,poster_url TEXT,thumbnail_url TEXT,created_at TEXT,release_date TEXT,IMDb_rating TEXT,duration TEXT,language TEXT,movie_access TEXT,content_rating TEXT,trailer_url TEXT,bunny_video_url TEXT,bunny_trailer_url TEXT,video_url_input TEXT,video_upload_type TEXT,status INTEGER,deleted_at TEXT,is_restricted INTEGER);
+CREATE TABLE videos(id INTEGER,name TEXT,slug TEXT,description TEXT,poster_url TEXT,thumbnail_url TEXT,release_date TEXT,IMDb_rating TEXT,duration TEXT,access TEXT,content_rating TEXT,trailer_url TEXT,bunny_video_url TEXT,video_url_input TEXT,video_upload_type TEXT,status INTEGER,deleted_at TEXT,is_restricted INTEGER);
+CREATE TABLE video_gener_mappings(id INTEGER,video_id INTEGER,genre_id INTEGER,deleted_at TEXT);
 CREATE TABLE genres(id INTEGER,name TEXT,status INTEGER,deleted_at TEXT);
 CREATE TABLE entertainment_gener_mapping(id INTEGER,entertainment_id INTEGER,genre_id INTEGER,deleted_at TEXT);
 CREATE TABLE seasons(id INTEGER,entertainment_id INTEGER,status INTEGER,deleted_at TEXT);
 CREATE TABLE episodes(id INTEGER,entertainment_id INTEGER,season_id INTEGER,status INTEGER,deleted_at TEXT,is_restricted INTEGER);
 INSERT INTO entertainments(id,name,type,release_date,status,is_restricted) VALUES
 (1,'Alpha','movie','2022-03-02',1,0),(2,'Beta','movie','2023-01-01',1,0),(3,'Hidden','movie','1999-01-01',0,0),(4,'Restricted','movie','2010-01-01',1,1),(5,'Deleted','movie','2001-01-01',1,0),(6,'Series A','tvshow','2021-01-01',1,0),(7,'No episodes','tvshow','2020-01-01',1,0),(8,'Teaching','teaching','2024-01-01',1,0),(9,'Restricted episodes','tvshow','2019-01-01',1,0),(10,'Hidden season','tvshow','2018-01-01',1,0);
+INSERT INTO videos(id,name,release_date,status,is_restricted) VALUES (1,'Video Alpha','2016-02-01',1,0),(2,'Restricted video','2017-02-01',1,1),(3,'Hidden video','2018-02-01',0,0),(4,'Deleted video','2019-02-01',1,0),(5,' ','2020-02-01',1,0);
+UPDATE videos SET deleted_at='2026-01-01' WHERE id=4;
+INSERT INTO video_gener_mappings VALUES (1,1,2,NULL),(2,1,2,NULL),(3,1,3,NULL),(4,1,4,NULL),(5,1,5,'2026-01-01'),(6,2,6,NULL);
 UPDATE entertainments SET created_at='2026-01-01';
 UPDATE entertainments SET deleted_at='2026-01-01' WHERE id=5;
 INSERT INTO genres VALUES (1,'Faith',1,NULL),(2,'Word',1,NULL),(3,'Hidden genre',0,NULL),(4,'Deleted genre',1,'2026-01-01'),(5,'Deleted mapping',1,NULL),(6,'Adult only',1,NULL);
@@ -84,10 +89,20 @@ child = 0
 assert.deepEqual(clean((await server.getCatalogue({ data: 'series' })).items.map(item => item.id)), [9, 6])
 assert.equal((await server.getCatalogue({ data: 'shows' })).items.length, 4)
 assert.equal((await server.getCatalogue({ data: 'teachings' })).items[0].id, 8)
+const videoCatalogue = await server.getCatalogue({ data: 'videos' })
+assert.deepEqual(clean(videoCatalogue.items.map(item => item.id)), [2, 1])
+assert.deepEqual(clean(videoCatalogue.years), [2017, 2016])
+assert.deepEqual(clean(videoCatalogue.items.find(item => item.id === 1).categories), [{ id: 2, name: 'Word' }], 'Video facets use the video mapping, not entertainment IDs that happen to match')
+assert.equal(videoCatalogue.items[1].type, 'video')
+child = 1
+const childVideos = await server.getCatalogue({ data: 'videos' })
+assert.deepEqual(clean(childVideos.items.map(item => item.id)), [1])
+assert.deepEqual(clean(childVideos.years), [2016])
+assert.deepEqual(clean(childVideos.categories), [{ id: 2, name: 'Word' }])
 assert.throws(() => server.getCatalogue({ data: 'movie OR 1=1' }), /valid catalogue/)
 assert.throws(() => server.getCatalogue({ data: '__proto__' }), /valid catalogue/)
 
-for (const [path, kind] of [['movies', 'sermons'], ['tv-shows', 'shows'], ['series', 'series'], ['teachings', 'teachings']]) {
+for (const [path, kind] of [['sermons', 'sermons'], ['shows', 'shows'], ['series', 'series'], ['teachings', 'teachings'], ['videos', 'videos']]) {
   const source = readFileSync(new URL('../src/routes/' + path + '.tsx', import.meta.url), 'utf8')
   assert.ok(source.includes('validateSearch: parseCatalogueSearch'))
   assert.ok(source.includes(`data: '${kind}'`))

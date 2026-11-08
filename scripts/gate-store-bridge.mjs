@@ -140,6 +140,7 @@ const productRoute = load('src/routes/shop.$slug.tsx', {
   '@tanstack/react-router': { createFileRoute: () => config => ({ ...config, useLoaderData: () => formProduct }), Link: 'a' },
   'lucide-react': { Check: 'svg', ShoppingBag: 'svg', Truck: 'svg', ShieldCheck: 'svg' },
   '../lib/store': { getStoreProduct() {} }, '../lib/storeTypes': types,
+  '@/components/Poster': { img: value => value },
   '../components/StoreCart': { useStoreCart: () => ({ update: async data => { submitted = data; return true }, busy: false, error: '' }) },
 })
 const content = productRoute.Route.component(); assert.equal(content.key, formProduct.id, 'Product navigation must reset selected variant/image state')

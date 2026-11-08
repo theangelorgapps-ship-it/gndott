@@ -105,6 +105,7 @@ function controlsGate() {
     './playbackResume': compile('src/components/playbackResume.ts'),
     './playerCapabilities': compile('src/components/playerCapabilities.ts'),
     './SeekPreview': { SeekPreview() {} },
+    '../player-chat-refinement.css': {}, './ui/liquid-glass-navbar': { LiquidNavbar() {} }, './ui/choice-picker': { ChoicePicker() {} },
   }, { setTimeout, clearTimeout })
   const render = () => { stateIndex = refIndex = 0; return production.ImmersivePlayer({ title: 'Test', contentId: 1, contentType: 'movie', directVideoUrl: 'https://media.test/test.mp4' }) }
   function find(tree, predicate) {
@@ -145,7 +146,80 @@ function controlsGate() {
   assert.equal(media.muted, true)
   tree = render(); find(tree, el => el.props?.['aria-label'] === 'Unmute').props.onClick()
   assert.equal(media.volume, .35, 'Unmute from zero restores the last audible volume')
-  console.log('PLAYER_CONTROLS_OK: drag, stale timing, actual volume, mute restoration')
+  let tabs = find(render(), el => el.props?.label === 'Player information')
+  assert.equal(tabs.props.active, -1, 'Playback begins without an active reading panel')
+  tabs.props.onChange(1);tabs=find(render(), el => el.props?.label === 'Player information')
+  assert.equal(tabs.props.active, 1);assert.equal(tabs.props.items[3].label, 'Continue Watching')
+  assert.ok(find(render(), el => el.props?.['aria-label'] === 'Bible reading'))
+  tabs.props.onChange(1);assert.equal(find(render(), el => el.props?.label === 'Player information').props.active,-1,'The active reading tab toggles closed')
+  find(render(), el => el.props?.label === 'Player information').props.onChange(0)
+  find(render(), el => el.props?.label === 'Player information').props.onChange(3)
+  assert.equal(find(render(), el => el.props?.label === 'Player information').props.active,-1,'Continue Watching returns to the video')
+  find(render(), el => el.type === 'button' && el.props?.['aria-label'] === 'Playback settings').props.onClick()
+  const speed = find(render(), el => el.props?.label === 'Speed')
+  speed.props.onChange('1.5');assert.equal(media.playbackRate, 1.5, 'Glass speed picker updates the actual video')
+  console.log('PLAYER_CONTROLS_OK: drag, stale timing, actual volume, mute restoration, liquid tabs, speed picker')
+}
+
+function initialPlaybackGate() {
+  function harness(options = {}) {
+    const states = [], refs = [], effects = [], queue = [], transports = []
+    let stateIndex = 0, refIndex = 0, effectIndex = 0, tree, plays = 0, destroyed = 0, providerHandlers
+    const progress = { loaded: false, saved: { position: 42, duration: 120 }, record() {} }
+    const media = { currentTime: 0, duration: 120, volume: 1, muted: false, addEventListener() {}, removeEventListener() {} }
+    const host = { closest() { return null }, contains() { return false } }
+    const react = {
+      useState(initial) { const i = stateIndex++; if (!(i in states)) states[i] = initial; return [states[i], value => { states[i] = typeof value === 'function' ? value(states[i]) : value }] },
+      useRef(initial) { const i = refIndex++; return refs[i] ||= { current: initial } },
+      useCallback: fn => fn,
+      useEffect(fn, deps) { const i = effectIndex++, old = effects[i]; if (!old || !deps || deps.some((v, j) => !Object.is(v, old.deps[j]))) queue.push(() => { old?.cleanup?.(); effects[i] = { deps, cleanup: fn() } }) },
+    }
+    function find(node, predicate) {
+      if (!node || typeof node !== 'object') return null
+      if (Array.isArray(node)) { for (const child of node) { const found = find(child, predicate); if (found) return found } return null }
+      return predicate(node) ? node : find(node.props?.children, predicate)
+    }
+    const bridge = { play() { plays++ }, get(method, callback) { callback(method === 'getPaused' ? true : method === 'getDuration' ? 120 : 0) }, destroy() { destroyed++ }, seek() {}, supports() { return true } }
+    const production = compile('src/components/ImmersivePlayer.tsx', {
+      react, './Detail': { BiblePanel() {}, ContentNotes() {}, youtubeId: () => null }, './Poster': { img: v => v, plainText: v => v },
+      './directPlayback': { createDirectPlayback(video, url, callbacks) { const transport = { play() { plays++; if (options.blocked) callbacks.blocked(); return Promise.resolve() }, pause() {}, destroy() { destroyed++ } }; transports.push(transport); return transport } },
+      './playerBridge': { createPlayerBridge(frame, handlers) { providerHandlers = handlers; return bridge } },
+      '../lib/liveSources': compile('src/lib/liveSources.ts'), '../hooks/usePlaybackProgress': { usePlaybackProgress: () => progress },
+      './playbackResume': compile('src/components/playbackResume.ts'),
+      './playerCapabilities': { createIdleControls: () => ({ reveal() {}, destroy() {} }), createPlaybackWakeLock: () => ({ setPlaying() {}, destroy() {} }), supportsPictureInPicture: () => false, isPictureInPicture: () => false },
+      './SeekPreview': { SeekPreview() {} }, '../player-chat-refinement.css': {}, './ui/liquid-glass-navbar': { LiquidNavbar() {} }, './ui/choice-picker': { ChoicePicker() {} },
+    }, { setTimeout, clearTimeout, navigator: {}, document: { activeElement: null }, window: { addEventListener() {}, removeEventListener() {} }, HTMLElement: class {} })
+    function render() {
+      stateIndex = refIndex = effectIndex = 0
+      tree = production.ImmersivePlayer({ title: 'Test', contentId: 1, contentType: 'movie', viewerId: 1, initialAutoPlay: options.enabled ?? true,
+        ...(options.provider ? { bunnyLibraryId: '123', bunnyVideoId: 'abc' } : { directVideoUrl: 'https://media.test/test.mp4' }) })
+      tree.props.ref.current = host
+      const video = find(tree, el => el.type === 'video'); if (video) video.props.ref.current = media
+      const frame = find(tree, el => el.type === 'iframe'); if (frame) frame.props.ref.current = {}
+      for (const run of queue.splice(0)) run()
+      return tree
+    }
+    return { render, progress, media, get plays() { return plays }, get destroyed() { return destroyed },
+      playButton: () => find(render(), el => el.props?.['aria-label'] === 'Play video'),
+      ready() { providerHandlers.ready(bridge) }, confirmPlay() { providerHandlers.play() },
+      strictRemount() { effects.forEach(item => item.cleanup?.()); effects.length = 0; render() },
+      cleanup() { effects.forEach(item => item.cleanup?.()) }, find }
+  }
+  const disabled = harness({ enabled: false }); disabled.progress.loaded = true; disabled.render(); assert.equal(disabled.plays, 0, 'Other mount contexts remain idle'); disabled.cleanup()
+  const start = harness(); start.render(); assert.equal(start.plays, 0, 'Wait for saved progress before consuming the opening Play intent')
+  start.progress.loaded = true; start.render(); assert.equal(start.plays, 1); assert.equal(start.media.currentTime, 42, 'Initial playback retains the saved position')
+  start.render(); assert.equal(start.plays, 1, 'Renders do not repeat the initial playback attempt')
+  start.strictRemount(); assert.equal(start.plays, 2, 'A recreated Strict Mode transport consumes the intent'); start.cleanup()
+  const denied = harness({ blocked: true }); denied.progress.loaded = true; denied.render(); assert.ok(denied.playButton(), 'Policy denial restores the Play button')
+  denied.render(); assert.equal(denied.plays, 1, 'Autoplay rejection does not retry automatically')
+  denied.playButton().props.onClick(); assert.equal(denied.plays, 2, 'The viewer can retry with an explicit gesture'); denied.cleanup()
+  const manual = harness(); manual.render(); manual.playButton().props.onClick(); assert.equal(manual.plays, 1)
+  manual.progress.loaded = true; manual.render(); assert.equal(manual.plays, 1, 'Explicit viewer interaction consumes the initial intent'); manual.cleanup()
+  const provider = harness({ provider: true }); provider.progress.loaded = true; provider.render(); assert.equal(provider.plays, 0)
+  provider.ready(); provider.render(); assert.equal(provider.plays, 1); assert.ok(provider.playButton(), 'An unconfirmed provider autoplay attempt keeps Play available')
+  provider.confirmPlay(); assert.equal(provider.playButton(), null); provider.cleanup()
+  assert.match(readFileSync(resolve(root, 'src/components/TitleDetail.tsx'), 'utf8'), /<WatchSection \{\.\.\.playback\} initialAutoPlay \/>/, 'Only the user-opened playback dialog opts in')
+  console.log('PLAYER_INITIAL_PLAY_OK')
 }
 
 async function progressGate(enabled) {
@@ -356,13 +430,14 @@ function paidGate() {
     './LibraryNoteEditor': { LibraryNoteEditor: () => null },
     './ScrollRail': compile('src/components/ScrollRail.tsx'),
     '@/lib/contentRoutes': {contentPath: () => '/'},
-    './ImmersivePlayer': { ImmersivePlayer: (props) => React.createElement('div', { 'data-player-id': props.contentId }) },
+    './ImmersivePlayer': { ImmersivePlayer: (props) => React.createElement('div', { 'data-player-id': props.contentId, 'data-player-auto': String(!!props.initialAutoPlay) }) },
     '../lib/api': {}, '@tanstack/react-router': { useRouter: () => ({ navigate() {} }) },
   })
-  const props = { contentType: 'episode', contentId: 20, title: 'Episode', viewerId: 1, movieAccess: 'paid' }
+  const props = { contentType: 'episode', contentId: 20, title: 'Episode', viewerId: 1, movieAccess: 'paid', initialAutoPlay: true }
   const render = (data) => renderToStaticMarkup(React.createElement(detail.WatchSection, data))
   assert.ok(!render(props).includes('data-player-id'), 'Unpurchased episode cannot mount a player')
   assert.ok(render({ ...props, myPurchase: true }).includes('data-player-id="20"'), 'Owned episode mounts its own source identity')
+  assert.ok(render({ ...props, myPurchase: true }).includes('data-player-auto="true"'), 'The authorised player receives the dialog intent through the purchase gate')
   assert.ok(!render({ ...props, myPurchase: true, parentGate: { contentType: 'tvshow', contentId: 10, title: 'Show', movieAccess: 'paid' } }).includes('data-player-id'), 'Parent purchase is independently required')
   assert.ok(!render({ ...props, parentGate: { contentType: 'tvshow', contentId: 10, title: 'Show', movieAccess: 'paid', myPurchase: true } }).includes('data-player-id'), 'Parent ownership cannot grant episode ownership')
   console.log('PLAYER_PAID_GATE_OK')
@@ -378,3 +453,4 @@ console.log('PLAYER_PROGRESS_OK')
 paidGate()
 
 controlsGate()
+initialPlaybackGate()

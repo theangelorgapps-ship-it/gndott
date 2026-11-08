@@ -163,6 +163,7 @@ export function WatchlistButton({ entertainmentId, initialAdded, viewerId }: { e
 // ---------- unified watch section (direct player, PPV gate) ----------
 
 export type WatchSectionProps = {
+  initialAutoPlay?: boolean
   live?: boolean
   liveDiscussion?: ReactNode
   contentType: 'movie' | 'video' | 'episode' | 'tvshow' | 'teaching'

@@ -5,6 +5,7 @@ import { filterCatalogue, parseCatalogueSearch, type CatalogueCategory, type Cat
 import { HeroSlider, PosterCard } from './Poster'
 import { LiquidGlassLayers } from './ui/liquid-glass'
 import { ChoicePicker } from './ui/choice-picker'
+import { CatalogueFilterBar } from './ui/catalogue-filter-bar'
 
 function SearchableFilter({ label, allLabel, value, options, onSelect }: {
   label: string; allLabel: string; value?: number; options: { value: number; label: string }[]; onSelect: (value?: number) => void
@@ -17,7 +18,7 @@ function SearchableFilter({ label, allLabel, value, options, onSelect }: {
 export function Catalogue({ title, singular, base, data, search, onSearchChange }: {
   title: string
   singular: string
-  base: '/movie' | '/teaching' | '/tv-show'
+  base: '/movie' | '/teaching' | '/tv-show' | '/video'
   data: { items: CatalogueTitle[]; categories: CatalogueCategory[]; years: number[] }
   search: CatalogueSearch
   onSearchChange: (search: CatalogueSearch) => void
@@ -27,7 +28,7 @@ export function Catalogue({ title, singular, base, data, search, onSearchChange 
   useEffect(() => setDraft(search.q ?? ''), [search.q])
   const filtered = useMemo(() => filterCatalogue(data.items, search), [data.items, search])
   const slides = useMemo(() => data.items.filter(item => item.thumbnail_url || item.poster_url).slice(0, 5), [data.items])
-  const hasFilters = !!(search.q || search.category || search.year)
+  const hasFilters = !!(search.q || search.category || search.year || search.sort)
   const category = data.categories.find(item => item.id === search.category)
   const update = (next: Partial<CatalogueSearch>) => onSearchChange(parseCatalogueSearch({ ...search, q: draft, ...next }))
   const clear = () => { setDraft(''); onSearchChange({}) }
@@ -37,7 +38,7 @@ export function Catalogue({ title, singular, base, data, search, onSearchChange 
     {!!slides.length && <HeroSlider slides={slides} baseFor={() => base} ctaLabel="Watch now" />}
     <section className={`section catalogue-section${slides.length ? '' : ' catalogue-section-no-hero'}`} aria-label={title}>
       <div className="section-head"><h2>{title}</h2></div>
-      <form className="catalogue-toolbar" role="search" aria-label={`Search and filter ${plural}`} onSubmit={event => { event.preventDefault(); update({ q: draft }) }}>
+      <form className="catalogue-toolbar catalogue-toolbar-search" role="search" aria-label={`Search and filter ${plural}`} onSubmit={event => { event.preventDefault(); update({ q: draft }) }}>
         <div className="catalogue-search liquid-glass">
           <LiquidGlassLayers />
           <label className="catalogue-sr-only" htmlFor={searchId}>{`Search ${plural}`}</label>
@@ -45,10 +46,16 @@ export function Catalogue({ title, singular, base, data, search, onSearchChange 
           {draft && <button type="button" className="catalogue-search-clear" aria-label="Clear search" onClick={() => { setDraft(''); update({ q: undefined }) }}><X size={17} aria-hidden="true" /></button>}
           <button type="submit" className="catalogue-search-submit" aria-label={`Search ${plural}`}><Search size={21} aria-hidden="true" /></button>
         </div>
+      </form>
+      <CatalogueFilterBar label={title} category={String(search.category ?? '')}
+        categories={[{ value: '', label: 'All categories' }, ...data.categories.map(item => ({ value: String(item.id), label: item.name }))]}
+        onCategoryChange={value => update({ category: value ? Number(value) : undefined })}
+        activeCount={[search.category, search.year, search.sort].filter(Boolean).length} onReset={clear}>
         <SearchableFilter label="Category" allLabel="All categories" value={search.category} options={data.categories.map(item => ({ value: item.id, label: item.name }))} onSelect={category => update({ category })} />
         <SearchableFilter label="Year" allLabel="All years" value={search.year} options={data.years.map(year => ({ value: year, label: String(year) }))} onSelect={year => update({ year })} />
-        {hasFilters && <button type="button" className="catalogue-reset" onClick={clear}><X size={16} aria-hidden="true" />Clear filters</button>}
-      </form>
+        <ChoicePicker label="Relevance" value={search.sort ?? ''} options={[{ value: '', label: 'Relevance' }, { value: 'newest', label: 'New to old' }, { value: 'oldest', label: 'Old to new' }]} onChange={sort => update({ sort: sort === 'newest' || sort === 'oldest' ? sort : undefined })} />
+      </CatalogueFilterBar>
+      {hasFilters && <button type="button" className="catalogue-reset" onClick={clear}><X size={16} aria-hidden="true" />Clear filters</button>}
       <p className="catalogue-result-count" role="status" aria-live="polite">{filtered.length} {filtered.length === 1 ? singular : plural}{search.q ? ` matching “${search.q}”` : ''}{search.category ? ` · ${category?.name ?? 'Unavailable category'}` : ''}{search.year ? ` · ${search.year}` : ''}</p>
       {!!filtered.length && <div className="grid catalogue-grid">{filtered.map(item => <PosterCard key={item.id} item={item} base={base} />)}</div>}
       {!filtered.length && <div className="catalogue-empty">

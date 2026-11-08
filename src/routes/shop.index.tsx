@@ -1,3 +1,4 @@
+import { img } from '@/components/Poster'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import { ArrowRight, Search, ShoppingBag, X } from 'lucide-react'
@@ -6,6 +7,7 @@ import { productPath, storeMoney, storeText } from '../lib/storeTypes'
 import { ProductCard } from '../components/ui/product-card-1'
 import { ChoicePicker } from '../components/ui/choice-picker'
 import { MobileLiquidGlass } from '../components/ui/liquid-glass'
+import { CatalogueFilterBar } from '../components/ui/catalogue-filter-bar'
 
 export const Route = createFileRoute('/shop/')({ loader: () => getStoreProducts(), component: ShopIndex })
 function ShopIndex() {
@@ -26,22 +28,26 @@ function ShopIndex() {
         <div className="store-category-rail">{cats.map(c => {
           const cover = products.find(p => p.categories.some(category => category.slug === c.slug) && p.images.length)
           return <button key={c.slug} type="button" className="store-category-tile" aria-pressed={category === c.slug} onClick={() => chooseCategory(c.slug)}>
-            {cover && <img src={cover.images[0].src} alt="" loading="lazy" />}<span>{storeText(c.name)}</span>
+            {cover && <img src={img(cover.images[0].src)} alt="" loading="lazy" />}<span>{storeText(c.name)}</span>
           </button>
         })}</div>
       </section>
       {featured && !query && !category && <section className="store-discover" aria-labelledby="store-discover-title"><h2 id="store-discover-title">A little inspiration. A lasting impact.</h2>
-        <Link to={productPath(featured) as any} className="store-featured"><div><span className="store-eyebrow">EXPLORE THE COLLECTION</span><h3>{storeText(featured.name)}</h3><p>{storeText(featured.short_description).slice(0, 180) || 'Discover your next read, a thoughtful gift, or something to make your day.'}</p><strong>{featured.type === 'variable' ? 'From ' : ''}{storeMoney(featured.prices.price, featured.prices.currency_code, featured.prices.currency_minor_unit)}</strong><span className="store-featured-cta">Explore product <ArrowRight size={18} /></span></div><img src={featured.images[0].src} alt={featured.images[0].alt || storeText(featured.name)} loading="lazy" /></Link>
+        <Link to={productPath(featured) as any} className="store-featured"><div><span className="store-eyebrow">EXPLORE THE COLLECTION</span><h3>{storeText(featured.name)}</h3><p>{storeText(featured.short_description).slice(0, 180) || 'Discover your next read, a thoughtful gift, or something to make your day.'}</p><strong>{featured.type === 'variable' ? 'From ' : ''}{storeMoney(featured.prices.price, featured.prices.currency_code, featured.prices.currency_minor_unit)}</strong><span className="store-featured-cta">Explore product <ArrowRight size={18} /></span></div><img src={img(featured.images[0].src)} alt={featured.images[0].alt || storeText(featured.name)} loading="lazy" /></Link>
       </section>}
     </>}
     <section ref={results} className="store-catalogue" aria-labelledby="store-products-title">
       <div className="store-section-head"><h2 id="store-products-title">{storeText(cats.find(c => c.slug === category)?.name) || 'All products'}</h2><span role="status">{filtered.length} products</span></div>
-      <div className="store-filters">
+      <div className="store-filters store-filters-search">
         <MobileLiquidGlass asChild><label className="store-search"><Search size={20} aria-hidden="true" /><input type="search" aria-label="Search products" placeholder="Search the store" value={query} onChange={e => setQuery(e.target.value)} />{query && <button type="button" aria-label="Clear product search" onClick={() => setQuery('')}><X size={18} /></button>}</label></MobileLiquidGlass>
-        <ChoicePicker label="Category" value={category} options={[{ value: '', label: 'All products' }, ...cats.map(c => ({ value: c.slug, label: storeText(c.name) }))]} onChange={setCategory} />
-        <ChoicePicker label="Sort" value={sort} options={[{ value: 'featured', label: 'Featured' }, { value: 'name', label: 'Name: A–Z' }]} onChange={setSort} />
       </div>
-      <nav className="store-category-chips" aria-label="Product categories"><button type="button" aria-pressed={!category} onClick={() => setCategory('')}>All products</button>{cats.map(c => <button key={c.slug} type="button" aria-pressed={category === c.slug} onClick={() => setCategory(c.slug)}>{storeText(c.name)}</button>)}</nav>
+      <CatalogueFilterBar label="Store" category={category}
+        categories={[{ value: '', label: 'All products' }, ...cats.map(c => ({ value: c.slug, label: storeText(c.name) }))]}
+        onCategoryChange={setCategory} activeCount={Number(!!category) + Number(sort !== 'featured')}
+        onReset={() => { setCategory(''); setSort('featured') }}>
+        <ChoicePicker label="Category" value={category} options={[{ value: '', label: 'All products' }, ...cats.map(c => ({ value: c.slug, label: storeText(c.name) }))]} onChange={setCategory} />
+        <ChoicePicker label="Relevance" value={sort} options={[{ value: 'featured', label: 'Featured' }, { value: 'name', label: 'Name: A–Z' }]} onChange={setSort} />
+      </CatalogueFilterBar>
       {error ? <div role="alert"><p>{error}</p><a className="btn btn-primary" href="https://uebertangel.org/shop/">Visit the original store</a></div> : filtered.length ? <div className="store-product-grid">{filtered.map(p => <ProductCard key={p.id} product={p} />)}</div> : <div className="store-empty"><Search size={32} /><h3>No matching products</h3><p>Try another category or search.</p><button type="button" className="btn" onClick={() => { setCategory(''); setQuery('') }}>Clear filters</button></div>}
     </section>
   </>

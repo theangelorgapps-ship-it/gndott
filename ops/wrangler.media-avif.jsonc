@@ -1,0 +1,11 @@
+{
+  "$schema":"../node_modules/wrangler/config-schema.json",
+  "name":"gndott-media-avif-migration",
+  "main":"media-avif-worker.ts",
+  "account_id":"e020be7b99894463ef06f38b8c4aef8e",
+  "compatibility_date":"2026-01-15",
+  "workers_dev":true,
+  "images":{"binding":"IMAGES"},
+  "r2_buckets":[{"binding":"MEDIA","bucket_name":"halobox-migrated-media-20261105"}],
+  "d1_databases":[{"binding":"DB","database_name":"halobox-migrated-20261105","database_id":"3bc8aa15-6d59-42be-93df-23397c737c56"}]
+}

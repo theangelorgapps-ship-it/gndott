@@ -1,7 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getSession, setSessionCookie, clearSessionCookie } from './session.server'
 import { all, first, run } from './db'
-import bcrypt from 'bcryptjs'
 import { buildRecommendationPayload, isMeaningfulWatch, parseWatchSeconds } from './recommendations'
 import { getActiveViewer } from './viewer.server'
 import type { RecommendationCandidate, RecommendationPayload, WatchHistoryEntry, SavedSignalEntry } from './recommendations'
@@ -490,23 +489,7 @@ export const getGenreContent = createServerFn({ method: 'GET' })
 
 export const login = createServerFn({ method: 'POST' })
   .validator((d: { email: string; password: string }) => d)
-  .handler(async ({ data }) => {
-    const user = await first<any>(
-      `SELECT id, email, first_name, last_name, password, user_type, status, is_banned FROM users WHERE email = ? AND deleted_at IS NULL`,
-      data.email.trim().toLowerCase(),
-    )
-    if (!user) return { ok: false, error: 'No account found for that email.' }
-    if (user.is_banned === 1 || user.status === 0) return { ok: false, error: 'This account is disabled.' }
-    const hash = String(user.password || '').replace(/^\$2y\$/, '$2b$')
-    const valid = bcrypt.compareSync(data.password, hash)
-    if (!valid) return { ok: false, error: 'Incorrect password.' }
-    const profiles = await all(
-      `SELECT id, name, avatar, is_child_profile FROM user_multi_profiles WHERE user_id = ? AND deleted_at IS NULL`,
-      user.id,
-    )
-    await setSessionCookie({ uid: user.id, email: user.email, name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() })
-    return { ok: true, user: { id: user.id, email: user.email, name: user.first_name }, profiles }
-  })
+  .handler(async ({ data }) => (await import('./auth.server')).passwordLogin(data))
 
 export const logout = createServerFn({ method: 'POST' }).handler(async () => {
   clearSessionCookie()
@@ -517,7 +500,7 @@ export const getSessionUser = createServerFn({ method: 'GET' }).handler(async ()
   const session = await getSession()
   if (!session) return null
   const user = await first<any>(
-    `SELECT id, email, first_name, last_name, mobile, is_subscribe, user_type FROM users WHERE id = ?`,
+    `SELECT id, email, first_name, last_name, mobile, is_subscribe, user_type FROM users WHERE id = ? AND status = 1 AND COALESCE(is_banned, 0) = 0 AND deleted_at IS NULL`,
     session.uid,
   )
   const profiles = await all(
@@ -615,27 +598,7 @@ export const getFooterData = createServerFn({ method: 'GET' }).handler(async () 
 
 export const register = createServerFn({ method: 'POST' })
   .validator((d: { firstName: string; lastName: string; email: string; mobile?: string; password: string }) => d)
-  .handler(async ({ data }) => {
-    const email = data.email.trim().toLowerCase()
-    if (!data.firstName.trim()) return { ok: false, error: 'First name is required.' }
-    if (!email || !email.includes('@')) return { ok: false, error: 'A valid email is required.' }
-    if (!data.password || data.password.length < 8) return { ok: false, error: 'Password must be at least 8 characters.' }
-    const existing = await first<any>(`SELECT id FROM users WHERE email = ?`, email)
-    if (existing) return { ok: false, error: 'An account with this email already exists.' }
-    const hash = bcrypt.hashSync(data.password, 10)
-    const res = await run(
-      `INSERT INTO users (first_name, last_name, email, mobile, password, user_type, status, is_banned, is_subscribe, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,1,0,0,datetime('now'),datetime('now'))`,
-      data.firstName.trim(), data.lastName.trim(), email, data.mobile ?? null, hash, 'user',
-    )
-    const uid = (res as any)?.meta?.last_row_id
-    await run(
-      `INSERT INTO user_multi_profiles (user_id, name, is_child_profile, created_at, updated_at) VALUES (?,?,0,datetime('now'),datetime('now'))`,
-      uid, `${data.firstName.trim()} ${data.lastName.trim()}`.trim(),
-    ).catch(() => null)
-    await setSessionCookie({ uid, email, name: data.firstName.trim() })
-    return { ok: true }
-  })
+  .handler(async ({ data }) => (await import('./auth.server')).registerAccount(data))
 
 // ---------- subscription plans (public) ----------
 
@@ -826,17 +789,7 @@ export const getNotificationsFeed = createServerFn({ method: 'GET' }).handler(as
 
 export const changePassword = createServerFn({ method: 'POST' })
   .validator((d: { current: string; next: string }) => d)
-  .handler(async ({ data }) => {
-    const session = await getSession()
-    if (!session) return { ok: false, error: 'Sign in required.' }
-    const user = await first<any>(`SELECT id, password FROM users WHERE id = ?`, session.uid)
-    if (!user) return { ok: false, error: 'Account not found.' }
-    const hash = String(user.password || '').replace(/^\$2y\$/, '$2b$')
-    if (!bcrypt.compareSync(data.current, hash)) return { ok: false, error: 'Current password is incorrect.' }
-    if (!data.next || data.next.length < 8) return { ok: false, error: 'New password must be at least 8 characters.' }
-    await run(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`, bcrypt.hashSync(data.next, 10), session.uid)
-    return { ok: true }
-  })
+  .handler(async ({ data }) => (await import('./auth.server')).changeAccountPassword(data))
 
 // ---------- reviews (write) ----------
 
@@ -880,7 +833,7 @@ export const addProfile = createServerFn({ method: 'POST' })
       session.uid,
     )
     if (Number(count?.n ?? 0) >= 5) return { ok: false, error: 'You can have at most 5 profiles.' }
-    const avatar = `/avatars/avatar-${1 + Math.floor(Math.random() * 5)}.png`
+    const avatar = `/images/avatars/icon${1 + Math.floor(Math.random() * 5)}.avif`
     await run(
       `INSERT INTO user_multi_profiles (user_id, name, avatar, is_child_profile, created_at, updated_at) VALUES (?,?,?,?,datetime('now'),datetime('now'))`,
       session.uid, name, avatar, data.isChild ? 1 : 0,
@@ -1001,50 +954,14 @@ export const purchasePayPerView = createServerFn({ method: 'POST' })
 
 // ---------- OTP login ----------
 
+// Retain endpoint contracts for older clients, but never return a login secret to its requester.
+// A verified delivery provider is required before one-time code login can be enabled.
 export const requestOtp = createServerFn({ method: 'POST' })
   .validator((d: { contact: string }) => d)
-  .handler(async ({ data }) => {
-    const contact = data.contact?.trim()
-    if (!contact) return { ok: false, error: 'Enter your email or mobile number.' }
-    const user = await first<any>(
-      `SELECT id, email, mobile, user_type, status, is_banned FROM users WHERE (email = ? OR mobile = ?) AND deleted_at IS NULL`,
-      contact.toLowerCase(), contact,
-    )
-    if (!user) return { ok: false, error: 'No account found for that email/mobile.' }
-    if (user.is_banned === 1 || user.status === 0) return { ok: false, error: 'This account is disabled.' }
-    const code = String(Math.floor(100000 + Math.random() * 900000))
-    await run(
-      `CREATE TABLE IF NOT EXISTS otp_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, contact TEXT, code TEXT, expires_at TEXT, used INTEGER DEFAULT 0, created_at TEXT)`,
-    ).catch(() => null)
-    await run(`DELETE FROM otp_codes WHERE contact = ?`, contact).catch(() => null)
-    await run(
-      `INSERT INTO otp_codes (contact, code, expires_at, used, created_at) VALUES (?,?,datetime('now','+10 minutes'),0,datetime('now'))`,
-      contact, code,
-    )
-    // No SMS provider is configured on this deployment; surface the code so the flow stays usable.
-    return { ok: true, devCode: code, message: 'OTP generated (no SMS provider configured — code shown for demo).' }
-  })
-
+  .handler(async () => ({ ok: false, error: 'Sign-in codes are unavailable. Please sign in with your email and password.' }))
 export const verifyOtp = createServerFn({ method: 'POST' })
   .validator((d: { contact: string; code: string }) => d)
-  .handler(async ({ data }) => {
-    const contact = data.contact?.trim()
-    const code = data.code?.trim()
-    if (!contact || !code) return { ok: false, error: 'Enter the 6-digit code.' }
-    const row = await first<any>(
-      `SELECT id FROM otp_codes WHERE contact = ? AND code = ? AND used = 0 AND expires_at >= datetime('now')`,
-      contact, code,
-    ).catch(() => null)
-    if (!row) return { ok: false, error: 'Invalid or expired code.' }
-    await run(`UPDATE otp_codes SET used = 1 WHERE id = ?`, row.id)
-    const user = await first<any>(
-      `SELECT id, email, first_name, last_name FROM users WHERE (email = ? OR mobile = ?) AND deleted_at IS NULL`,
-      contact.toLowerCase(), contact,
-    )
-    if (!user) return { ok: false, error: 'Account not found.' }
-    await setSessionCookie({ uid: user.id, email: user.email, name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() })
-    return { ok: true }
-  })
+  .handler(async () => ({ ok: false, error: 'Sign-in codes are unavailable. Please sign in with your email and password.' }))
 
 // ---------- ads ----------
 
@@ -1077,42 +994,11 @@ export const getHomeAds = createServerFn({ method: 'GET' }).handler(async () => 
 // ---------- social login ----------
 
 export const getSocialConfig = createServerFn({ method: 'GET' }).handler(async () => {
-  const googleClientId = await settingVal('google_client_id')
-  return { googleClientId }
+  const config = await (await import('./oauth.server')).socialConfiguration()
+  return { googleEnabled: config.googleEnabled, appleEnabled: config.appleEnabled }
 })
 
+/** Old GIS responses have no server challenge; they must restart the bound authorization flow. */
 export const googleSignIn = createServerFn({ method: 'POST' })
   .validator((d: { credential: string }) => d)
-  .handler(async ({ data }) => {
-    const clientId = await settingVal('google_client_id')
-    if (!clientId) return { ok: false, error: 'Google sign-in is not configured.' }
-    const resp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(data.credential)}`)
-    const tok: any = await resp.json()
-    if (!resp.ok || !tok.email || tok.aud !== clientId) return { ok: false, error: 'Google token verification failed.' }
-    const email = String(tok.email).toLowerCase()
-    let user = await first<any>(`SELECT id, email, first_name, last_name, status, is_banned FROM users WHERE email = ?`, email)
-    if (!user) {
-      const names = String(tok.name ?? email.split('@')[0]).split(' ')
-      const res = await run(
-        `INSERT INTO users (first_name, last_name, email, password, user_type, status, is_banned, is_subscribe, login_type, created_at, updated_at)
-         VALUES (?,?,?,?,?,1,0,0,'google',datetime('now'),datetime('now'))`,
-        names[0] ?? 'Google', names.slice(1).join(' ') || 'User', email, '', 'user',
-      ).catch(async () => {
-        // login_type column may not exist — retry without it
-        return run(
-          `INSERT INTO users (first_name, last_name, email, password, user_type, status, is_banned, is_subscribe, created_at, updated_at)
-           VALUES (?,?,?,?,?,1,0,0,datetime('now'),datetime('now'))`,
-          names[0] ?? 'Google', names.slice(1).join(' ') || 'User', email, '', 'user',
-        )
-      })
-      const uid = (res as any)?.meta?.last_row_id
-      user = { id: uid, email, first_name: names[0], last_name: names.slice(1).join(' ') }
-      await run(
-        `INSERT INTO user_multi_profiles (user_id, name, is_child_profile, created_at, updated_at) VALUES (?,?,0,datetime('now'),datetime('now'))`,
-        uid, `${names[0] ?? ''} ${names.slice(1).join(' ')}`.trim() || 'User',
-      ).catch(() => null)
-    }
-    if (user.is_banned === 1 || user.status === 0) return { ok: false, error: 'This account is disabled.' }
-    await setSessionCookie({ uid: user.id, email: user.email, name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() })
-    return { ok: true }
-  })
+  .handler(async () => ({ ok: false, error: 'Please use Continue with Google to start a new sign-in.' }))

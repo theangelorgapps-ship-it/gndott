@@ -29,10 +29,10 @@ const routes=load('src/lib/contentRoutes.ts');assert.equal(routes.contentPath({i
 assert.equal(routes.contentPath({id:229,slug:'a-sound-229'}),'/movie/a-sound-229');console.log('READABLE_ROUTES_OK')
 const images=load('src/lib/imageProcessing.server.ts')
 const original=new File([new Uint8Array([255,216,255,0,1])],'image.jpg')
-const avif=new Uint8Array([0,0,0,24,102,116,121,112,97,118,105,102,0,0,0,0])
+const avif=new Uint8Array([0,0,0,16,102,116,121,112,97,118,105,102,0,0,0,0])
 let converted=0,stored=new Map()
 const bindings={
- MEDIA:{head:async k=>stored.get(k),put:async(k,bytes,metadata)=>stored.set(k,{bytes,metadata})},
+ MEDIA:{head:async k=>stored.get(k),get:async k=>stored.get(k),put:async(k,bytes,metadata)=>stored.set(k,{bytes,metadata,...metadata,arrayBuffer:async()=>bytes.buffer})},
  IMAGES:{
   info:async()=>({width:600,height:400}),
   input:()=>({
@@ -46,5 +46,5 @@ const bindings={
   })
  }
 }
-await images.storeAvif(original,'profiles/1/11',true,bindings);await images.storeAvif(original,'profiles/1/11',true,bindings);assert.equal(converted,1);assert.equal(stored.size,1);assert.equal([...stored.values()][0].metadata.httpMetadata.contentType,'image/avif');await assert.rejects(images.storeAvif(new File(['not an image'],'bad.jpg'),'profiles/1/11',true,bindings));bindings.IMAGES.info=async()=>({width:10000,height:10000});await assert.rejects(images.storeAvif(original,'profiles/1/11',true,bindings));assert.equal(stored.size,1)
+await images.storeAvif(original,'profiles/1/11',true,bindings);await images.storeAvif(original,'profiles/1/11',true,bindings);assert.equal(converted,1);assert.equal(stored.size,1);assert.equal([...stored.values()][0].metadata.httpMetadata.contentType,'image/avif');await assert.rejects(images.storeAvif(new File(['not an image'],'bad.jpg'),'profiles/1/11',true,bindings));bindings.IMAGES.info=async()=>({width:10000,height:10000});await assert.rejects(images.storeAvif(original,'profiles/1/12',true,bindings));assert.equal(stored.size,1)
 console.log('AVIF_VALIDATION_AND_DEDUP_OK');console.log('ACCOUNT_LIBRARY_OK');db.close()

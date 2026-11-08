@@ -1,53 +1,17 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Check, ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react'
+import { useEffect, useId, useMemo, useState } from 'react'
+import { Search, SlidersHorizontal, X } from 'lucide-react'
 import type { CatalogueTitle } from '../lib/catalogue'
 import { filterCatalogue, parseCatalogueSearch, type CatalogueCategory, type CatalogueSearch } from '../lib/catalogueFilters'
 import { HeroSlider, PosterCard } from './Poster'
 import { LiquidGlassLayers } from './ui/liquid-glass'
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
-
-type Choice = { value: number; label: string }
+import { ChoicePicker } from './ui/choice-picker'
 
 function SearchableFilter({ label, allLabel, value, options, onSelect }: {
-  label: string; allLabel: string; value?: number; options: Choice[]; onSelect: (value?: number) => void
+  label: string; allLabel: string; value?: number; options: { value: number; label: string }[]; onSelect: (value?: number) => void
 }) {
-  const id = useId()
-  const input = useRef<HTMLInputElement>(null)
-  const list = useRef<HTMLDivElement>(null)
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const selected = options.find(option => option.value === value)
-  const choices = options.filter(option => option.label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
-  const choose = (next?: number) => { onSelect(next); setOpen(false) }
-  function moveFocus(event: KeyboardEvent) {
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
-    const buttons = Array.from(list.current?.querySelectorAll<HTMLButtonElement>('button') ?? [])
-    if (!buttons.length) return
-    const at = buttons.indexOf(document.activeElement as HTMLButtonElement)
-    const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : event.key === 'ArrowDown' ? (at + 1) % buttons.length : (at - 1 + buttons.length) % buttons.length
-    event.preventDefault()
-    buttons[next]?.focus()
-  }
-  return <Popover open={open} onOpenChange={next => { setOpen(next); if (next) setQuery('') }}>
-    <PopoverTrigger asChild>
-      <button type="button" className="catalogue-select liquid-glass" aria-label={`${label}: ${selected?.label ?? (value ? `Unavailable ${label.toLowerCase()}` : allLabel)}`}>
-        <LiquidGlassLayers />
-        <span className="catalogue-select-label"><small>{label}</small><span>{selected?.label ?? (value ? String(value) : allLabel)}</span></span>
-        <ChevronDown size={17} aria-hidden="true" />
-      </button>
-    </PopoverTrigger>
-    <PopoverContent className="catalogue-popover" align="start" aria-label={`Choose ${label.toLowerCase()}`} onOpenAutoFocus={event => { event.preventDefault(); input.current?.focus() }}>
-      <label className="catalogue-option-search" htmlFor={id}>
-        <Search size={18} aria-hidden="true" />
-        <input ref={input} id={id} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder={`Search ${label === 'Category' ? 'categories' : 'years'}`} aria-label={`Search ${label === 'Category' ? 'categories' : 'years'}`} autoComplete="off" onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); list.current?.querySelector<HTMLButtonElement>('button')?.focus() } }} />
-      </label>
-      <div className="catalogue-options" ref={list} role="group" aria-label={`${label} options`} data-lenis-prevent onKeyDown={moveFocus}>
-        <button type="button" aria-pressed={!value} onClick={() => choose()}><span>{allLabel}</span>{!value && <Check size={17} aria-hidden="true" />}</button>
-        {choices.map(option => <button key={option.value} type="button" aria-pressed={option.value === value} onClick={() => choose(option.value)}><span>{option.label}</span>{option.value === value && <Check size={17} aria-hidden="true" />}</button>)}
-        {!choices.length && <p role="status">{query ? `No matching ${label === 'Category' ? 'categories' : 'years'}.` : `No ${label === 'Category' ? 'categories' : 'years'} available yet.`}</p>}
-      </div>
-    </PopoverContent>
-  </Popover>
+  return <ChoicePicker label={label} value={value == null ? '' : String(value)}
+    options={[{ value: '', label: allLabel }, ...options.map(option => ({ value: String(option.value), label: option.label }))]}
+    onChange={next => onSelect(next ? Number(next) : undefined)} />
 }
 
 export function Catalogue({ title, singular, base, data, search, onSearchChange }: {

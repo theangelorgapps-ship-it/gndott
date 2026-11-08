@@ -1,3 +1,5 @@
+import { ChoicePicker } from '../components/ui/choice-picker'
+import { CALLING_CODES } from '../lib/callingCodes'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { register } from '../lib/api'
@@ -11,6 +13,9 @@ function Register() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
+  const [country, setCountry] = useState('United States')
+  const [customCode, setCustomCode] = useState('+1')
+  const callingCode = CALLING_CODES.find(item => item.value === country)?.code ?? customCode
   const [mobile, setMobile] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -26,7 +31,9 @@ function Register() {
     }
     setBusy(true)
     try {
-      const res = await register({ data: { firstName, lastName, email, mobile, password } })
+      const nationalNumber = mobile.replace(/[^0-9]/g, '')
+      const phoneNumber = mobile.trim().startsWith('+') ? mobile.trim() : `${callingCode}${['Italy', 'custom'].includes(country) ? nationalNumber : nationalNumber.replace(/^0/, '')}`
+      const res = await register({ data: { firstName, lastName, email, mobile: mobile.trim() ? phoneNumber : '', password } })
       if (res.ok) {
         window.location.href = '/manage-profile'
       } else {
@@ -46,8 +53,8 @@ function Register() {
         <div className="field"><input placeholder="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
         <div className="field"><input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
         <div className="field field-phone">
-          <span className="phone-prefix">+91</span>
-          <input placeholder="e.g. 9723454740" value={mobile} onChange={(e) => setMobile(e.target.value)} inputMode="tel" />
+          <ChoicePicker label="Calling code" compact displayValue={callingCode} className="phone-code-picker" value={country} options={[...CALLING_CODES, {value: 'custom', label: 'Other calling code'}]} onChange={setCountry} />{country === 'custom' && <input className="phone-custom-code" aria-label="International calling code" inputMode="tel" value={customCode} onChange={e => setCustomCode('+' + e.target.value.replace(/[^0-9]/g, '').slice(0, 4))} pattern="\+[1-9][0-9]{0,3}" required />}
+          <input type="tel" aria-label="Phone number" autoComplete="tel-national" placeholder="Phone number" value={mobile} onChange={(e) => setMobile(e.target.value)} inputMode="tel" />
         </div>
         <div className="field"><input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
         <div className="field"><input type="password" placeholder="Confirm Password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required /></div>
@@ -60,9 +67,9 @@ function Register() {
         Already have an account? <Link to="/login">Sign In</Link>
       </div>
       <p className="auth-terms">
-        By signing, you agree to GoodNews Halobox: Your Ultimate Entertainment Hub{' '}
-        <Link to={'/page/terms-conditions' as any}>Terms &amp; Conditions</Link> of all services and{' '}
-        <Link to={'/page/privacy-policy' as any}>Privacy Policy</Link> of all services and.
+        GoodNews Halobox — Your Place of Hope. By signing up, you agree to our{' '}
+        <Link to={'/page/terms-conditions' as any}>Terms &amp; Conditions</Link> and{' '}
+        <Link to={'/page/privacy-policy' as any}>Privacy Policy</Link>.
       </p>
     </AuthShell>
   )

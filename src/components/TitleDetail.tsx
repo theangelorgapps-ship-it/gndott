@@ -29,7 +29,7 @@ export function PlaybackDialog({ playback, onClose }: { playback: WatchSectionPr
     void enterPlayerFullscreen(surfaceRef.current).catch(() => undefined)
     const onFullscreenChange = () => setFullscreen(document.fullscreenElement === surfaceRef.current)
     document.addEventListener('fullscreenchange', onFullscreenChange)
-    closeRef.current?.focus()
+    surfaceRef.current?.focus({ preventScroll: true })
     return () => {
       if (document.fullscreenElement && dialog.contains(document.fullscreenElement)) void document.exitFullscreen().catch(() => undefined)
       document.removeEventListener('fullscreenchange', onFullscreenChange)
@@ -42,11 +42,11 @@ export function PlaybackDialog({ playback, onClose }: { playback: WatchSectionPr
   if (!mounted) return null
   return createPortal(
     <dialog ref={dialogRef} data-lenis-prevent className="tv-playback-dialog tv-immersive-dialog" aria-labelledby={headingId} onCancel={(event) => { event.preventDefault(); onClose() }} onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <div ref={surfaceRef} className="tv-playback-content tv-playback-surface">
+      <div ref={surfaceRef} tabIndex={-1} className="tv-playback-content tv-playback-surface">
         <header className="tv-playback-heading">
           <h2 id={headingId}>{playback.title}</h2>
           <button ref={closeRef} type="button" className="tv-detail-utility" aria-label="Close playback" onClick={onClose}><X size={23} /></button>
-          <button type="button" className="tv-detail-utility tv-player-fullscreen" aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'} onClick={() => { setFullscreenMessage(''); void togglePlayerFullscreen(surfaceRef.current).catch(() => setFullscreenMessage('Your browser could not enter full screen. You can continue watching in this window.')) }}>{fullscreen ? <Minimize size={22} /> : <Maximize size={22} />}</button>
+          <button type="button" className="tv-detail-utility tv-player-fullscreen" aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'} onClick={() => { setFullscreenMessage(''); void togglePlayerFullscreen(surfaceRef.current).catch(() => setFullscreenMessage('Start the video, then tap full screen again. If your browser does not support it, the player will continue filling this window.')) }}>{fullscreen ? <Minimize size={22} /> : <Maximize size={22} />}</button>
         </header>
         {fullscreenMessage && <p className="tv-fullscreen-status" role="status">{fullscreenMessage}</p>}
         <WatchSection {...playback} />

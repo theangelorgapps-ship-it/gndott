@@ -153,17 +153,16 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
     const host = marker.current?.closest('.p-card') as HTMLElement | null
     if (!host) return
     let removal: ReturnType<typeof setTimeout> | undefined
-    let frame = 0
     let present = false
-    const hide = () => {
+    const hide = (immediate = false) => {
       if (closeTimer.current) clearTimeout(closeTimer.current)
-      cancelAnimationFrame(frame)
       if (!present) return
       present = false
       clearTimeout(removal)
       playback.current?.destroy(); playback.current = null
       setOpen(false)
-      removal = setTimeout(() => { setMounted(false); setReady(false) }, 220)
+      if (immediate) { setMounted(false); setReady(false) }
+      else removal = setTimeout(() => { setMounted(false); setReady(false) }, 160)
     }
     hideRef.current = hide
     const enter = () => {
@@ -174,31 +173,35 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
         present = true
         window.dispatchEvent(new CustomEvent('halo-preview', { detail: host }))
         setPosition(previewPosition(host, 300))
-        setMounted(true); setFailed(false)
-        frame = requestAnimationFrame(() => { frame = requestAnimationFrame(() => setOpen(true)) })
+        setMounted(true); setFailed(false); setOpen(true)
       }
     }
-    const leave = () => { closeTimer.current = setTimeout(hide, 180) }
-    const other = (event: Event) => { if ((event as CustomEvent).detail !== host) hide() }
+    const leave = (event?: MouseEvent) => {
+      if (event?.relatedTarget instanceof Node && popup.current?.contains(event.relatedTarget)) return
+      if (closeTimer.current) clearTimeout(closeTimer.current)
+      closeTimer.current = setTimeout(() => hide(), 180)
+    }
+    const dismiss = () => hide(true)
+    const other = (event: Event) => { if ((event as CustomEvent).detail !== host) hide(true) }
     const key = (event: KeyboardEvent) => { if (event.key === 'Escape') hide() }
     const blur = (event: FocusEvent) => { if (!host.contains(event.relatedTarget as Node) && !popup.current?.contains(event.relatedTarget as Node)) leave() }
     host.addEventListener('focusout', blur)
     host.addEventListener('mouseenter', enter)
     host.addEventListener('focusin', enter)
     host.addEventListener('mouseleave', leave)
-    window.addEventListener('scroll', hide, true)
-    window.addEventListener('resize', hide)
+    window.addEventListener('scroll', dismiss, true)
+    window.addEventListener('resize', dismiss)
     window.addEventListener('halo-preview', other)
     window.addEventListener('keydown', key)
-    document.addEventListener('visibilitychange', hide)
+    document.addEventListener('visibilitychange', dismiss)
     return () => {
-      clearTimeout(removal); cancelAnimationFrame(frame)
+      clearTimeout(removal)
       if (closeTimer.current) clearTimeout(closeTimer.current)
       host.removeEventListener('focusout', blur)
       host.removeEventListener('mouseenter', enter); host.removeEventListener('mouseleave', leave); host.removeEventListener('focusin', enter)
-      window.removeEventListener('scroll', hide, true); window.removeEventListener('resize', hide)
+      window.removeEventListener('scroll', dismiss, true); window.removeEventListener('resize', dismiss)
       window.removeEventListener('halo-preview', other); window.removeEventListener('keydown', key)
-      document.removeEventListener('visibilitychange', hide)
+      document.removeEventListener('visibilitychange', dismiss)
     }
   }, [])
 

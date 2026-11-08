@@ -1,3 +1,4 @@
+import { SeekPreview } from './SeekPreview'
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, X, SlidersHorizontal, PictureInPicture2 } from 'lucide-react'
 import { BiblePanel, ContentNotes, youtubeId, type WatchSectionProps } from './Detail'
@@ -38,6 +39,7 @@ export function ImmersivePlayer(props: WatchSectionProps) {
   const pausedIntent = useRef(true)
   const [duration, setDuration] = useState(0)
   const [position, setPosition] = useState(0)
+  const [seekPreview, setSeekPreview] = useState<{ time: number; percent: number } | null>(null)
   const [panel, setPanel] = useState<Panel>(null)
   const [providerControls, setProviderControls] = useState(false)
   const [fallback, setFallback] = useState(false)
@@ -90,9 +92,15 @@ export function ImmersivePlayer(props: WatchSectionProps) {
       holdingControl.current = false
       controls.reveal()
     }
+    const reveal = () => controls.reveal()
+    const surface = stageRef.current?.closest('.tv-playback-surface')
+    surface?.addEventListener('pointermove', reveal)
+    surface?.addEventListener('focusin', reveal)
     window.addEventListener('pointerup', releaseGesture)
     window.addEventListener('pointercancel', releaseGesture)
     return () => {
+      surface?.removeEventListener('pointermove', reveal)
+      surface?.removeEventListener('focusin', reveal)
       window.removeEventListener('pointerup', releaseGesture)
       window.removeEventListener('pointercancel', releaseGesture)
       controls.destroy(); wake.destroy(); idleControls.current = null; wakeLock.current = null
@@ -276,7 +284,7 @@ export function ImmersivePlayer(props: WatchSectionProps) {
       onPointerUpCapture={() => { holdingControl.current = false; revealControls() }}
       onPointerCancel={() => { holdingControl.current = false; scrubbing.current = false; setPosition(observed.current.position); revealControls() }}>
       <div className="tv-player-media">
-        {source ? <iframe ref={iframeRef} src={source} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen tabIndex={customControls ? -1 : 0} /> : direct ? <video ref={videoRef} poster={img(poster)} controls={!customControls} playsInline preload="none" onLoadedMetadata={(event) => { setReady(true); updateTiming(event.currentTarget.currentTime, event.currentTarget.duration) }} onRateChange={(event) => setSpeed(event.currentTarget.playbackRate)} onPlaying={() => { setMediaPlaying(true); setMediaLoading(false) }} onWaiting={() => setMediaLoading(true)} onTimeUpdate={(event) => updateTiming(event.currentTarget.currentTime, event.currentTarget.duration)} onPlay={() => { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); if (!live) resumeRef.current!.onPlay() }} onPause={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved() }} onEnded={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved(); if (live) { setFallback(true); setMessage('This broadcast has ended. Reconnect when it resumes.') } }} onVolumeChange={(event) => { setMuted(event.currentTarget.muted); setVolume(event.currentTarget.volume) }} onError={() => { setMediaPlaying(false); setMediaLoading(false); if (bunnyLibraryId && bunnyVideoId) { setReady(false); setProviderFallback(true); setMessage('Opening the video provider’s player…') } else { setFallback(true); setMessage(live ? 'The live stream is unavailable or has ended. Try reconnecting.' : 'This video could not be loaded. Try its original link.') } }} /> : <img className="tv-player-poster" src={img(poster)} alt="" />}
+        {source ? <iframe ref={iframeRef} src={source} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen tabIndex={customControls ? -1 : 0} /> : direct ? <video ref={videoRef} poster={img(poster)} controls={!customControls} playsInline preload="metadata" onLoadedMetadata={(event) => { setReady(true); updateTiming(event.currentTarget.currentTime, event.currentTarget.duration) }} onRateChange={(event) => setSpeed(event.currentTarget.playbackRate)} onPlaying={() => { setMediaPlaying(true); setMediaLoading(false) }} onWaiting={() => setMediaLoading(true)} onTimeUpdate={(event) => updateTiming(event.currentTarget.currentTime, event.currentTarget.duration)} onPlay={() => { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); if (!live) resumeRef.current!.onPlay() }} onPause={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved() }} onEnded={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved(); if (live) { setFallback(true); setMessage('This broadcast has ended. Reconnect when it resumes.') } }} onVolumeChange={(event) => { setMuted(event.currentTarget.muted); setVolume(event.currentTarget.volume) }} onError={() => { setMediaPlaying(false); setMediaLoading(false); if (bunnyLibraryId && bunnyVideoId) { setReady(false); setProviderFallback(true); setMessage('Opening the video provider’s player…') } else { setFallback(true); setMessage(live ? 'The live stream is unavailable or has ended. Try reconnecting.' : 'This video could not be loaded. Try its original link.') } }} /> : <img className="tv-player-poster" src={img(poster)} alt="" />}
         {panel && customControls && <button className="tv-player-panel-transport" type="button" onClick={togglePlay} aria-label={paused ? 'Play video while reading' : 'Pause video while reading'}>{paused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>}
       </div>
       {customControls && <div className="tv-player-scrim" aria-hidden="true" />}
@@ -297,11 +305,14 @@ export function ImmersivePlayer(props: WatchSectionProps) {
             </div>}
           </div></div>
           {customControls && live && <button className="tv-go-live" type="button" onClick={() => seek(duration)} disabled={!ready}><i />{duration - position > 10 ? 'Back to live' : 'LIVE'}</button>}
-          {customControls && (!live || duration - windowStart > 30) && <div className="tv-player-timeline"><input type="range" aria-label="Playback position" aria-valuetext={live ? `${playbackTime(duration - position)} behind live` : `${playbackTime(position)} of ${playbackTime(duration)}`} min={live ? windowStart : 0} max={duration || 1} step={1} value={position} disabled={!duration}
+          {customControls && (!live || duration - windowStart > 30) && <div className="tv-player-timeline">{seekPreview && !live && <SeekPreview source={direct} time={seekPreview.time} duration={duration} percent={seekPreview.percent} label={playbackTime(seekPreview.time)} />}<input type="range" aria-label="Playback position" aria-valuetext={live ? `${playbackTime(duration - position)} behind live` : `${playbackTime(position)} of ${playbackTime(duration)}`} min={live ? windowStart : 0} max={duration || 1} step={1} value={position} disabled={!duration}
+            onPointerMove={event => { if (!live && duration) { const rect = event.currentTarget.getBoundingClientRect(); const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)); setSeekPreview({ time: ratio * duration, percent: ratio * 100 }) } }}
+            onPointerLeave={() => { if (!scrubbing.current) setSeekPreview(null) }}
+            onPointerCancel={() => { scrubbing.current = false; setSeekPreview(null) }}
             onPointerDown={event => { scrubbing.current = true; event.currentTarget.setPointerCapture(event.pointerId) }}
-            onChange={event => { const next = Number(event.target.value); setPosition(next); if (!scrubbing.current) seek(next) }}
-            onPointerUp={event => { if (scrubbing.current) { scrubbing.current = false; seek(Number(event.currentTarget.value)) } }}
-            onBlur={event => { if (scrubbing.current) { scrubbing.current = false; seek(Number(event.currentTarget.value)) } }}
+            onChange={event => { const next = Number(event.target.value); setPosition(next); if (!live) setSeekPreview({ time: next, percent: next / (duration || 1) * 100 }); if (!scrubbing.current) seek(next) }}
+            onPointerUp={event => { setSeekPreview(null); if (scrubbing.current) { scrubbing.current = false; seek(Number(event.currentTarget.value)) } }}
+            onBlur={event => { setSeekPreview(null); if (scrubbing.current) { scrubbing.current = false; seek(Number(event.currentTarget.value)) } }}
           /><div><span>{live ? 'DVR' : playbackTime(position)}</span><span>−{playbackTime(duration - position)}{live ? ' from live' : ''}</span></div></div>}
         </>}
         {settingsOpen && direct && <div className="tv-player-settings" role="group" aria-label="Playback settings">

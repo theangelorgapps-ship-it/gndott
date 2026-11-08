@@ -22,6 +22,7 @@ import '../live-tv.css'
 import '../responsive-glass.css' // Responsive glass and 4K refinements
 import '../mobile-glass.css'
 import '../subscription-checkout.css'
+import '../refinements.css'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -64,6 +65,9 @@ function RootComponent() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const navigate = useNavigate()
   const [spotlightOpen, setSpotlightOpen] = useState(false)
+  const [watchOpen, setWatchOpen] = useState(false)
+  const watchRef = useRef<HTMLDivElement>(null)
+  const watchButton = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuPanelRef = useRef<HTMLDialogElement>(null)
   const isAdmin = pathname.startsWith('/admin')
@@ -71,7 +75,18 @@ function RootComponent() {
 
   useEffect(() => {
     setMenuOpen(false)
+    setWatchOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    if (!watchOpen) return
+    watchRef.current?.querySelector<HTMLElement>('.watch-submenu nav a')?.focus({ preventScroll: true })
+    const outside = (event: PointerEvent) => { if (!watchRef.current?.contains(event.target as Node)) setWatchOpen(false) }
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setWatchOpen(false); watchButton.current?.focus() } }
+    document.addEventListener('pointerdown', outside)
+    document.addEventListener('keydown', escape)
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape) }
+  }, [watchOpen])
 
   useEffect(() => {
     if (isAdmin || isBare) return
@@ -156,7 +171,7 @@ function RootComponent() {
             {user && <Link to="/notifications" className="icon-btn-plain header-notifications" aria-label="Notifications"><IconBell /></Link>}
             {user ? <Link to="/account-setting" className="header-login">Account</Link> : <Link to="/login" className="header-login">Login</Link>}
             <Link to={user ? '/account-setting' : '/login'} className="header-profile" aria-label={user ? 'Your account' : 'Sign in'}><UserRound size={21} aria-hidden="true" /></Link>
-            <Link to="/subscription-plan" className="header-subscribe">{user ? 'Upgrade' : 'Subscribe'}</Link>
+            <Link to={user ? '/shop' : '/subscription-plan'} className="header-subscribe">{user ? 'Store' : 'Subscribe'}</Link>
             <button type="button" className="icon-btn-plain mobile-menu-trigger" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-controls="mobile-navigation-sheet" aria-expanded={menuOpen} onClick={toggleMenu}>
               {menuOpen ? <X size={21} /> : <Menu size={21} />}
             </button>
@@ -195,10 +210,14 @@ function RootComponent() {
         </dialog>
       )}
 
-      <div className={`mobile-navigation${pathname === '/search' ? ' is-search-page' : ''}`}>
+      <div ref={watchRef} className={`mobile-navigation${pathname === '/search' ? ' is-search-page' : ''}`}>
+        {watchOpen && <MobileLiquidGlass className="watch-submenu" role="region" aria-label="Watch categories" id="watch-submenu">
+          <div className="watch-submenu-head"><strong>Watch</strong><button type="button" aria-label="Close Watch menu" onClick={() => { setWatchOpen(false); watchButton.current?.focus() }}><X size={19} /></button></div>
+          <nav aria-label="Watch"><Link to="/movies" onClick={() => setWatchOpen(false)}><Clapperboard /><span>Sermons</span></Link><Link to="/teachings" onClick={() => setWatchOpen(false)}><BookOpen /><span>Teachings</span></Link><Link to="/tv-shows" onClick={() => setWatchOpen(false)}><Tv /><span>Shows</span></Link><Link to="/videos" onClick={() => setWatchOpen(false)}><PlaySquare /><span>Videos</span></Link></nav>
+        </MobileLiquidGlass>}
         <MobileLiquidGlass asChild><nav className="mobile-dock liquid-glass" aria-label="Quick navigation">
           <Link to="/" className={pathname === '/' ? 'active' : ''} aria-current={pathname === '/' ? 'page' : undefined}><Home size={23} /><span>Home</span></Link>
-          <Link to="/movies" className={destinationActive(pathname, NAV_ITEMS[1]) ? 'active' : ''} aria-current={destinationActive(pathname, NAV_ITEMS[1]) ? 'page' : undefined}><Clapperboard size={23} /><span>Sermons</span></Link>
+          <button ref={watchButton} type="button" className={watchOpen || NAV_ITEMS.slice(1, 5).some(item => destinationActive(pathname, item)) ? 'active' : ''} aria-expanded={watchOpen} aria-controls="watch-submenu" onClick={() => setWatchOpen(open => !open)}><Tv size={23} /><span>Watch</span></button>
           <Link to="/live-tv" className={destinationActive(pathname, NAV_ITEMS[5]) ? 'active' : ''} aria-current={destinationActive(pathname, NAV_ITEMS[5]) ? 'page' : undefined}><Radio size={23} /><span>Live TV</span></Link>
           <Link to="/account-setting" className={(['/account-setting', '/watchlist', '/continue-watching'].includes(pathname)) ? 'active' : ''} aria-current={(['/account-setting', '/watchlist', '/continue-watching'].includes(pathname)) ? 'page' : undefined}><Bookmark size={23} /><span>Library</span></Link>
         </nav></MobileLiquidGlass>

@@ -1,3 +1,4 @@
+import { MobileLiquidGlass } from '../components/ui/liquid-glass'
 import { createFileRoute, Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { Home, X } from 'lucide-react'
@@ -91,7 +92,7 @@ function Search() {
       <header className="tv-search-heading"><h1>Search</h1>{genreName && <p>{genreName}</p>}</header>
       <div className="tv-search-entry">
         <Link to="/" className="search-home" aria-label="Home"><Home size={23} /></Link>
-        <form className="tv-search-field" role="search" onSubmit={(event) => { event.preventDefault(); submit() }}>
+        <MobileLiquidGlass asChild><form className="tv-search-field" role="search" onSubmit={(event) => { event.preventDefault(); submit() }}>
           <IconSearch size={22} />
           <input ref={inputRef} type="search" name="q" value={term} aria-label="Search sermons, shows, and more" placeholder="Sermons, Shows, and More" maxLength={200}
             autoComplete="off" enterKeyHint="search" onChange={(event) => setTerm(event.target.value)}
@@ -99,7 +100,7 @@ function Search() {
             onKeyDown={(event) => { if (event.key === 'Escape') { setTerm(''); inputRef.current?.blur(); void navigate({ to: '/search', search: { q: '', type: 'all', genre: undefined }, replace: true }) } }} />
           {term && <button type="button" aria-label="Clear search" onClick={() => { setTerm(''); inputRef.current?.focus() }}><X size={18} /></button>}
           <button type="submit" className="search-submit" aria-label="Submit search"><IconSearch size={20} /></button>
-        </form>
+        </form></MobileLiquidGlass>
       </div>
 
       {!browsing && <nav className="tv-search-filters" aria-label="Search result types">

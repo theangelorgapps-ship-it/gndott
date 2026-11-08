@@ -1,13 +1,48 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useRef, useState } from 'react'
+import { ArrowRight, Search, ShoppingBag, X } from 'lucide-react'
 import { getStoreProducts } from '../lib/store'
-import { storeText } from '../lib/storeTypes'
+import { productPath, storeMoney, storeText } from '../lib/storeTypes'
 import { ProductCard } from '../components/ui/product-card-1'
-export const Route=createFileRoute('/shop/')({loader:()=>getStoreProducts(),component:ShopIndex})
-function ShopIndex(){
- const {products,error}=Route.useLoaderData();const [query,setQuery]=useState(''),[category,setCategory]=useState('')
- const cats=[...new Map(products.flatMap(p=>p.categories).map(c=>[c.slug,c])).values()]
- const filtered=products.filter(p=>(!category||p.categories.some(c=>c.slug===category))&&storeText(p.name).toLowerCase().includes(query.toLowerCase()))
- return <><header className="store-hero"><span>GOODNEWS • EVERY DAY</span><h1>Take the inspiration<br/>with you.</h1><p>Books to deepen your faith. Essentials for everyday life.</p></header><section className="store-catalogue"><div className="store-filters"><label><Search size={20}/><input aria-label="Search products" placeholder="Search the shop" value={query} onChange={e=>setQuery(e.target.value)}/></label><select aria-label="Product category" value={category} onChange={e=>setCategory(e.target.value)}><option value="">All products</option>{cats.map(c=><option key={c.slug} value={c.slug}>{storeText(c.name)}</option>)}</select><span>{filtered.length} products</span></div>{error?<div role="alert"><p>{error}</p><a className="btn btn-primary" href="https://uebertangel.org/shop/">Visit the original store</a></div>:filtered.length?<div className="store-product-grid">{filtered.map(p=><ProductCard key={p.id} product={p}/>)}</div>:<p>No products match your search.</p>}</section></>
+import { ChoicePicker } from '../components/ui/choice-picker'
+import { MobileLiquidGlass } from '../components/ui/liquid-glass'
+
+export const Route = createFileRoute('/shop/')({ loader: () => getStoreProducts(), component: ShopIndex })
+function ShopIndex() {
+  const { products, error } = Route.useLoaderData()
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState('')
+  const [sort, setSort] = useState('featured')
+  const results = useRef<HTMLElement>(null)
+  const cats = [...new Map(products.flatMap(p => p.categories).map(c => [c.slug, c])).values()]
+  const filtered = products.filter(p => (!category || p.categories.some(c => c.slug === category)) && storeText(p.name).toLowerCase().includes(query.trim().toLowerCase()))
+  if (sort === 'name') filtered.sort((a, b) => storeText(a.name).localeCompare(storeText(b.name)))
+  const featured = products.find(p => p.is_in_stock && p.images.length)
+  const chooseCategory = (slug: string) => { setCategory(slug); results.current?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' }) }
+  return <>
+    <header className="store-hero"><div><span>GOODNEWS HALOBOX</span><h1>Store.</h1><p>Inspiration for your everyday.</p></div><span className="store-hero-symbol" aria-hidden="true"><ShoppingBag /></span></header>
+    {!error && <>
+      <section className="store-collections" aria-labelledby="store-collections-title"><h2 id="store-collections-title">Find your next good thing.</h2>
+        <div className="store-category-rail">{cats.map(c => {
+          const cover = products.find(p => p.categories.some(category => category.slug === c.slug) && p.images.length)
+          return <button key={c.slug} type="button" className="store-category-tile" aria-pressed={category === c.slug} onClick={() => chooseCategory(c.slug)}>
+            {cover && <img src={cover.images[0].src} alt="" loading="lazy" />}<span>{storeText(c.name)}</span>
+          </button>
+        })}</div>
+      </section>
+      {featured && !query && !category && <section className="store-discover" aria-labelledby="store-discover-title"><h2 id="store-discover-title">A little inspiration. A lasting impact.</h2>
+        <Link to={productPath(featured) as any} className="store-featured"><div><span className="store-eyebrow">EXPLORE THE COLLECTION</span><h3>{storeText(featured.name)}</h3><p>{storeText(featured.short_description).slice(0, 180) || 'Discover your next read, a thoughtful gift, or something to make your day.'}</p><strong>{featured.type === 'variable' ? 'From ' : ''}{storeMoney(featured.prices.price, featured.prices.currency_code, featured.prices.currency_minor_unit)}</strong><span className="store-featured-cta">Explore product <ArrowRight size={18} /></span></div><img src={featured.images[0].src} alt={featured.images[0].alt || storeText(featured.name)} loading="lazy" /></Link>
+      </section>}
+    </>}
+    <section ref={results} className="store-catalogue" aria-labelledby="store-products-title">
+      <div className="store-section-head"><h2 id="store-products-title">{storeText(cats.find(c => c.slug === category)?.name) || 'All products'}</h2><span role="status">{filtered.length} products</span></div>
+      <div className="store-filters">
+        <MobileLiquidGlass asChild><label className="store-search"><Search size={20} aria-hidden="true" /><input type="search" aria-label="Search products" placeholder="Search the store" value={query} onChange={e => setQuery(e.target.value)} />{query && <button type="button" aria-label="Clear product search" onClick={() => setQuery('')}><X size={18} /></button>}</label></MobileLiquidGlass>
+        <ChoicePicker label="Category" value={category} options={[{ value: '', label: 'All products' }, ...cats.map(c => ({ value: c.slug, label: storeText(c.name) }))]} onChange={setCategory} />
+        <ChoicePicker label="Sort" value={sort} options={[{ value: 'featured', label: 'Featured' }, { value: 'name', label: 'Name: A–Z' }]} onChange={setSort} />
+      </div>
+      <nav className="store-category-chips" aria-label="Product categories"><button type="button" aria-pressed={!category} onClick={() => setCategory('')}>All products</button>{cats.map(c => <button key={c.slug} type="button" aria-pressed={category === c.slug} onClick={() => setCategory(c.slug)}>{storeText(c.name)}</button>)}</nav>
+      {error ? <div role="alert"><p>{error}</p><a className="btn btn-primary" href="https://uebertangel.org/shop/">Visit the original store</a></div> : filtered.length ? <div className="store-product-grid">{filtered.map(p => <ProductCard key={p.id} product={p} />)}</div> : <div className="store-empty"><Search size={32} /><h3>No matching products</h3><p>Try another category or search.</p><button type="button" className="btn" onClick={() => { setCategory(''); setQuery('') }}>Clear filters</button></div>}
+    </section>
+  </>
 }

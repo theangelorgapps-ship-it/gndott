@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Style Guide — Halobox · Store & Watch</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-family-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+      background: var(--color-background-secondary, var(--template-color-17));
+      color: var(--color-text-primary, var(--template-color-0));
+      line-height: 1.5;
+      padding: var(--spacing-6, 24px);
+    }
+    .nav {
+      display: flex;
+      gap: var(--spacing-4, 16px);
+      margin-bottom: var(--spacing-8, 32px);
+      padding-bottom: var(--spacing-4, 16px);
+      border-bottom: 1px solid var(--color-border, var(--template-color-13));
+    }
+    .nav a {
+      color: var(--color-primary, var(--template-color-5));
+      text-decoration: none;
+      font-weight: var(--font-weight-medium, 500);
+    }
+    .nav a:hover { text-decoration: underline; }
+    h1 { font-size: var(--font-size-2xl, 24px); font-weight: var(--font-weight-bold, 700); margin-bottom: var(--spacing-2, 8px); }
+    .meta { color: var(--color-text-secondary, var(--template-color-6)); font-size: var(--font-size-sm, 14px); margin-bottom: var(--spacing-8, 32px); }
+    section { margin-bottom: var(--spacing-8, 32px); }
+    h2 { font-size: var(--font-size-lg, 18px); font-weight: var(--font-weight-semibold, 600); margin-bottom: var(--spacing-4, 16px); }
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: var(--spacing-4, 16px);
+    }
+    .color-swatch {
+      border-radius: var(--radius-md, 12px);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
+      background: var(--color-background, var(--template-color-23));
+    }
+    .color-swatch__preview { height: 80px; }
+    .color-swatch__info { padding: var(--spacing-3, 12px); font-size: var(--font-size-xs, 12px); }
+    .color-swatch__name { font-weight: var(--font-weight-medium, 500); }
+    .color-swatch__hex { color: var(--color-text-secondary, var(--template-color-6)); font-family: monospace; }
+    .type-sample { margin-bottom: var(--spacing-4, 16px); }
+    .type-sample__label { font-size: var(--font-size-xs, 12px); color: var(--color-text-secondary); margin-bottom: var(--spacing-1, 4px); }
+    .spacing-row { display: flex; align-items: center; gap: var(--spacing-4, 16px); margin-bottom: var(--spacing-2, 8px); }
+    .spacing-bar { background: var(--color-primary, var(--template-color-5)); height: 24px; border-radius: 2px; }
+    .radius-row { display: flex; gap: var(--spacing-4, 16px); flex-wrap: wrap; }
+    .radius-box {
+      width: 80px; height: 80px;
+      background: var(--color-background, var(--template-color-23));
+      border: 2px solid var(--color-border, var(--template-color-13));
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-xs, 12px); color: var(--color-text-secondary);
+    }
+    .shadow-row { display: flex; gap: var(--spacing-6, 24px); flex-wrap: wrap; }
+    .shadow-box {
+      width: 120px; height: 80px;
+      background: var(--color-background, var(--template-color-23));
+      border-radius: var(--radius-md, 12px);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-xs, 12px); color: var(--color-text-secondary);
+    }
+
+body{max-width:1380px;margin:auto}a{color:var(--color-primary)}
+.demo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--spacing-6)}
+section{min-width:0;padding:var(--spacing-5);border:1px solid var(--color-border);border-radius:var(--radius-lg)}
+.ds-button,.ds-input,.ds-select,.ds-segmented__item,.ds-tab,.ds-list-item,.ds-tabbar__item{min-height:44px}
+.ds-button--secondary,.ds-button--ghost{color:var(--color-blue-text)}
+.ds-tab--selected,.ds-tabbar__item--selected,.ds-chip--selected{color:var(--color-blue-text);background:var(--color-elevated)}
+.ds-tabbar,.ds-segmented{background:var(--color-surface);border-radius:var(--radius-full);border:1px solid var(--color-border);box-shadow:inset 0 1px 2px var(--color-muted)}
+.ds-tabbar__item{border-radius:var(--radius-full)}
+.ds-navbar,.ds-modal,.ds-sheet,.ds-list-item{background:var(--color-surface);color:var(--color-text-primary)}
+.ds-sheet{border-radius:var(--radius-lg) var(--radius-lg) 0 0;min-height:140px}
+.ds-input:disabled{opacity:.6}.ds-switch{min-width:48px;min-height:28px}.ds-switch--on{background:var(--color-blue)}
+.ds-alert--info{background:var(--color-surface);color:var(--color-blue-text)}.ds-alert--success{background:var(--color-surface);color:var(--color-green)}.ds-alert--warning{background:var(--color-surface);color:var(--color-amber)}.ds-alert--error{background:var(--color-surface);color:var(--color-red)}
+.placeholder{display:inline-block;width:18px;height:18px;border-radius:4px;background:var(--color-placeholder)}
+.ds-avatar{background:var(--color-placeholder);color:var(--color-black)}
+.ds-spinner{width:32px;height:32px;border:3px solid var(--color-border);border-top-color:var(--color-blue);border-radius:var(--radius-full)}
+.ds-button:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--color-blue-text);outline-offset:3px}
+.source-tag{background:var(--color-elevated)!important;color:var(--color-muted)!important}
+@media(max-width:900px){.demo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.demo-grid{grid-template-columns:1fr}body{padding:var(--spacing-4)}}
+
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="style-guide.html"><strong>Style Guide</strong></a>
+    <a href="components.html">Components</a>
+  </nav>
+
+  <h1>Halobox · Store & Watch — Style Guide</h1>
+  <p class="meta">Platform: Web / iOS references · Canvas: Responsive control board · Source: reference.png + Apple Store supplied references</p>
+
+
+
+  <section>
+    <h2>Colors</h2>
+    <div class="color-grid"><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-white)"></div><div class="color-swatch__info">white · #f5f5f7</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-black)"></div><div class="color-swatch__info">black · #000000</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-surface)"></div><div class="color-swatch__info">surface · #181a20</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-elevated)"></div><div class="color-swatch__info">elevated · #252830</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-muted)"></div><div class="color-swatch__info">muted · #b1b5be</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-border)"></div><div class="color-swatch__info">border · #4c515c</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-blue)"></div><div class="color-swatch__info">blue · #2997ff</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-blue-hover)"></div><div class="color-swatch__info">blue-hover · #1585eb</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-blue-text)"></div><div class="color-swatch__info">blue-text · #8dccff</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-gold)"></div><div class="color-swatch__info">gold · #c2a258</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-green)"></div><div class="color-swatch__info">green · #69d597</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-red)"></div><div class="color-swatch__info">red · #ff8c89</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-amber)"></div><div class="color-swatch__info">amber · #f4c36e</div></div><div class="color-swatch"><div class="color-swatch__preview" style="background:var(--color-placeholder)"></div><div class="color-swatch__info">placeholder · #858993</div></div></div></section>
+
+  <section>
+    <h2>Typography</h2>
+
+    <div class="type-sample">
+      <div class="type-sample__label">Display — 28px / 700 / system</div>
+      <div style="font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold);">Your Place of Hope</div>
+    </div>
+    <div class="type-sample">
+      <div class="type-sample__label">Body — 16px / 400 / system</div>
+      <div style="font-size: var(--font-size-base); font-weight: var(--font-weight-normal);">Read, watch and discover with GoodNews Halobox.</div>
+    </div>
+  </section>
+
+  <section><h2>Control typography</h2><div style="font-size:var(--font-size-xl);font-weight:var(--font-weight-semibold)">Choose your edition</div><p style="font-size:var(--font-size-xs);color:var(--color-muted)">Caption · 12px / 400</p><p style="font-size:var(--font-size-sm);font-weight:var(--font-weight-semibold)">Continue to checkout · Button 14px / 600</p></section>
+  <section>
+    <h2>Spacing</h2>
+    <div class="spacing-row"><span>1 · 4px</span><span class="spacing-bar" style="width:calc(var(--spacing-1) * 5)"></span></div><div class="spacing-row"><span>2 · 8px</span><span class="spacing-bar" style="width:calc(var(--spacing-2) * 5)"></span></div><div class="spacing-row"><span>3 · 12px</span><span class="spacing-bar" style="width:calc(var(--spacing-3) * 5)"></span></div><div class="spacing-row"><span>4 · 16px</span><span class="spacing-bar" style="width:calc(var(--spacing-4) * 5)"></span></div><div class="spacing-row"><span>5 · 20px</span><span class="spacing-bar" style="width:calc(var(--spacing-5) * 5)"></span></div><div class="spacing-row"><span>6 · 24px</span><span class="spacing-bar" style="width:calc(var(--spacing-6) * 5)"></span></div><div class="spacing-row"><span>8 · 32px</span><span class="spacing-bar" style="width:calc(var(--spacing-8) * 5)"></span></div>
+  </section>
+
+  <section>
+    <h2>Border Radius</h2>
+    <div class="radius-row">
+      <div class="radius-box" style="border-radius:var(--radius-sm)">sm · 12px</div><div class="radius-box" style="border-radius:var(--radius-md)">md · 16px</div><div class="radius-box" style="border-radius:var(--radius-lg)">lg · 28px</div><div class="radius-box" style="border-radius:var(--radius-full)">full · 9999px</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Shadows</h2>
+    <div class="shadow-row">
+      <div class="shadow-box" style="box-shadow:var(--shadow-sm)">sm</div><div class="shadow-box" style="box-shadow:var(--shadow-md)">md</div><div class="shadow-box" style="box-shadow:var(--shadow-lg)">lg</div>
+    </div>
+  </section>
+</body>
+</html>

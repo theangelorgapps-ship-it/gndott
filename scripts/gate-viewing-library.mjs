@@ -51,7 +51,9 @@ try{
  await save('movie',1,240,600,{userId:2,profileId:21});assert.equal((await history()).items[0].position,240,'Client scope fields cannot redirect writes')
  session={uid:2,pid:21};assert.equal((await history({userId:1,profileId:12})).items.length,0)
  session={uid:1,pid:21};assert.equal((await history()).needsProfile,true);assert.equal((await save('movie',1)).needsProfile,true)
+ assert.equal((await playback.getPlaybackProgress({data:{contentType:'movie',contentId:1}})).needsProfile,true,'An unresolved profile is explicit without requiring a write')
  session=null;assert.equal((await history()).needsAuth,true);assert.equal((await save('movie',1)).needsAuth,true)
+ assert.equal((await playback.getPlaybackProgress({data:{contentType:'movie',contentId:1}})).needsAuth,true,'An unauthenticated read supplies the sign-in prompt without requiring a write')
  session={uid:1,pid:11};assert.equal((await history()).items.find(x=>x.type==='movie').position,600)
  for(const args of [['movie',1,-1],['movie',1,1,86401],['movie',1,1,Infinity],['movie',0],['teaching',1]]) {
    if(args[0]==='teaching')assert.equal((await save(...args)).ok,false);else await assert.rejects(()=>save(...args))

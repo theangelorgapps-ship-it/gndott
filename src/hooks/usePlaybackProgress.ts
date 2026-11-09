@@ -3,15 +3,48 @@ import { getPlaybackProgress, recordWatchProgress } from '../lib/playback'
 
 type Identity = { contentType: 'movie' | 'video' | 'episode' | 'tvshow' | 'teaching'; contentId: number }
 export type PlaybackPosition = { position: number; duration: number }
+type PlaybackWrites = { observation: number; lastWritten: string; pending: Promise<unknown> | null }
+type PlaybackGroup = { key: string; sessions: number; observation: number; profiles: Map<string, PlaybackWrites> }
 type PlaybackSession = {
   active: boolean
   profileKey: string | null | undefined
   readComplete: boolean
   blockedRequirement: boolean
   latest: PlaybackPosition | null
-  lastWritten: string
   lastWriteAt: number
   pending: Promise<unknown> | null
+  group: PlaybackGroup | null
+  observation: number
+  released: boolean
+}
+
+// Coordinate only overlapping open/pending sessions. Once their reads and writes
+// finish after cleanup, discard the title and all its profile ordering state.
+const playbackGroups = new Map<string, PlaybackGroup>()
+function retainPlayback(contentType: string, contentId: number): PlaybackGroup {
+  const key = `${contentType}:${contentId}`
+  let group = playbackGroups.get(key)
+  if (!group) {
+    group = { key, sessions: 0, observation: 0, profiles: new Map() }
+    playbackGroups.set(key, group)
+  }
+  group.sessions++
+  return group
+}
+function releasePlayback(session: PlaybackSession) {
+  if (session.active || !session.readComplete || session.pending || session.released || !session.group) return
+  session.released = true
+  if (--session.group.sessions === 0) playbackGroups.delete(session.group.key)
+}
+function profileWrites(session: PlaybackSession): PlaybackWrites | null {
+  if (!session.group || !session.profileKey) return null
+  let writes = session.group.profiles.get(session.profileKey)
+  if (!writes) {
+    writes = { observation: 0, lastWritten: '', pending: null }
+    session.group.profiles.set(session.profileKey, writes)
+  }
+  writes.observation = Math.max(writes.observation, session.observation)
+  return writes
 }
 
 export function validPlaybackPosition(position: number, duration: number): PlaybackPosition | null {
@@ -33,16 +66,20 @@ export function usePlaybackProgress(identity: Identity, enabled = true) {
     if (!enabled || !session.readComplete || session.blockedRequirement) return
     const value = session.latest
     if (!value) return
+    const writes = profileWrites(session)
+    const observation = session.observation
+    if (!writes || observation < writes.observation) return
     const signature = `${Math.floor(value.position)}:${Math.floor(value.duration)}`
-    if (signature === session.lastWritten) return
+    if (!writes.pending && signature === writes.lastWritten) return
     const expectedProfile = session.profileKey
     session.lastWriteAt = Date.now()
-    // Preserve event ordering: an older request must not overwrite a later pause.
-    session.pending = (session.pending ?? Promise.resolve()).catch(() => undefined).then(async () => {
-      if (session.blockedRequirement) return
+    // Share ordering across reopened sessions for the same title and profile.
+    // Observation order, not position, allows a later intentional backward seek.
+    const pending = (writes.pending ?? Promise.resolve()).catch(() => undefined).then(async () => {
+      if (session.blockedRequirement || observation < writes.observation || signature === writes.lastWritten) return
       try {
         const result = await recordWatchProgress({ data: { contentType, contentId, ...value, profileKey: expectedProfile } })
-        if (result.ok) { session.lastWritten = signature; if (session.active) setSaveError(false) }
+        if (result.ok) { writes.lastWritten = signature; if (session.active) setSaveError(false) }
         else if ('needsProfile' in result && result.needsProfile) {
           session.blockedRequirement = true
           if (session.active) { setSaveRequirement('profile'); setSaveError(false) }
@@ -51,7 +88,12 @@ export function usePlaybackProgress(identity: Identity, enabled = true) {
           if (session.active) { setSaveRequirement('auth'); setSaveError(false) }
         } else if (session.active) setSaveError(true)
       } catch { if (session.active) setSaveError(true) }
+    }).finally(() => {
+      if (session.pending === pending) session.pending = null
+      if (writes.pending === pending) writes.pending = null
+      releasePlayback(session)
     })
+    session.pending = writes.pending = pending
   }, [contentType, contentId, enabled])
 
   const flush = useCallback(() => {
@@ -61,7 +103,7 @@ export function usePlaybackProgress(identity: Identity, enabled = true) {
   useEffect(() => {
     // Keep this read and its final observation alive after cleanup, independently
     // of subsequent titles and Strict Mode's next effect setup.
-    const session: PlaybackSession = { active: true, profileKey: undefined, readComplete: false, blockedRequirement: false, latest: null, lastWritten: '', lastWriteAt: 0, pending: null }
+    const session: PlaybackSession = { active: true, profileKey: undefined, readComplete: false, blockedRequirement: false, latest: null, lastWriteAt: 0, pending: null, group: enabled ? retainPlayback(contentType, contentId) : null, observation: 0, released: false }
     playback.current = session
     setLoaded(false)
     setLoadError(false)
@@ -82,18 +124,24 @@ export function usePlaybackProgress(identity: Identity, enabled = true) {
     }).catch(() => {
       session.blockedRequirement = true
       if (session.active) setLoadError(true)
-    }).finally(() => { if (session.active) setLoaded(true) })
+    }).finally(() => {
+      session.readComplete = true
+      if (session.active) setLoaded(true)
+      releasePlayback(session)
+    })
     const onHidden = () => { if (document.visibilityState === 'hidden') flushSession(session) }
     document.addEventListener('visibilitychange', onHidden)
-    return () => { session.active = false; document.removeEventListener('visibilitychange', onHidden); flushSession(session) }
+    return () => { session.active = false; document.removeEventListener('visibilitychange', onHidden); flushSession(session); releasePlayback(session) }
   }, [contentType, contentId, playback, flushSession, enabled])
 
   const record = useCallback((position: number, duration: number, immediately = false) => {
     const session = playback.current
-    if (!session?.active || !enabled) return
+    if (!session?.active || !enabled || !session.group) return
     const actual = validPlaybackPosition(position, duration)
     if (!actual) return
     session.latest = actual
+    session.observation = ++session.group.observation
+    profileWrites(session)
     if (immediately || Date.now() - session.lastWriteAt >= 10_000) flushSession(session)
   }, [playback, flushSession, enabled])
   return { saved, loaded, record, flush, saveError, loadError, saveRequirement }

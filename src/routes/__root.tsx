@@ -1,7 +1,7 @@
 import { siteHead } from '@/lib/siteMetadata'
 import { contentPath } from '@/lib/contentRoutes'
 import type { ReactNode } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Outlet, Link, createRootRoute, HeadContent, Scripts, useRouterState } from '@tanstack/react-router'
 import { Bookmark, BookOpen, ChevronDown, ChevronRight, Clapperboard, Clock3, Home, Menu, PlaySquare, Radio, ShoppingBag, Tv, UserRound, X } from 'lucide-react'
 import { getSessionUser, getFooterData } from '../lib/api'
@@ -36,6 +36,8 @@ export const Route = createRootRoute({
 })
 
 const BARE_ROUTES = ['/login', '/register', '/forgot-password', '/otp-login', '/manage-profile']
+// Preloader chunk (GSAP) only downloads on the first visit of a session.
+const SitePreloader = lazy(() => import('../components/ui/stack-loader').then((m) => ({ default: m.SitePreloader })))
 const MENU_ICONS = [Home, Clapperboard, BookOpen, Tv, PlaySquare, Radio]
 const NAV_ITEMS = [
   { label: 'Home', to: '/', aliases: ['/'] },
@@ -150,11 +152,12 @@ function RootComponent() {
 
   return (
     <RootDocument>
+      <Suspense fallback={null}><SitePreloader /></Suspense>
       <header className={`site-header${pathname === '/' ? ' on-hero' : ''}`}>
         <div className="site-header-blur" aria-hidden="true">{Array.from({ length: 6 }, (_, i) => <span key={i} className="site-header-blur-layer" />)}</div>
         <div className="site-header-bar">
           <Link to="/" className="brand" aria-label="GoodNews Halobox home">
-            <img src="/goodnews-halo-logo.avif" alt="GoodNews Halobox" width="48" height="48" />
+            <img src="/halo-ring-logo.avif?v=1" alt="GoodNews Halobox" width="48" height="48" />
             <span className="brand-word"><span>GoodNews</span><strong>Halobox</strong></span>
           </Link>
           <nav className="main-nav" aria-label="Primary navigation">
@@ -257,7 +260,7 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
     <footer className="site-footer">
       <div className="footer-grid">
         <div className="footer-brand">
-          <img src="/goodnews-halo-logo.avif" alt="GoodNews Halobox" width="48" height="48" />
+          <img src="/halo-ring-logo.avif?v=1" alt="GoodNews Halobox" width="48" height="48" />
           <p className="tagline">GoodNews Halobox: Your Ultimate Destination for Unlimited Sermons, Shows and Teachings!</p>
           <div className="contact halo-contact"><a href="mailto:Hello@halobox.tv">Hello@halobox.tv</a><a href="tel:+14488770344">🇺🇸 +1 448 877 0344</a><a href="tel:+441244727242">🇬🇧 +44 1244 727242</a><a href="tel:+2638677211645">🇿🇼 +263 8677 211 645</a><a href="tel:+27872654913">🇿🇦 +27 872 654 913</a></div>
           <div className="socials">{SOCIALS.map((d, i) => <SocialIcon key={i} d={d} />)}</div>

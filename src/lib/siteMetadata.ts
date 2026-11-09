@@ -30,9 +30,9 @@ export function siteHead(pathname: string) {
     ],
     links: [
       { rel: 'canonical', href: url },
-      { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png?v=20261109' },
-      { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/favicon-192.png?v=20261109' },
-      { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png?v=20261109' },
+      { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-ring-32.png' },
+      { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/favicon-ring-192.png' },
+      { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon-ring.png' },
     ],
   }
 }

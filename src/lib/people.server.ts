@@ -8,7 +8,11 @@ const PUBLIC_PERSON = `c.status = 1 AND c.deleted_at IS NULL AND NOT EXISTS
 
 export async function loadPersonalities(limit = 500): Promise<Personality[]> {
   return all<Personality>(`SELECT c.id, c.name, c.file_url, c.designation, c.type FROM cast_crew c
-    WHERE ${PUBLIC_PERSON} ORDER BY c.id LIMIT ?`, Math.min(500, Math.max(1, limit)))
+    WHERE ${PUBLIC_PERSON} ORDER BY CASE
+      WHEN c.name LIKE '%Uebert Angel%' THEN 0
+      WHEN c.name LIKE '%Neviah%' THEN 1
+      ELSE 2
+    END, c.id LIMIT ?`, Math.min(500, Math.max(1, limit)))
 }
 
 export async function loadPersonalityDetail(id: number): Promise<PersonalityDetail | null> {

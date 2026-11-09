@@ -44,9 +44,9 @@
 .spotlight-panel { width:min(960px,100%); max-width:960px; max-height:calc(var(--spotlight-viewport-height,100dvh) - 64px); overflow:visible; border:0; border-radius:0; background:none; box-shadow:none; }
 .spotlight-header { align-items:center; justify-content:flex-end; padding:0 4px 14px; }
 .spotlight-heading, .spotlight-categories h3 { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-.spotlight-close { min-height:36px; border-radius:999px; background:#25252bda; border-color:#ffffff22; color:#e4e4ea; }
+.spotlight-close { min-height:36px; border-radius:999px; background:#25252b59; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border-color:#ffffff22; color:#e4e4ea; }
 .spotlight-command { display:flex; align-items:flex-start; gap:18px; min-height:0; }
-.spotlight-search-surface { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; border:1px solid #ffffff32; border-radius:30px; background:linear-gradient(145deg,#3c3c42ec,#222227f5); box-shadow:inset 0 1px 1px #ffffff1f,0 20px 70px #0006; }
+.spotlight-search-surface { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; border:1px solid #ffffff32; border-radius:30px; background:linear-gradient(145deg,#3c3c4240,#22222752); backdrop-filter:blur(26px) saturate(160%); -webkit-backdrop-filter:blur(26px) saturate(160%); box-shadow:inset 0 1px 1px #ffffff1f,0 20px 70px #0006; }
 .spotlight-search-wrap { margin:0; }
 .spotlight-search-icon { left:22px; color:#d3d3dd; }
 .spotlight-search-input { height:70px; padding:15px 22px 15px 62px; border:0; border-radius:0; color:#fff; font-size:24px; font-weight:400; background:transparent; caret-color:#c0d9ff; }
@@ -70,10 +70,10 @@
 .spotlight-footer kbd { border:0; min-width:16px; color:#d2d3df; background:#ffffff0b; box-shadow:none; }
 .spotlight-categories { flex:0 0 auto; padding-top:4px; }
 .spotlight-shortcuts { display:grid; grid-template-columns:repeat(6,52px); gap:10px; }
-.spotlight-shortcut { position:relative; width:52px; height:52px; min-height:52px; padding:0; display:flex; justify-content:center; align-items:center; border:1px solid #ffffff30; border-radius:50%; background:linear-gradient(150deg,#47474de6,#29292eea); color:#e8e8ed; box-shadow:inset 0 1px 1px #ffffff20,0 8px 25px #0004; }
+.spotlight-shortcut { position:relative; width:52px; height:52px; min-height:52px; padding:0; display:flex; justify-content:center; align-items:center; border:1px solid #ffffff30; border-radius:50%; background:linear-gradient(150deg,#47474d38,#29292e4d); backdrop-filter:blur(18px) saturate(150%); -webkit-backdrop-filter:blur(18px) saturate(150%); color:#e8e8ed; box-shadow:inset 0 1px 1px #ffffff20,0 8px 25px #0004; }
 .spotlight-shortcut svg { color:inherit; width:23px; height:23px; }
 .spotlight-shortcut span { position:absolute; top:calc(100% + 9px); left:50%; transform:translateX(-50%); white-space:nowrap; font-size:10px; font-weight:500; color:#e1e1e8; }
-.spotlight-shortcut:hover { transform:translateY(-2px); background:linear-gradient(150deg,#585860,#33333b); border-color:#ffffff66; }
+.spotlight-shortcut:hover { transform:translateY(-2px); background:linear-gradient(150deg,#58586059,#33333b66); border-color:#ffffff66; }
 .spotlight-shortcut:focus-visible { border-radius:50%; }
 .spotlight-close:focus-visible { border-radius:999px; }
 .spotlight-panel.has-query { max-width:700px; }

@@ -4,7 +4,7 @@
 .liquid-glass-layers { position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; overflow: hidden; }
 .liquid-glass-refraction, .liquid-glass-tint { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; }
 .liquid-glass-refraction { backdrop-filter: blur(8px) saturate(150%); -webkit-backdrop-filter: blur(8px) saturate(150%); filter: url(#streamit-glass-distortion); }
-.liquid-glass-tint { background: linear-gradient(135deg, #ffffff21, #ffffff08 55%, #ffffff15), #23232670; }
+.liquid-glass-tint { background: linear-gradient(135deg, #ffffff1a, #ffffff06 55%, #ffffff10), #2323262e; }
 @media (max-width: 860px) {
   .mobile-navigation .mobile-dock, .mobile-navigation .mobile-search-circle {
     position: relative; isolation: isolate; overflow: hidden; border: 0; background: transparent;

@@ -1,4 +1,14 @@
 /** Public API policy, separate from UI gating so it can be exercised offline. */
+export function publicNavigationUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length > 2048 || /[\u0000-\u001f\u007f\\]/.test(value)) return null
+  const link = value.trim()
+  if (/^\/(?!\/)/.test(link)) return link
+  try {
+    const url = new URL(link)
+    return url.protocol === 'https:' && !url.username && !url.password ? url.href : null
+  } catch { return null }
+}
+
 export function playbackFields<T extends Record<string, any>>(item: T, entitled = false, parentDenied = false): T {
   if (!parentDenied && ((item.movie_access ?? item.access) !== 'paid' || entitled)) return item
   return { ...item, bunny_video_url: null, video_url_input: null, video_url: null, video_url_output: null, download_url: null }

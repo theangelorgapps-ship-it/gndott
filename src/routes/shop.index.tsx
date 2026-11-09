@@ -1,16 +1,18 @@
 import { img } from '@/components/Poster'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import { ArrowRight, Search, ShoppingBag, X } from 'lucide-react'
+import { StoreLoading } from '../components/StorePurchaseBar'
 import { getStoreProducts } from '../lib/store'
 import { productPath, storeMoney, storeText } from '../lib/storeTypes'
 import { ProductCard } from '../components/ui/product-card-1'
 import { ChoicePicker } from '../components/ui/choice-picker'
 import { CatalogueFilterBar } from '../components/ui/catalogue-filter-bar'
 
-export const Route = createFileRoute('/shop/')({ loader: () => getStoreProducts(), component: ShopIndex })
+export const Route = createFileRoute('/shop/')({ loader: () => getStoreProducts(), staleTime: 120000, preloadStaleTime: 120000, pendingMs: 150, pendingMinMs: 200, pendingComponent: StoreLoading, component: ShopIndex })
 function ShopIndex() {
   const { products, error } = Route.useLoaderData()
+  const router = useRouter()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [sort, setSort] = useState('featured')
@@ -51,7 +53,7 @@ function ShopIndex() {
           <button type="submit" className="catalogue-search-submit" aria-label="Search products"><Search size={21} aria-hidden="true" /></button>
         </div>
       </form>
-      {error ? <div role="alert"><p>{error}</p><a className="btn btn-primary" href="https://uebertangel.org/shop/">Visit the original store</a></div> : filtered.length ? <div className="store-product-grid">{filtered.map(p => <ProductCard key={p.id} product={p} />)}</div> : <div className="store-empty"><Search size={32} /><h3>No matching products</h3><p>Try another category or search.</p><button type="button" className="btn" onClick={() => { setCategory(''); setQuery('') }}>Clear filters</button></div>}
+      {error ? <div role="alert"><p>{error}</p><button type="button" className="btn btn-primary" onClick={() => void router.invalidate()}>Retry store</button> <a className="btn" href="https://uebertangel.org/shop/">Visit the original store</a></div> : filtered.length ? <div className="store-product-grid">{filtered.map(p => <ProductCard key={p.id} product={p} />)}</div> : <div className="store-empty"><Search size={32} /><h3>No matching products</h3><p>Try another category or search.</p><button type="button" className="btn" onClick={() => { setCategory(''); setQuery('') }}>Clear filters</button></div>}
     </section>
   </>
 }

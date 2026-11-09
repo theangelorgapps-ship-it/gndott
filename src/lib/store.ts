@@ -14,7 +14,7 @@ function storeWriteOrigin() {
 }
 async function woo(path: string, body?: object, cart = false): Promise<any> {
   const headers = new Headers({ Accept: 'application/json' })
-  let token = getCookie(TOKEN)
+  let token = cart ? getCookie(TOKEN) : undefined
   if (cart && body && !token) {
     const initial = await fetch(`${API}/cart`, { signal: AbortSignal.timeout(15000), redirect: 'manual' })
     token = initial.headers.get('Cart-Token') || undefined
@@ -29,16 +29,67 @@ async function woo(path: string, body?: object, cart = false): Promise<any> {
   if (cart && (nextToken || token)) setCookie(TOKEN, (nextToken || token)!, { httpOnly: true, secure: new URL(getRequestUrl()).protocol === 'https:', sameSite: 'lax', path: '/', maxAge: 60 * 60 * 24 * 2 })
   return result
 }
+const CATALOGUE_TTL = 120000
+// Never cache a server-function/HTML response: those can contain a viewer or cart.
+// This key contains only a projection of the anonymous Woo public catalogue.
+function catalogueCache() {
+  return typeof caches === 'undefined' ? undefined : (caches as CacheStorage & { default?: Cache }).default
+}
+function catalogueProduct(p: StoreProduct): StoreProduct {
+  return { id: p.id, name: p.name, slug: p.slug, type: p.type, is_purchasable: p.is_purchasable,
+    is_in_stock: p.is_in_stock, has_options: p.has_options, prices: p.prices,
+    images: p.images.map(({ id, src, alt }) => ({ id, src, alt })), categories: p.categories,
+    extensions: { halobox_bridge: { physical: true } },
+    description: '', short_description: '', permalink: '', attributes: [], variations: [] }
+}
+async function cataloguePage(page: number) {
+  const fields = 'id,name,slug,type,is_purchasable,is_in_stock,has_options,images,prices,categories,extensions'
+  const response = await fetch(`${API}/products?per_page=100&page=${page}&_fields=${fields}`, {
+    headers: { Accept: 'application/json' }, redirect: 'manual', signal: AbortSignal.timeout(15000),
+  })
+  if (!response.ok) throw new Error('Store catalogue connection unavailable.')
+  const rows = await response.json() as StoreProduct[]
+  if (!Array.isArray(rows) || rows.some(p => !p.extensions?.halobox_bridge)) throw new Error('Store catalogue connection unavailable.')
+  const pages = Number(response.headers.get('X-WP-TotalPages'))
+  return { rows, pages: Number.isSafeInteger(pages) && pages > 0 ? pages : undefined }
+}
 async function products(refresh = false) {
   if (!refresh && catalogue && catalogue.until > Date.now()) return catalogue.products
-  const result: StoreProduct[] = []
-  for (let page = 1; page <= 10; page++) {
-    const part = await woo(`/products?per_page=100&page=${page}`) as StoreProduct[]
-    if (part.some(p => !p.extensions?.halobox_bridge)) throw new Error('Store catalogue connection unavailable.')
-    result.push(...part.filter(isPhysicalProduct)); if (part.length < 100) break
+  const cache = catalogueCache()
+  const key = new Request(new URL('/__halobox-store/public-catalogue-v3', getRequestUrl()).toString())
+  if (!refresh && cache) {
+    try {
+      const cached = await cache.match(key)
+      if (cached) {
+        const value = await cached.json() as typeof catalogue
+        if (value && value.until > Date.now() && Array.isArray(value.products) && value.products.every(isPhysicalProduct)) {
+          catalogue = value
+          return value.products
+        }
+      }
+    } catch { /* A cache failure must not take the store offline. */ }
   }
-  catalogue = { until: Date.now() + 120000, products: result }
-  return result
+  const firstPage = await cataloguePage(1)
+  const rows = [...firstPage.rows]
+  if (firstPage.pages) {
+    if (firstPage.pages > 10) throw new Error('Store catalogue is too large. Please visit the original store.')
+    // Fetch remaining pages in bounded batches instead of serial origin round trips.
+    for (let page = 2; page <= firstPage.pages; page += 3) {
+      const batch = await Promise.all(Array.from({ length: Math.min(3, firstPage.pages - page + 1) }, (_, index) => cataloguePage(page + index)))
+      batch.forEach(part => rows.push(...part.rows))
+    }
+  } else {
+    for (let page = 2, count = firstPage.rows.length; count === 100; page++) {
+      if (page > 10) throw new Error('Store catalogue is too large. Please visit the original store.')
+      const next = await cataloguePage(page)
+      rows.push(...next.rows); count = next.rows.length
+    }
+  }
+  catalogue = { until: Date.now() + CATALOGUE_TTL, products: rows.filter(isPhysicalProduct).map(catalogueProduct) }
+  if (cache) {
+    try { await cache.put(key, Response.json(catalogue, { headers: { 'Cache-Control': `public, max-age=${CATALOGUE_TTL / 1000}` } })) } catch { /* Optional acceleration only. */ }
+  }
+  return catalogue.products
 }
 const id = (v: unknown) => { if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 1) throw new Error('Invalid product.'); return v }
 export const getStoreProducts = createServerFn({ method: 'GET' }).handler(async () => {
@@ -51,6 +102,7 @@ export const getStoreProduct = createServerFn({ method: 'GET' }).validator((valu
 })
 export const getStoreCart = createServerFn({ method: 'GET' }).handler(async () => {
   setResponseHeader('Cache-Control', 'private, no-store')
+  if (!getCookie(TOKEN)) return { items: [], coupons: [], items_count: 0, totals: { total_items: '0', total_discount: '0', currency_code: 'GBP', currency_minor_unit: 2 } }
   return await woo('/cart', undefined, true)
 })
 export const updateStoreCart = createServerFn({ method: 'POST' }).validator((d: { action: 'add'|'update'|'remove'|'coupon'|'remove-coupon'; id?: number; key?: string; quantity?: number; variation?: { attribute: string; value: string }[]; code?: string }) => {

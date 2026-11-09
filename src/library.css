@@ -15,3 +15,5 @@
 
 /* Keep the reader close control reachable after jumping to a saved verse. */
 .library-dialog > button[aria-label="Close Bible reader"]{position:sticky;top:0;z-index:3;float:right;width:40px;height:40px;padding:0;display:grid;place-items:center;background:#303139e6;backdrop-filter:blur(18px);border-radius:50%;border:0;color:#fff}
+.library-note-excerpt{margin:10px 0 0;color:#b8bfd0;font-size:14px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.library-sort{display:flex;align-items:center;gap:8px;color:#adb7c9;font-size:13px}.library-sort select{background:#ffffff13;color:#fff;border:0;border-radius:100px;padding:10px 14px;min-height:40px;font:inherit;cursor:pointer}.library-sort select option{color:#111}
+

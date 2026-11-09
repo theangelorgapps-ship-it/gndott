@@ -19,8 +19,8 @@ export const getLibrary = createServerFn({method:'GET'}).handler(async()=>{
  return {notes,verses,signedIn:true,profileKey:`${v.userId}:${v.profileId}`}
 })
 export const saveLibraryNote = createServerFn({method:'POST'}).validator((d:{key:string;title:string;html:string;profileKey?:string|null})=>({key:key(d.key),title:String(d.title||'').trim().slice(0,240)||'Untitled note',html:cleanNote(d.html),profileKey:d.profileKey})).handler(async({data})=>{
- const v=await viewer(); sameProfile(v,data.profileKey); const [type,id]=data.key.split(':'); let title=data.title
- if(type!=='journal') {const table=type==='video'?'videos':type==='episode'?'episodes':'entertainments';const item=await first<any>(`SELECT name FROM ${table} WHERE id=? AND deleted_at IS NULL AND status=1${table==='entertainments'?' AND type=?':''}`,Number(id),...(table==='entertainments'?[type]:[]));if(!item) throw new Error('This title is no longer available.');title=item.name}
+ const v=await viewer(); sameProfile(v,data.profileKey); const [type,id]=data.key.split(':'); const title=data.title
+ if(type!=='journal') {const table=type==='video'?'videos':type==='episode'?'episodes':'entertainments';const item=await first<any>(`SELECT name FROM ${table} WHERE id=? AND deleted_at IS NULL AND status=1${table==='entertainments'?' AND type=?':''}`,Number(id),...(table==='entertainments'?[type]:[]));if(!item) throw new Error('This title is no longer available.')}
  await run(`INSERT INTO library_notes(user_id,profile_id,note_key,title,html,content_type,content_id) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,profile_id,note_key) DO UPDATE SET title=excluded.title,html=excluded.html,updated_at=datetime('now')`,v.userId,v.profileId,data.key,title,data.html,type==='journal'?null:type,type==='journal'?null:Number(id))
  return {ok:true,html:data.html}
 })

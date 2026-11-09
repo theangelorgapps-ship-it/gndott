@@ -80,3 +80,5 @@
 .tv-immersive-player.panel-open[data-typing-short] { --panel-media-top: 64px; --panel-media-height: 0px; }
 .tv-immersive-player.panel-open[data-typing-short] .tv-player-media { visibility: hidden; }
 .tv-immersive-player.panel-open[data-typing-short] .tv-player-tabs { display: none; }
+
+.notes-title-inline{width:100%;background:transparent;border:0;outline:none;color:#fff;font:inherit;font-size:20px;font-weight:700;padding:14px 20px 2px}.notes-title-inline::placeholder{color:#878791;font-weight:600}.notes-title-inline:disabled{opacity:.6}

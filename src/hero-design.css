@@ -1,0 +1,18 @@
+.hero-artwork .hero-device-art{object-fit:var(--hero-web-fit,cover);object-position:var(--hero-web-position,center 25%)}
+@media(min-width:1025px){
+.tv-hero .tv-hero-content[style*="--hero-web-align"]{left:0;right:0;width:100%;max-width:none;padding-inline:var(--screen-gutter,24px);display:flex;flex-direction:column;text-align:var(--hero-web-align);align-items:var(--hero-web-items)}
+.tv-hero .tv-hero-content[style*="--hero-web-align"] :is(.hero-title,.hero-meta,.hero-desc){margin-inline:0;max-width:min(100%,1400px)}
+.hero-content[style*="--hero-web-align"] .hero-actions,.hero-content[style*="--hero-web-align"] .hero-meta{justify-content:var(--hero-web-items)}
+}
+@media(min-width:601px) and (max-width:1024px){
+ .hero-artwork .hero-device-art{object-fit:var(--hero-tablet-fit,cover);object-position:var(--hero-tablet-position,center 25%)}
+ .tv-hero .tv-hero-content[style*="--hero-tablet-align"]{left:0;right:0;width:100%;max-width:none;padding-inline:var(--screen-gutter,24px);display:flex;flex-direction:column;text-align:var(--hero-tablet-align);align-items:var(--hero-tablet-items)}
+.tv-hero .tv-hero-content[style*="--hero-tablet-align"] :is(.hero-title,.hero-meta,.hero-desc){margin-inline:0;max-width:min(100%,1400px)}
+ .hero-content[style*="--hero-tablet-align"] .hero-actions,.hero-content[style*="--hero-tablet-align"] .hero-meta{justify-content:var(--hero-tablet-items)}
+}
+@media(max-width:600px){
+ .hero-artwork .hero-device-art{object-fit:var(--hero-phone-fit,cover);object-position:var(--hero-phone-position,center 22%)}
+ .tv-hero .tv-hero-content[style*="--hero-phone-align"]{left:0;right:0;width:100%;max-width:none;padding-inline:var(--screen-gutter,24px);display:flex;flex-direction:column;text-align:var(--hero-phone-align);align-items:var(--hero-phone-items)}
+.tv-hero .tv-hero-content[style*="--hero-phone-align"] :is(.hero-title,.hero-meta,.hero-desc){margin-inline:0;max-width:min(100%,1400px)}
+ .hero-content[style*="--hero-phone-align"] .hero-actions,.hero-content[style*="--hero-phone-align"] .hero-meta{justify-content:var(--hero-phone-items)}
+}

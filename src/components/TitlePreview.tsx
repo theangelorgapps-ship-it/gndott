@@ -4,6 +4,7 @@ import { youtubeId } from './Detail'
 import { createPreviewPlayback, deferHeroPreview } from './previewPlayback'
 import { createPlayerBridge, type PlayerBridge } from './playerBridge'
 import '../release2-experience.css'
+import '../queued-player.css'
 
 function directSource(value?: string | null) {
   return /^https?:\/\/.*\.(mp4|webm|m4v|m3u8)(?:[?#]|$)/i.test(value ?? '') ? value! : null
@@ -24,6 +25,7 @@ export function TitlePreview({ title, trailerUrl, directVideoUrl, bunnyLibraryId
   const [ready, setReady] = useState(false)
   const [muted, setMuted] = useState(true)
   const [delayElapsed, setDelayElapsed] = useState(false)
+  const [requestedPlay, setRequestedPlay] = useState(false)
   const youtube = youtubeId(trailerUrl)
   const previewBunnyId = bunnyTrailerId || (!youtube && !directSource(trailerUrl) && !directSource(directVideoUrl) ? bunnyVideoId : null)
   const bunny = bunnyLibraryId && previewBunnyId ? `https://iframe.mediadelivery.net/embed/${encodeURIComponent(bunnyLibraryId)}/${encodeURIComponent(previewBunnyId)}?autoplay=true&muted=true&loop=true&preload=true&controls=false&playsinline=true` : null
@@ -34,8 +36,13 @@ export function TitlePreview({ title, trailerUrl, directVideoUrl, bunnyLibraryId
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const update = () => setEligible(!reduced.matches && !document.hidden)
-    const stop = () => setPaused(true)
+    const update = () => setEligible(!document.hidden && (!reduced.matches || requestedPlay))
+    const stop = () => {
+      directRef.current?.destroy(); directRef.current = null
+      bridgeRef.current?.pause()
+      if (youtube) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), 'https://www.youtube.com')
+      setPaused(true)
+    }
     const competing = (event: Event) => { if ((event as CustomEvent).detail !== hostRef.current) stop() }
     const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: .15 })
     if (hostRef.current) observer.observe(hostRef.current)
@@ -45,19 +52,21 @@ export function TitlePreview({ title, trailerUrl, directVideoUrl, bunnyLibraryId
     window.addEventListener('gndott:preview-active', competing)
     update()
     return () => { observer.disconnect(); reduced.removeEventListener('change', update); document.removeEventListener('visibilitychange', update); window.removeEventListener('gndott:playback-open', stop); window.removeEventListener('gndott:preview-active', competing) }
-  }, [])
+  }, [requestedPlay])
   const waiting = eligible && visible && !paused && !failed && !suspended && !!(src || direct)
   useEffect(() => {
     setDelayElapsed(false)
     setReady(false)
     if (!waiting) return
-    return deferHeroPreview(() => {
+    const begin = () => {
       // A carousel slide can mount while the full player is already open.
       if (document.querySelector('.tv-playback-dialog[open]')) { setPaused(true); return }
       window.dispatchEvent(new CustomEvent('gndott:preview-active', { detail: hostRef.current }))
       setDelayElapsed(true)
-    })
-  }, [waiting, direct, src])
+    }
+    if (requestedPlay) { begin(); return }
+    return deferHeroPreview(begin)
+  }, [waiting, direct, src, requestedPlay])
   const playing = waiting && delayElapsed
 
   useEffect(() => {
@@ -122,9 +131,9 @@ export function TitlePreview({ title, trailerUrl, directVideoUrl, bunnyLibraryId
       {playing && (src ? <iframe ref={iframeRef} src={src} title={`Background preview for ${title}`} allow="autoplay; encrypted-media" tabIndex={-1} aria-hidden="true" onLoad={() => { if (youtube) { iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'listening' }), 'https://www.youtube.com'); youtubeCommand('addEventListener', ['onStateChange']); youtubeCommand('addEventListener', ['onError']) } }} />
         : <video ref={videoRef} muted playsInline preload="none" aria-hidden="true" />)}
     </div>
-    {eligible && !failed && <div className="tv-title-preview-controls">
-      <button type="button" className="tv-detail-utility" onClick={() => setPaused(!paused)} aria-label={paused ? 'Play background preview' : 'Pause background preview'}>{paused ? <Play size={18} fill="currentColor" /> : <Pause size={18} />}</button>
-      {!paused && <button type="button" className="tv-detail-utility" onClick={sound} disabled={!ready} aria-label={muted ? 'Enable preview sound' : 'Mute preview sound'} aria-pressed={!muted}>{muted ? <VolumeX size={19} /> : <Volume2 size={19} />}</button>}
-    </div>}
+    <div className="tv-title-preview-controls">
+      <button type="button" className="tv-detail-utility" onClick={() => { if (playing) setPaused(true); else { setFailed(false); setRequestedPlay(true); setPaused(false) } }} aria-label={playing ? 'Pause background preview' : 'Play background preview'}>{playing ? <Pause size={18} /> : <Play size={18} fill="currentColor" />}</button>
+      <button type="button" className="tv-detail-utility" onClick={sound} disabled={!ready || !playing} aria-label={muted ? 'Enable preview sound' : 'Mute preview sound'} aria-pressed={!muted}>{muted ? <VolumeX size={19} /> : <Volume2 size={19} />}</button>
+    </div>
   </>
 }

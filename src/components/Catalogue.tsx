@@ -19,7 +19,7 @@ export function Catalogue({ title, singular, base, data, search, onSearchChange 
   title: string
   singular: string
   base: '/movie' | '/teaching' | '/tv-show' | '/video'
-  data: { items: CatalogueTitle[]; categories: CatalogueCategory[]; years: number[] }
+  data: { heroes?: CatalogueTitle[]; items: CatalogueTitle[]; categories: CatalogueCategory[]; years: number[] }
   search: CatalogueSearch
   onSearchChange: (search: CatalogueSearch) => void
 }) {
@@ -27,7 +27,7 @@ export function Catalogue({ title, singular, base, data, search, onSearchChange 
   const [draft, setDraft] = useState(search.q ?? '')
   useEffect(() => setDraft(search.q ?? ''), [search.q])
   const filtered = useMemo(() => filterCatalogue(data.items, search), [data.items, search])
-  const slides = useMemo(() => data.items.filter(item => item.thumbnail_url || item.poster_url).slice(0, 5), [data.items])
+  const slides = useMemo(() => data.heroes?.length ? data.heroes : data.items.filter(item => item.thumbnail_url || item.poster_url).slice(0, 5), [data.items, data.heroes])
   const hasFilters = !!(search.q || search.category || search.year || search.sort)
   const category = data.categories.find(item => item.id === search.category)
   const update = (next: Partial<CatalogueSearch>) => onSearchChange(parseCatalogueSearch({ ...search, q: draft, ...next }))

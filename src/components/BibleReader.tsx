@@ -1,4 +1,4 @@
-import { ChoicePicker } from './ui/choice-picker'
+import '../queued-player.css'
 import { getLibrary, saveLibraryVerse, type LibraryVerse } from '@/lib/library'
 import { useEffect, useId, useState } from 'react'
 import { BookOpen, Bookmark, Check, ChevronLeft, ChevronRight, RotateCw, Minus, Plus, X } from 'lucide-react'
@@ -61,10 +61,10 @@ export function BibleReader({initial}:{initial?:{version:string;book:string;chap
   const selected = books.find(item => item.id === book)
   return <section className="section detail-supplement bible-panel bible-reader" aria-labelledby={`${id}-heading`} data-lenis-prevent>
     <div className="bible-reader-heading"><BookOpen size={20} /><h2 id={`${id}-heading`}>Bible</h2><span>Read along</span></div>
-    <div className="bible-reader-controls">
-      <ChoicePicker label="Translation" value={version} options={BIBLE_VERSIONS.map(item => ({ value: item.id, label: item.code }))} onChange={setVersion} />
-      <ChoicePicker label="Book" value={book} disabled={!books.length} options={books.length ? books.map(item => ({ value: item.id, label: item.name, group: item.testament })) : [{ value: 'JHN', label: 'John' }]} onChange={value => { setBook(value); setChapter(1) }} />
-      <ChoicePicker label="Chapter" value={String(chapter)} disabled={!selected} options={Array.from({ length: selected?.chapters || 3 }, (_, index) => ({ value: String(index + 1), label: String(index + 1) }))} onChange={value => setChapter(Number(value))} />
+    <div className="bible-reader-controls queued-bible-controls">
+      <label htmlFor={`${id}-version`}><span id={`${id}-version-label`}>Translation</span><select aria-labelledby={`${id}-version-label`} id={`${id}-version`} value={version} onChange={event => setVersion(event.target.value)}>{BIBLE_VERSIONS.map(item => <option key={item.id} value={item.id}>{item.code}</option>)}</select></label>
+      <label htmlFor={`${id}-book`}><span id={`${id}-book-label`}>Book</span><select aria-labelledby={`${id}-book-label`} id={`${id}-book`} value={book} disabled={!books.length} onChange={event => { setBook(event.target.value); setChapter(1) }}>{books.length ? books.map(item => <option key={item.id} value={item.id}>{item.name}</option>) : <option value="JHN">John</option>}</select></label>
+      <label htmlFor={`${id}-chapter`}><span id={`${id}-chapter-label`}>Chapter</span><select aria-labelledby={`${id}-chapter-label`} id={`${id}-chapter`} value={chapter} disabled={!selected} onChange={event => setChapter(Number(event.target.value))}>{Array.from({ length: selected?.chapters || 3 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select></label>
     </div>
     <div className="reader-preferences"><span>Select a verse to save or highlight</span><button type="button" aria-label="Smaller reading text" disabled={fontSize<=16} onClick={()=>setFontSize(s=>s-1)}><Minus size={15}/></button><span aria-live="polite">Aa</span><button type="button" aria-label="Larger reading text" disabled={fontSize>=24} onClick={()=>setFontSize(s=>s+1)}><Plus size={15}/></button></div>
     <p className="reader-status" role="status">{readerStatus}</p>

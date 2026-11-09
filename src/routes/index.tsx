@@ -31,7 +31,7 @@ function HomeAds({ ads }: { ads: any[] }) {
 
 function Home() {
   const data = Route.useLoaderData() as any
-  const slides = (data.top10.length ? data.top10 : data.popularMovies).slice(0, 3)
+  const slides = data.heroes?.length ? data.heroes : (data.top10.length ? data.top10 : data.popularMovies).slice(0, 3)
   return (
     <div className="tv-home">
       <HeroSlider slides={slides} baseFor={(item) => contentBase(item.type)} bunnyLibraryId={data.bunnyLibraryId} />

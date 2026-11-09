@@ -1,3 +1,5 @@
+import type { HeroDesign } from './hero-design'
+import { loadConfiguredHeroes } from './heroes.server'
 import { createServerFn } from '@tanstack/react-start'
 import { playbackFields, positiveId, profileInput, publicHttpsUrl, readVastMedia } from './api-security'
 import { getSession, clearSessionCookie } from './session.server'
@@ -29,6 +31,7 @@ export interface Content {
   language: string | null
   movie_access?: string | null
   content_rating: string | null
+  hero_design?: HeroDesign
 }
 
 // ---------- content queries ----------
@@ -160,7 +163,7 @@ export const getRecommendations = createServerFn({ method: 'GET' }).handler(asyn
 
 export const getDashboard = createServerFn({ method: 'GET' }).handler(async () => {
   const [top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon,
-    payPerView, languages, cast, mostWatched] =
+    payPerView, languages, cast, mostWatched, heroes] =
     await Promise.all([
       all<Content>(
         `SELECT ${HERO_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL ORDER BY total_views DESC LIMIT 10`,
@@ -181,7 +184,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       all<Content>(
         `SELECT ${HERO_COLS} FROM entertainments WHERE movie_access = 'free' AND status = 1 AND deleted_at IS NULL LIMIT 12`,
       ),
-      all(`SELECT id, name, slug FROM genres WHERE status = 1 AND deleted_at IS NULL ORDER BY name`),
+      all(`SELECT id, name, slug, poster_url FROM genres WHERE status = 1 AND deleted_at IS NULL ORDER BY name`),
       all(
         `SELECT id, name, poster_url FROM live_tv_channel WHERE status = 1 AND deleted_at IS NULL LIMIT 12`,
       ).catch(() => []),
@@ -201,10 +204,11 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
         `SELECT id, name, slug, description, poster_url, thumbnail_url, release_date, IMDb_rating, duration, trailer_url, NULL AS bunny_trailer_url, CASE WHEN access = 'free' THEN video_url_input ELSE NULL END AS video_url_input, 'video' AS type
          FROM videos WHERE status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 12`,
       ).catch(() => []),
+      loadConfiguredHeroes('home'),
     ])
   const [session, bunnyLibraryId] = await Promise.all([getSession(), getBunnyLibraryId()])
   const recommendations = await loadRecommendations({ userId: session?.uid ?? null })
-  return { top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon, payPerView, languages, cast, mostWatched, recommendations, bunnyLibraryId }
+  return { top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon, payPerView, languages, cast, mostWatched, recommendations, bunnyLibraryId, heroes }
 })
 
 export const getMovies = createServerFn({ method: 'GET' }).handler(async () => {

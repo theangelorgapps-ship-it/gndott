@@ -18,7 +18,7 @@ CREATE TABLE entertainment_talent_mapping (id INTEGER PRIMARY KEY, entertainment
 CREATE TABLE entertainments (id INTEGER PRIMARY KEY, name TEXT, type TEXT, poster_url TEXT, IMDb_rating TEXT, status INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT, deleted_at TEXT, updated_by INTEGER);
 CREATE TABLE videos (id INTEGER PRIMARY KEY, name TEXT, status INTEGER DEFAULT 1, deleted_at TEXT);
 CREATE TABLE episodes (id INTEGER PRIMARY KEY, name TEXT, entertainment_id INTEGER, status INTEGER DEFAULT 1, deleted_at TEXT);
-CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, user_type TEXT, deleted_at TEXT, first_name TEXT, last_name TEXT);
+CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, user_type TEXT, deleted_at TEXT, first_name TEXT, last_name TEXT, status INTEGER DEFAULT 1, is_banned INTEGER DEFAULT 0);
 CREATE TABLE genres (id INTEGER PRIMARY KEY,name TEXT,deleted_at TEXT);
 CREATE TABLE plan (id INTEGER PRIMARY KEY,name TEXT,level INTEGER,deleted_at TEXT);
 CREATE TABLE entertainment_gener_mapping (entertainment_id INTEGER,genre_id INTEGER);
@@ -85,7 +85,7 @@ function load(path) {
   const require = name => {
     if (name === 'cloudflare:workers') return { env: { DB: d1 } }
     if (name === '@tanstack/react-start/server') return { getRequest: () => ({ method }) }
-    if (name === '@tanstack/react-start') return { createServerFn: ({ method: requestMethod }) => {
+    if (name === '@tanstack/react-start') return { createServerOnlyFn: fn => fn, createServerFn: ({ method: requestMethod }) => {
       let validate = data => data
       const builder = { validator(fn) { validate=fn; return builder }, handler(fn) { return async (args={}) => { method=requestMethod; return fn({ data:validate(args.data) }) } } }
       return builder

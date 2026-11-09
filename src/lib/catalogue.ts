@@ -1,3 +1,4 @@
+import { loadConfiguredHeroes } from './heroes.server'
 import { createServerFn } from '@tanstack/react-start'
 import type { Content } from './api'
 import { all, first } from './db'
@@ -34,7 +35,7 @@ export const getCatalogue = createServerFn({ method: 'GET' })
     const rows = kind === 'videos' ? await all<CatalogueRow>(
       `SELECT v.id, v.name, v.slug, v.description, 'video' AS type, v.poster_url, v.thumbnail_url,
         v.release_date, v.IMDb_rating, v.duration, NULL AS language, v.access AS movie_access, v.content_rating,
-        v.trailer_url, v.bunny_video_url, NULL AS bunny_trailer_url, v.video_url_input, v.video_upload_type,
+        v.trailer_url, NULL AS bunny_video_url, NULL AS bunny_trailer_url, CASE WHEN v.access = 'free' THEN v.video_url_input ELSE NULL END AS video_url_input, v.video_upload_type,
         (SELECT json_group_array(json_object('id', category.id, 'name', category.name))
           FROM (SELECT DISTINCT g.id, g.name FROM genres g
             JOIN video_gener_mappings m ON m.genre_id = g.id
@@ -48,7 +49,7 @@ export const getCatalogue = createServerFn({ method: 'GET' })
     ) : await all<CatalogueRow>(
       `SELECT e.id, e.name, e.slug, e.description, e.type, e.poster_url, e.thumbnail_url,
         e.release_date, e.IMDb_rating, e.duration, e.language, e.movie_access, e.content_rating,
-        e.trailer_url, e.bunny_video_url, e.bunny_trailer_url, e.video_url_input, e.video_upload_type,
+        e.trailer_url, NULL AS bunny_video_url, e.bunny_trailer_url, CASE WHEN e.movie_access = 'free' THEN e.video_url_input ELSE NULL END AS video_url_input, e.video_upload_type,
         (SELECT json_group_array(json_object('id', category.id, 'name', category.name))
           FROM (SELECT DISTINCT g.id, g.name FROM genres g
             JOIN entertainment_gener_mapping m ON m.genre_id = g.id
@@ -71,5 +72,7 @@ export const getCatalogue = createServerFn({ method: 'GET' })
       return { ...item, categories, genre_names: categories.map(category => category.name).join(',') }
     })
     // Facets come from the entire visible catalogue, never just the first page or current results.
-    return { items, categories: catalogueCategories(items), years: catalogueYears(items) }
+    const configured = await loadConfiguredHeroes(kind === 'shows' || kind === 'series' ? 'tv_show' : types[kind], !!child)
+    const heroes = configured.filter(hero => items.some(item => item.id === hero.id && item.type === hero.type))
+    return { items, heroes, categories: catalogueCategories(items), years: catalogueYears(items) }
   })

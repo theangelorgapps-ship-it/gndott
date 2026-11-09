@@ -16,4 +16,4 @@ Finish and publish Locations, personality popup, shared subscription logins/devi
 Monthly includes the owner plus one separate email login and five pooled viewer authentication sessions. Annual includes owner plus three email logins and ten pooled sessions. Invitations are manually shared, expire in7days and require the invited authenticated email. Profiles and libraries remain private. Device means an active enrolled browser sign-in session, not hardware identification. Existing static Bunny URLs cannot be revoked at CDN after issuance; signing is needed for that capability.
 
 ## Deployment
-Pending final admin merge/build and both repository pushes/deployments. No live sign-in, email, invitation, purchase or payment tests.
+Website commit dde11ed is pushed and deployed as cc5afd32-0a75-45d2-9d2e-dcee1ee58092. Admin merge 8f9b34b plus typing fix 5b4e240 are pushed and deployed as 1bf55cfd-56e7-4411-9c82-a5e05529e7f0. Both builds and final admin TYPECHECK_OK passed. Content/security gates re-ran against the merged admin. No live sign-in, email, invitation, purchase or payment tests.

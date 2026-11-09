@@ -5,9 +5,11 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createPreviewPlayback } from './previewPlayback'
 import { TitlePreview } from './TitlePreview'
+import { HeroArtwork, heroCopyStyle } from './HeroArtwork'
+import '../queued-player.css'
 import { img, DEFAULT_IMG } from '../lib/imageUrls'
 import { getWatchlist, toggleWatchlist } from '../lib/api'
-import { Check, Info, Pause, Volume2, VolumeX } from 'lucide-react'
+import { Check, Info, Volume2, VolumeX, X } from 'lucide-react'
 
 export { img, DEFAULT_IMG }
 const ADVANCE_DELAY_MS = 8000
@@ -57,23 +59,20 @@ function trailerFor(item: any): string | null {
   return typeof value === 'string' ? value.trim() : null
 }
 
-function youtubeId(url: string | null | undefined): string | null {
-  if (!url) return null
-  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/)
-  return match?.[1] ?? null
-}
 
 export function PosterCard({ item, base, landscape = false, badge }: { item: any; base: string; landscape?: boolean; badge?: string }) {
   const paid = item.movie_access === 'paid' || item.access === 'paid'
   return (
-    <Link to={contentPath(item,base) as any} className={`p-card${landscape ? ' p-card-landscape' : ''}`} params={undefined as never}>
+    <article className={`p-card${landscape ? ' p-card-landscape' : ''}`}>
+      <Link to={contentPath(item,base) as any} className="p-card-link" aria-keyshortcuts="ArrowDown" params={undefined as never}>
       <span className="p-poster"><img src={img(landscape ? item.thumbnail_url || item.poster_url : item.poster_url)} alt="" width={landscape ? 480 : 200} height={landscape ? 270 : 300} loading="lazy" decoding="async" />
         {paid && <span className="p-crown" title="Premium"><IconCrown size={11} /></span>}
         {badge && <span className="p-upload-badge">{badge}</span>}
       </span>
       <span className="p-name">{item.name}</span>
+      </Link>
       <HoverPreview item={item} base={base} />
-    </Link>
+    </article>
   )
 }
 
@@ -93,10 +92,11 @@ function previewPosition(host: HTMLElement, height = 270) {
   return { top, left, width }
 }
 
-/** Portal previews stay inside the viewport and release media on every close. */
+/** Inline touch previews and desktop portals share one media lifetime. */
 function HoverPreview({ item, base }: { item: any; base: string }) {
   const [mounted, setMounted] = useState(false)
   const [open, setOpen] = useState(false)
+  const [inline, setInline] = useState(false)
   const [ready, setReady] = useState(false)
   const [muted, setMuted] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -106,96 +106,142 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
   const video = useRef<HTMLVideoElement>(null)
   const playback = useRef<ReturnType<typeof createPreviewPlayback> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const hideRef = useRef<() => void>(() => {})
+  const hideRef = useRef<(immediate?: boolean) => void>(() => {})
+  const fullAccess = item?.hasSubscriptionAccess !== false && ((item?.movie_access !== 'paid' && item?.access !== 'paid') || item?.myPurchase)
   const trailer = trailerFor(item)
-  const direct = trailer && !youtubeId(trailer) ? trailer : null
+  // Prefer an actual media URL over an embedded provider page. Locked full
+  // sources never become previews; public dedicated trailers remain available.
+  const direct = [trailer, fullAccess ? item.video_url_input : null]
+    .find(value => typeof value === 'string' && /^https?:\/\/.*\.(mp4|webm|m4v|m3u8)(?:[?#]|$)/i.test(value)) as string | undefined
 
   useEffect(() => {
     const host = marker.current?.closest('.p-card') as HTMLElement | null
-    if (!host) return
+    const link = host?.querySelector('.p-card-link')
+    if (!host || !link) return
     let removal: ReturnType<typeof setTimeout> | undefined
     let present = false
+    let inlineMode = false
+    let gesture: { x: number; y: number; moved: boolean } | null = null
+    let suppressClick = false
+    let resetClick: ReturnType<typeof setTimeout> | undefined
+    const clearClose = () => { if (closeTimer.current) clearTimeout(closeTimer.current) }
     const hide = (immediate = false) => {
-      if (closeTimer.current) clearTimeout(closeTimer.current)
+      clearClose()
       if (!present) return
       present = false
       clearTimeout(removal)
       playback.current?.destroy(); playback.current = null
       setOpen(false)
-      if (immediate) { setMounted(false); setReady(false) }
+      if (immediate || inlineMode) { setMounted(false); setReady(false) }
       else removal = setTimeout(() => { setMounted(false); setReady(false) }, 160)
     }
     hideRef.current = hide
+    const show = (touch: boolean) => {
+      if (document.hidden || document.querySelector('.tv-playback-dialog[open]')) return
+      clearClose()
+      if (present && inlineMode === touch) return
+      clearTimeout(removal)
+      present = true; inlineMode = touch
+      window.dispatchEvent(new CustomEvent('halo-preview', { detail: host }))
+      window.dispatchEvent(new CustomEvent('gndott:preview-active', { detail: host }))
+      setPosition(previewPosition(host, 300))
+      setInline(touch); setMounted(true); setReady(false); setMuted(true); setFailed(false); setOpen(true)
+    }
     const enter = () => {
-      if (!window.matchMedia('(min-width: 861px) and (hover: hover) and (pointer: fine)').matches) return
-      if (closeTimer.current) clearTimeout(closeTimer.current)
-      if (!present) {
-        clearTimeout(removal)
-        present = true
-        window.dispatchEvent(new CustomEvent('halo-preview', { detail: host }))
-        window.dispatchEvent(new CustomEvent('gndott:preview-active', { detail: host }))
-        setPosition(previewPosition(host, 300))
-        setMounted(true); setFailed(false); setOpen(true)
-      }
+      if (window.matchMedia('(min-width: 861px) and (hover: hover) and (pointer: fine)').matches) show(false)
     }
     const leave = (event?: MouseEvent) => {
-      if (event?.relatedTarget instanceof Node && popup.current?.contains(event.relatedTarget)) return
-      if (closeTimer.current) clearTimeout(closeTimer.current)
-      closeTimer.current = setTimeout(() => hide(), 180)
+      if (inlineMode || event?.relatedTarget instanceof Node && popup.current?.contains(event.relatedTarget)) return
+      clearClose(); closeTimer.current = setTimeout(() => hide(), 180)
     }
     const dismiss = () => hide(true)
     const other = (event: Event) => { if ((event as CustomEvent).detail !== host) hide(true) }
-    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') hide() }
-    const blur = (event: FocusEvent) => { if (!host.contains(event.relatedTarget as Node) && !popup.current?.contains(event.relatedTarget as Node)) leave() }
+    const key = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowDown' && present && !inlineMode && document.activeElement === link) { event.preventDefault(); popup.current?.querySelector<HTMLElement>('.halo-preview-sound:not(:disabled), .halo-preview-play')?.focus() }
+      if (event.key === 'Escape' && present) { const restore = popup.current?.contains(document.activeElement); hide(true); if (restore) (link as HTMLElement).focus() }
+    }
+    const blur = (event: FocusEvent) => { if (!host.contains(event.relatedTarget as Node) && !popup.current?.contains(event.relatedTarget as Node)) hide() }
+    const down = (event: PointerEvent) => {
+      if (!link.contains(event.target as Node) || event.pointerType === 'mouse') return
+      gesture = {x: event.clientX, y: event.clientY, moved: false}; suppressClick = false; clearTimeout(resetClick)
+    }
+    const move = (event: PointerEvent) => {
+      if (gesture && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 10) gesture.moved = true
+    }
+    const finish = (event: PointerEvent) => {
+      if (!gesture) return
+      suppressClick = gesture.moved || event.type === 'pointercancel'
+      gesture = null
+      // Native scrolling usually suppresses click; guard synthetic follow-up
+      // clicks too, without preventing pointer movement or rail scrolling.
+      clearTimeout(resetClick); resetClick = setTimeout(() => { suppressClick = false }, 700)
+    }
+    const click = (event: MouseEvent) => {
+      if (!link.contains(event.target as Node) || !event.detail || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      if (!window.matchMedia('(hover: none), (pointer: coarse)').matches) return
+      event.preventDefault(); event.stopPropagation()
+      if (!suppressClick) show(true)
+    }
+    const outside = (event: PointerEvent) => { if (inlineMode && !host.contains(event.target as Node)) hide(true) }
     host.addEventListener('focusout', blur)
-    host.addEventListener('mouseenter', enter)
-    host.addEventListener('focusin', enter)
-    host.addEventListener('mouseleave', leave)
-    window.addEventListener('scroll', dismiss, true)
-    window.addEventListener('resize', dismiss)
-    window.addEventListener('halo-preview', other)
-    window.addEventListener('gndott:preview-active', other)
-    window.addEventListener('gndott:playback-open', dismiss)
-    window.addEventListener('keydown', key)
+    host.addEventListener('mouseenter', enter); host.addEventListener('focusin', enter); host.addEventListener('mouseleave', leave)
+    host.addEventListener('pointerdown', down, { passive: true }); host.addEventListener('pointermove', move, { passive: true })
+    host.addEventListener('pointerup', finish); host.addEventListener('pointercancel', finish); host.addEventListener('click', click, true)
+    document.addEventListener('pointerdown', outside, { passive: true })
+    window.addEventListener('scroll', dismiss, true); window.addEventListener('resize', dismiss)
+    window.addEventListener('halo-preview', other); window.addEventListener('gndott:preview-active', other)
+    window.addEventListener('gndott:playback-open', dismiss); window.addEventListener('keydown', key)
     document.addEventListener('visibilitychange', dismiss)
     return () => {
-      clearTimeout(removal)
-      if (closeTimer.current) clearTimeout(closeTimer.current)
+      clearTimeout(removal); clearTimeout(resetClick); clearClose()
+      playback.current?.destroy(); playback.current = null
       host.removeEventListener('focusout', blur)
       host.removeEventListener('mouseenter', enter); host.removeEventListener('mouseleave', leave); host.removeEventListener('focusin', enter)
+      host.removeEventListener('pointerdown', down); host.removeEventListener('pointermove', move)
+      host.removeEventListener('pointerup', finish); host.removeEventListener('pointercancel', finish); host.removeEventListener('click', click, true)
+      document.removeEventListener('pointerdown', outside)
       window.removeEventListener('scroll', dismiss, true); window.removeEventListener('resize', dismiss)
       window.removeEventListener('gndott:preview-active', other); window.removeEventListener('gndott:playback-open', dismiss)
       window.removeEventListener('halo-preview', other); window.removeEventListener('keydown', key)
       document.removeEventListener('visibilitychange', dismiss)
     }
-  }, [])
+  }, [item.id])
 
   useEffect(() => {
-    if (!open || !direct || !video.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    // A phone tap is explicit intent even when the viewer prefers reduced motion.
+    if (!open || !direct || !video.current || (!inline && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return
     setReady(false); setMuted(true)
-    const controller = createPreviewPlayback(video.current, direct, { ready: () => setReady(true), muted: setMuted, failure: () => setFailed(true) })
+    const controller = createPreviewPlayback(video.current, direct, {
+      ready: () => setReady(true), muted: setMuted, failure: () => setFailed(true),
+    }, undefined, { start: 30, sound: false, volume: .3 })
     playback.current = controller
     return () => { controller.destroy(); if (playback.current === controller) playback.current = null }
-  }, [open, direct])
+  }, [open, inline, direct])
 
   const year = item.release_date ? String(item.release_date).slice(0, 4) : null
-  return <><span ref={marker} className="pv-marker" aria-hidden="true" />{mounted && createPortal(
+  const media = direct && <video ref={video} className={ready && !failed ? 'is-ready' : ''} muted playsInline preload="none" aria-hidden="true" />
+  const sound = direct && !failed && <button className="halo-preview-sound" type="button" aria-label={muted ? 'Enable preview sound' : 'Mute preview sound'} aria-pressed={!muted} disabled={!ready} onClick={() => void playback.current?.sound(muted)}>{muted ? <VolumeX size={19} /> : <Volume2 size={19} />}<span>{muted ? 'Sound on' : 'Mute'}</span></button>
+  const actions = <div className="pv-actions">
+    <Link className="halo-preview-play" to={contentPath(item,base) as any} hash="watch" onClick={() => hideRef.current(true)}><IconPlay size={18} /><span>{inline ? 'Watch' : 'Watch now'}</span></Link>
+    <Link className="halo-preview-info" to={contentPath(item,base) as any} aria-label={`Details for ${item.name}`} onClick={() => hideRef.current(true)}>{inline ? 'Details' : <Info size={22} />}</Link>
+  </div>
+  return <><span ref={marker} className="pv-marker" aria-hidden="true" />{mounted && (inline ?
+    <><div ref={popup} className="p-inline-preview" role="region" aria-label={`${item.name} preview`} data-preview-state={failed || !direct ? 'unavailable' : ready ? 'playing' : 'loading'}>
+      {media}{sound}<button className="p-inline-close" type="button" aria-label={`Close ${item.name} preview`} onClick={() => hideRef.current(true)}><X size={18}/></button>
+      {(failed || !direct) && <span className="p-inline-status">Preview unavailable</span>}
+    </div><div className="p-inline-action-row">{actions}</div></> : createPortal(
     <div ref={popup} className={`pv-card halo-preview${open ? ' open' : ''}`} style={position} onClick={(event) => event.stopPropagation()} role="region" aria-label={`${item.name} preview`}
       onMouseEnter={() => { if (closeTimer.current) clearTimeout(closeTimer.current) }}
       onMouseLeave={() => { closeTimer.current = setTimeout(() => hideRef.current(), 180) }}
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) hideRef.current() }}>
       <img className="halo-preview-art" src={img(item.thumbnail_url || item.poster_url)} alt="" />
-      {direct && <video ref={video} className={ready && !failed ? 'is-ready' : ''} playsInline preload="none" aria-hidden="true" />}
-      {direct && !failed && <button className="halo-preview-sound liquid-glass" type="button" aria-label={muted ? 'Enable preview sound' : 'Mute preview sound'} aria-pressed={!muted} disabled={!ready} onClick={() => void playback.current?.sound(muted)}>{muted ? <VolumeX size={19} /> : <Volume2 size={19} />}<span>{muted ? 'Sound on' : 'Mute'}</span></button>}
+      {media}{sound}
       <div className="halo-preview-gradient">
         <strong className="pv-name">{item.name}</strong>
         <span className="pv-meta">{year && <span>{year}</span>}{item.duration && <span>{item.duration}</span>}</span>
-        <div className="pv-actions">
-          <Link className="halo-preview-play" to={contentPath(item,base) as any} hash="watch" onClick={() => hideRef.current()}><IconPlay size={18} /> Watch now</Link>
-          <Link className="halo-preview-info" to={contentPath(item,base) as any} aria-label={`Details for ${item.name}`} onClick={() => hideRef.current()}><Info size={22} /></Link>
-        </div>
+        {actions}
       </div>
-    </div>, document.body)}</>
+    </div>, document.body))}</>
 }
 
 export function LiveChannelCard({ channel }: { channel: any }) {
@@ -299,7 +345,7 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
       data-hero-slide={idx}
       onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}
       onFocusCapture={() => setInteracting(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false) }}
-      onTouchStart={(event) => { const touch = event.touches[0]; touchStart.current = { x: touch.clientX, y: touch.clientY } }}
+      onTouchStart={(event) => { if ((event.target as HTMLElement).closest('button, a, .hero-carousel-controls')) { touchStart.current = null; return }; const touch = event.touches[0]; touchStart.current = { x: touch.clientX, y: touch.clientY } }}
       onTouchEnd={(event) => {
         const start = touchStart.current; touchStart.current = null
         if (!start) return
@@ -307,16 +353,13 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
         if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) selectSlide(idx + (dx < 0 ? 1 : -1))
       }}>
       <div className="hero-artwork" aria-hidden="true">
-        {slides.map((item, index) => <picture key={`${item.type}-${item.id}`} className={`hero-artwork-layer${index === idx ? ' is-active' : ''}`}>
-          <source media="(max-width: 860px)" srcSet={img(item.poster_url || item.thumbnail_url)} />
-          <img src={img(item.thumbnail_url || item.poster_url)} alt="" fetchPriority={index === 0 ? 'high' : 'auto'} decoding="async" />
-        </picture>)}
+        {slides.map((item, index) => <HeroArtwork key={`${item.type}-${item.id}`} item={item} active={index === idx} priority={index === 0} />)}
       </div>
-      {!live && <TitlePreview key={`${hero.type}:${hero.id}`} title={hero.name} trailerUrl={hero.trailer_url || hero.trailerUrl} bunnyLibraryId={bunnyLibraryId} bunnyTrailerId={hero.bunny_trailer_url} bunnyVideoId={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.bunny_video_url : null} directVideoUrl={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.video_url_input : null} suspended={!pageVisible || reducedMotion} startSeconds={80} />}
+      {!live && <TitlePreview key={`${hero.type}:${hero.id}`} title={hero.name} trailerUrl={hero.trailer_url || hero.trailerUrl} bunnyLibraryId={bunnyLibraryId} bunnyTrailerId={hero.bunny_trailer_url} bunnyVideoId={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.bunny_video_url : null} directVideoUrl={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.video_url_input : null} suspended={!pageVisible} startSeconds={80} />}
       {slides.map((item, index) => {
         const inLibrary = saved.includes(Number(item.id))
         const canSave = !live && !libraryFailed && !['/video', '/channel'].includes(baseFor(item))
-        return <div key={`copy-${item.type}-${item.id}`} className={`hero-content tv-hero-content${index === idx ? ' is-active' : ''}`} aria-hidden={index !== idx} inert={index !== idx}>
+        return <div key={`copy-${item.type}-${item.id}`} className={`hero-content tv-hero-content${index === idx ? ' is-active' : ''}`} style={item.hero_design ? heroCopyStyle(item) : undefined} aria-hidden={index !== idx} inert={index !== idx}>
           {(live || item.movie_access === 'paid' || item.access === 'paid') && <span className="hero-badge">{live ? 'Live' : 'Premium'}</span>}
           <h1 className="hero-title">{item.name}</h1>
           <div className="hero-meta">
@@ -335,8 +378,10 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
       {slides.length > 1 && <>
         <button type="button" className="hero-chevron prev" aria-label="Previous featured title" onClick={() => selectSlide(idx - 1)}><IconChevronLeft /></button>
         <button type="button" className="hero-chevron next" aria-label="Next featured title" onClick={() => selectSlide(idx + 1)}><IconChevronRight /></button>
-        <div className="hero-dots">{slides.map((item, index) => <button type="button" key={`${item.type}-${item.id}`} className={index === idx ? 'active' : ''} aria-label={`Show ${item.name}`} aria-current={index === idx ? 'true' : undefined} onClick={() => selectSlide(index)}><span /></button>)}</div>
-        {!reducedMotion && <button type="button" className="hero-pause" aria-label={paused ? 'Resume slideshow' : 'Pause slideshow'} aria-pressed={paused} onClick={() => { setInteracting(false); setPaused((value) => !value) }}>{paused ? <IconPlay size={15} /> : <Pause size={15} />}</button>}
+        <div className="hero-carousel-controls">
+          <div className="hero-dots">{slides.map((item, index) => <button type="button" key={`${item.type}-${item.id}`} className={index === idx ? 'active' : ''} aria-label={`Show ${item.name}`} aria-current={index === idx ? 'true' : undefined} onClick={() => selectSlide(index)}><span /></button>)}</div>
+          {!reducedMotion && <button type="button" className="hero-rotation-control" aria-label={paused ? 'Resume slideshow' : 'Pause slideshow'} aria-pressed={paused} onClick={() => { setInteracting(false); setPaused((value) => !value) }}>{paused ? 'Resume rotation' : 'Pause rotation'}</button>}
+        </div>
       </>}
       <p className="hero-save-status" role="status">{saveStatus}</p>
     </section>

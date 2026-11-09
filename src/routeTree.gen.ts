@@ -44,6 +44,7 @@ import { Route as VideosRouteImport } from './routes/videos'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as AdminLiveTvRouteImport } from './routes/admin.live-tv'
 import { Route as AdminShopRouteImport } from './routes/admin.shop'
+import { Route as ApiHeroesRouteImport } from './routes/api/heroes'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
 import { Route as AuthProviderRouteImport } from './routes/auth.$provider'
 import { Route as CastIdRouteImport } from './routes/cast.$id'
@@ -235,6 +236,11 @@ const AdminShopRoute = AdminShopRouteImport.update({
   path: '/admin/shop',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHeroesRoute = ApiHeroesRouteImport.update({
+  id: '/api/heroes',
+  path: '/api/heroes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   id: '/api/stripe-webhook',
   path: '/api/stripe-webhook',
@@ -347,6 +353,7 @@ export interface FileRoutesByFullPath {
   '/watchlist': typeof WatchlistRoute
   '/admin/live-tv': typeof AdminLiveTvRoute
   '/admin/shop': typeof AdminShopRoute
+  '/api/heroes': typeof ApiHeroesRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/auth/$provider': typeof AuthProviderRouteWithChildren
   '/cast/$id': typeof CastIdRoute
@@ -398,6 +405,7 @@ export interface FileRoutesByTo {
   '/watchlist': typeof WatchlistRoute
   '/admin/live-tv': typeof AdminLiveTvRoute
   '/admin/shop': typeof AdminShopRoute
+  '/api/heroes': typeof ApiHeroesRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/auth/$provider': typeof AuthProviderRouteWithChildren
   '/cast/$id': typeof CastIdRoute
@@ -451,6 +459,7 @@ export interface FileRoutesById {
   '/watchlist': typeof WatchlistRoute
   '/admin/live-tv': typeof AdminLiveTvRoute
   '/admin/shop': typeof AdminShopRoute
+  '/api/heroes': typeof ApiHeroesRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/auth/$provider': typeof AuthProviderRouteWithChildren
   '/cast/$id': typeof CastIdRoute
@@ -505,6 +514,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/admin/live-tv'
     | '/admin/shop'
+    | '/api/heroes'
     | '/api/stripe-webhook'
     | '/auth/$provider'
     | '/cast/$id'
@@ -556,6 +566,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/admin/live-tv'
     | '/admin/shop'
+    | '/api/heroes'
     | '/api/stripe-webhook'
     | '/auth/$provider'
     | '/cast/$id'
@@ -608,6 +619,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/admin/live-tv'
     | '/admin/shop'
+    | '/api/heroes'
     | '/api/stripe-webhook'
     | '/auth/$provider'
     | '/cast/$id'
@@ -661,6 +673,7 @@ export interface RootRouteChildren {
   WatchlistRoute: typeof WatchlistRoute
   AdminLiveTvRoute: typeof AdminLiveTvRoute
   AdminShopRoute: typeof AdminShopRoute
+  ApiHeroesRoute: typeof ApiHeroesRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   AuthProviderRoute: typeof AuthProviderRouteWithChildren
   ChannelIdRoute: typeof ChannelIdRoute
@@ -920,6 +933,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminShopRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/heroes': {
+      id: '/api/heroes'
+      path: '/api/heroes'
+      fullPath: '/api/heroes'
+      preLoaderRoute: typeof ApiHeroesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/stripe-webhook': {
       id: '/api/stripe-webhook'
       path: '/api/stripe-webhook'
@@ -1100,6 +1120,7 @@ const rootRouteChildren: RootRouteChildren = {
   WatchlistRoute: WatchlistRoute,
   AdminLiveTvRoute: AdminLiveTvRoute,
   AdminShopRoute: AdminShopRoute,
+  ApiHeroesRoute: ApiHeroesRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   AuthProviderRoute: AuthProviderRouteWithChildren,
   ChannelIdRoute: ChannelIdRoute,

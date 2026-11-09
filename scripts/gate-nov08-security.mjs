@@ -17,7 +17,7 @@ function compile(file,imports) {
  vm.runInNewContext(code,{module,exports:module.exports,require:name=>{assert(name in imports,`Unexpected dependency: ${name}`);return imports[name]},URL,Date,console,fetch:globalThis.fetch})
  return module.exports
 }
-const factory={createServerFn(){let validate=x=>x;const builder={validator(fn){validate=fn;return builder},handler(fn){return async(input={})=>fn({data:validate(input.data)})}};return builder}}
+const factory={createServerOnlyFn:fn=>fn,createServerFn(){let validate=x=>x;const builder={validator(fn){validate=fn;return builder},handler(fn){return async(input={})=>fn({data:validate(input.data)})}};return builder}}
 for(const [realm,canonical,legacy] of [['viewer','https://halobox.tv','https://gndott.theangelorgapps.workers.dev'],['admin','https://fort.halobox.tv','https://gndottadmin.theangelorgapps.workers.dev']]) {
  assert.equal(authBaseURL('https://attacker.test',canonical,realm),canonical)
  assert.equal(authBaseURL('https://attacker.test',undefined,realm),legacy)
@@ -52,7 +52,7 @@ const database={
  },
  async run(){mutations++;return{changes:1}}
 }
-const api=compile('src/lib/api.ts',{'@tanstack/react-start':factory,'./session.server':{getSession:async()=>session,clearSessionCookie:async()=>{}},'./db':database,'./recommendations':{buildRecommendationPayload:()=>({}),isMeaningfulWatch:()=>false,parseWatchSeconds:()=>0},'./viewer.server':{getActiveViewer:async()=>null},'./api-security':{playbackFields,positiveId,profileInput,publicHttpsUrl,readVastMedia},'./subscriptionPolicy':{requiresSubscription,subscriptionFields},'./entitlement.server':{subscriptionPlaybackAccess:async()=>subscriptionDevice,entitlementDatabase:()=>null},'./entitlement-core':{resolveEntitlement:async()=>subscription},'./people.server':{loadPersonalities:async()=>[],loadTitlePeople:async()=>[],loadTitleLocations:async()=>[],loadPersonalityDetail:async()=>null}})
+const api=compile('src/lib/api.ts',{'./heroes.server':{loadConfiguredHeroes:async()=>[]},'@tanstack/react-start':factory,'./session.server':{getSession:async()=>session,clearSessionCookie:async()=>{}},'./db':database,'./recommendations':{buildRecommendationPayload:()=>({}),isMeaningfulWatch:()=>false,parseWatchSeconds:()=>0},'./viewer.server':{getActiveViewer:async()=>null},'./api-security':{playbackFields,positiveId,profileInput,publicHttpsUrl,readVastMedia},'./subscriptionPolicy':{requiresSubscription,subscriptionFields},'./entitlement.server':{subscriptionPlaybackAccess:async()=>subscriptionDevice,entitlementDatabase:()=>null},'./entitlement-core':{resolveEntitlement:async()=>subscription},'./people.server':{loadPersonalities:async()=>[],loadTitlePeople:async()=>[],loadTitleLocations:async()=>[],loadPersonalityDetail:async()=>null}})
 assert.equal((await api.fetchVastMedia({data:'https://unconfigured.example.test/tag'})).ok,false)
 assert.equal(fetches,1,'Unconfigured caller-controlled URL must never invoke transport')
 assert.equal((await api.purchasePayPerView({data:{type:'movie',id:1,gateway:'cash'}})).ok,false)
@@ -96,7 +96,7 @@ if(adminRoot){
  let role='demo_admin',writes=0
  const module={exports:{}}
  const code=ts.transpileModule(readFileSync(adminRoot+'/src/lib/admin.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText
- const imports={'@tanstack/react-start':factory,'cloudflare:workers':{env:{}},'@tanstack/react-start/server':{getRequest:()=>new Request('https://fort.halobox.tv/server-fn',{method:'POST',headers:{origin:'https://fort.halobox.tv'}})},'./session.server':{getSession:async()=>({uid:88})},'./db':{first:async()=>({id:88,user_type:role}),all:async()=>[],run:async()=>{writes++}},'./series-validation':{},'./bunny':{}}
+ const imports={'@tanstack/react-start':factory,'cloudflare:workers':{env:{}},'@tanstack/react-start/server':{getRequest:()=>new Request('https://fort.halobox.tv/server-fn',{method:'POST',headers:{origin:'https://fort.halobox.tv'}})},'./session.server':{getSession:async()=>({uid:88})},'./db':{first:async()=>({id:88,user_type:role}),all:async()=>[],run:async()=>{writes++}},'./series-validation':{},'./bunny':{},'./banner-design':{},'./locations-validation':{}}
  vm.runInNewContext(code,{module,exports:module.exports,require:name=>{assert(name in imports,name);return imports[name]},URL,console})
  await assert.rejects(module.exports.adminDeleteContent({data:1}),/read-only/)
  assert.equal(writes,0)

@@ -29,7 +29,11 @@ function GlassLogoIntro({ onComplete }: { onComplete?: () => void }) {
       window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
     const holdMs = reduceMotion ? REVEAL_MS_REDUCED : REVEAL_MS
 
-    const fadeTimer = window.setTimeout(() => setLeaving(true), holdMs)
+    const fadeTimer = window.setTimeout(() => {
+      // Reveal the page underneath as the overlay fades out.
+      document.documentElement.classList.remove('hb-intro')
+      setLeaving(true)
+    }, holdMs)
     const doneTimer = window.setTimeout(() => {
       if (doneRef.current) return
       doneRef.current = true
@@ -45,7 +49,7 @@ function GlassLogoIntro({ onComplete }: { onComplete?: () => void }) {
   return (
     <section
       aria-hidden="true"
-      className="fixed inset-0 z-[999] h-screen w-full transition-opacity ease-out"
+      className="hb-preloader fixed inset-0 z-[999] h-screen w-full transition-opacity ease-out"
       style={{
         backgroundColor: BG,
         opacity: leaving ? 0 : 1,
@@ -80,14 +84,6 @@ function GlassLogoIntro({ onComplete }: { onComplete?: () => void }) {
 export function SitePreloader() {
   const [show, setShow] = useState(false)
 
-  useEffect(() => {
-    try {
-      if (!sessionStorage.getItem(INTRO_SEEN_KEY)) setShow(true)
-    } catch {
-      // storage unavailable — skip the intro rather than risk replay loops
-    }
-  }, [])
-
   const handleComplete = useCallback(() => {
     try {
       sessionStorage.setItem(INTRO_SEEN_KEY, '1')
@@ -96,6 +92,25 @@ export function SitePreloader() {
     }
     setShow(false)
   }, [])
+
+  useEffect(() => {
+    try {
+      if (!sessionStorage.getItem(INTRO_SEEN_KEY)) setShow(true)
+    } catch {
+      // storage unavailable — skip the intro rather than risk replay loops
+    }
+  }, [])
+
+  // Safety net: if the lazy chunk or the WebGL engine ever fails, the
+  // first-visit mask must still lift so the page is never stuck hidden.
+  useEffect(() => {
+    if (!show) return
+    const bail = window.setTimeout(() => {
+      document.documentElement.classList.remove('hb-intro')
+      handleComplete()
+    }, 10000)
+    return () => window.clearTimeout(bail)
+  }, [show, handleComplete])
 
   if (!show) return null
   return <GlassLogoIntro onComplete={handleComplete} />

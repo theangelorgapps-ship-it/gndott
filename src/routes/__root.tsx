@@ -30,13 +30,24 @@ import '../player-interaction.css'
 import '../discovery.css'
 
 export const Route = createRootRoute({
-  head: ({ matches }) => siteHead(matches.at(-1)?.pathname || '/'),
+  head: ({ matches }) => ({
+    ...siteHead(matches.at(-1)?.pathname || '/'),
+    scripts: [
+      {
+        // Runs before first paint: if the intro hasn't played this session,
+        // mask the page (CSS in styles.css) so the homepage never flashes
+        // ahead of the preloader.
+        children:
+          "try{if(!sessionStorage.getItem('hb-intro-seen-v1'))document.documentElement.classList.add('hb-intro')}catch(e){}",
+      },
+    ],
+  }),
   loader: async () => ({ user: await getSessionUser(), footer: await getFooterData() }),
   component: RootComponent,
 })
 
 const BARE_ROUTES = ['/login', '/register', '/forgot-password', '/otp-login', '/manage-profile']
-// Preloader chunk (GSAP) only downloads on the first visit of a session.
+// Preloader chunk only downloads on the first visit of a session.
 const SitePreloader = lazy(() => import('../components/ui/stack-loader').then((m) => ({ default: m.SitePreloader })))
 const MENU_ICONS = [Home, Clapperboard, BookOpen, Tv, PlaySquare, Radio]
 const NAV_ITEMS = [

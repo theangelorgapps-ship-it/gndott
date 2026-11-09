@@ -34,7 +34,8 @@ export const getPlaybackProgress = createServerFn({ method: 'GET' })
   .validator(identity)
   .handler(async ({ data }) => {
     const viewer = await getActiveViewer()
-    if (!viewer?.profileId) return { position: 0, duration: 0, profileKey: null }
+    if (!viewer) return { position: 0, duration: 0, profileKey: null, needsAuth: true }
+    if (!viewer.profileId) return { position: 0, duration: 0, profileKey: null, needsProfile: true }
     const profileKey = `${viewer.userId}:${viewer.profileId}`
     const content = await resolveContent(data)
     if (!content) return { position: 0, duration: 0, profileKey }

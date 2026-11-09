@@ -1,8 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getPlaybackProgress, recordWatchProgress } from '../lib/playback'
 
 type Identity = { contentType: 'movie' | 'video' | 'episode' | 'tvshow' | 'teaching'; contentId: number }
 export type PlaybackPosition = { position: number; duration: number }
+type PlaybackSession = {
+  active: boolean
+  profileKey: string | null | undefined
+  readComplete: boolean
+  blockedRequirement: boolean
+  latest: PlaybackPosition | null
+  lastWritten: string
+  lastWriteAt: number
+  pending: Promise<unknown> | null
+}
 
 export function validPlaybackPosition(position: number, duration: number): PlaybackPosition | null {
   if (!Number.isFinite(position) || !Number.isFinite(duration) || duration <= 0 || position < 0) return null
@@ -15,61 +25,76 @@ export function usePlaybackProgress(identity: Identity, enabled = true) {
   const [saveError, setSaveError] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const [saveRequirement, setSaveRequirement] = useState<'profile' | 'auth' | null>(null)
-  const profileKey = useRef<string | null | undefined>(undefined)
-  const readComplete = useRef(false)
-  const blockedRequirement = useRef(false)
-  const latest = useRef<PlaybackPosition | null>(null)
-  const lastWritten = useRef('')
-  const lastWriteAt = useRef(0)
-  const pending = useRef<Promise<unknown> | null>(null)
   const { contentType, contentId } = identity
+  // A title's callbacks must never read another title's position or ownership.
+  const playback = useMemo<{ current: PlaybackSession | null }>(() => ({ current: null }), [contentType, contentId, enabled])
 
-  const flush = useCallback(() => {
-    if (!enabled || !readComplete.current || blockedRequirement.current) return
-    const value = latest.current
+  const flushSession = useCallback((session: PlaybackSession) => {
+    if (!enabled || !session.readComplete || session.blockedRequirement) return
+    const value = session.latest
     if (!value) return
     const signature = `${Math.floor(value.position)}:${Math.floor(value.duration)}`
-    if (signature === lastWritten.current) return
-    const expectedProfile = profileKey.current
-    lastWriteAt.current = Date.now()
+    if (signature === session.lastWritten) return
+    const expectedProfile = session.profileKey
+    session.lastWriteAt = Date.now()
     // Preserve event ordering: an older request must not overwrite a later pause.
-    pending.current = (pending.current ?? Promise.resolve()).catch(() => undefined).then(async () => {
+    session.pending = (session.pending ?? Promise.resolve()).catch(() => undefined).then(async () => {
+      if (session.blockedRequirement) return
       try {
         const result = await recordWatchProgress({ data: { contentType, contentId, ...value, profileKey: expectedProfile } })
-        if (result.ok) { lastWritten.current = signature; setSaveError(false) }
-        else if ('needsProfile' in result && result.needsProfile) { blockedRequirement.current = true; setSaveRequirement('profile'); setSaveError(false) }
-        else if ('needsAuth' in result && result.needsAuth) { blockedRequirement.current = true; setSaveRequirement('auth'); setSaveError(false) }
-        else setSaveError(true)
-      } catch { setSaveError(true) }
+        if (result.ok) { session.lastWritten = signature; if (session.active) setSaveError(false) }
+        else if ('needsProfile' in result && result.needsProfile) {
+          session.blockedRequirement = true
+          if (session.active) { setSaveRequirement('profile'); setSaveError(false) }
+        } else if ('needsAuth' in result && result.needsAuth) {
+          session.blockedRequirement = true
+          if (session.active) { setSaveRequirement('auth'); setSaveError(false) }
+        } else if (session.active) setSaveError(true)
+      } catch { if (session.active) setSaveError(true) }
     })
   }, [contentType, contentId, enabled])
 
+  const flush = useCallback(() => {
+    if (playback.current?.active) flushSession(playback.current)
+  }, [playback, flushSession])
+
   useEffect(() => {
-    let active = true
+    // Keep this read and its final observation alive after cleanup, independently
+    // of subsequent titles and Strict Mode's next effect setup.
+    const session: PlaybackSession = { active: true, profileKey: undefined, readComplete: false, blockedRequirement: false, latest: null, lastWritten: '', lastWriteAt: 0, pending: null }
+    playback.current = session
     setLoaded(false)
     setLoadError(false)
-    readComplete.current = false
-    profileKey.current = undefined
+    setSaveError(false)
     setSaved(null)
-    latest.current = null
-    lastWritten.current = ''
-    blockedRequirement.current = false
     setSaveRequirement(null)
-    if (!enabled) { setLoaded(true); return }
+    if (!enabled) { setLoaded(true); return () => { session.active = false } }
     getPlaybackProgress({ data: { contentType, contentId } }).then((result) => {
-      if (active) { profileKey.current = result.profileKey; setSaved(validPlaybackPosition(result.position, result.duration)); readComplete.current = true; flush() }
-    }).catch(() => { if (active) { blockedRequirement.current = true; setLoadError(true) } }).finally(() => { if (active) setLoaded(true) })
-    const onHidden = () => { if (document.visibilityState === 'hidden') flush() }
+      session.profileKey = result.profileKey
+      session.readComplete = true
+      if (!result.profileKey) {
+        session.blockedRequirement = true
+        if (session.active) setSaveRequirement('needsAuth' in result && result.needsAuth ? 'auth' : 'profile')
+        return
+      }
+      if (session.active) setSaved(validPlaybackPosition(result.position, result.duration))
+      flushSession(session)
+    }).catch(() => {
+      session.blockedRequirement = true
+      if (session.active) setLoadError(true)
+    }).finally(() => { if (session.active) setLoaded(true) })
+    const onHidden = () => { if (document.visibilityState === 'hidden') flushSession(session) }
     document.addEventListener('visibilitychange', onHidden)
-    return () => { active = false; document.removeEventListener('visibilitychange', onHidden); flush() }
-  }, [contentType, contentId, flush, enabled])
+    return () => { session.active = false; document.removeEventListener('visibilitychange', onHidden); flushSession(session) }
+  }, [contentType, contentId, playback, flushSession, enabled])
 
   const record = useCallback((position: number, duration: number, immediately = false) => {
-    if (!enabled) return
+    const session = playback.current
+    if (!session?.active || !enabled) return
     const actual = validPlaybackPosition(position, duration)
     if (!actual) return
-    latest.current = actual
-    if (immediately || Date.now() - lastWriteAt.current >= 10_000) flush()
-  }, [flush, enabled])
+    session.latest = actual
+    if (immediately || Date.now() - session.lastWriteAt >= 10_000) flushSession(session)
+  }, [playback, flushSession, enabled])
   return { saved, loaded, record, flush, saveError, loadError, saveRequirement }
 }

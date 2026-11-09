@@ -244,10 +244,10 @@ async function progressGate(enabled) {
   // controllable promises, letting the test assert ordering under slow requests.
   const react = {
     useState: (initial) => { const index = states.length; states.push(initial); return [initial, (value) => { states[index] = value }] },
-    useRef: (value) => ({ current: value }), useCallback: (fn) => fn, useEffect: (fn) => effects.push(fn),
+    useRef: (value) => ({ current: value }), useMemo: (fn) => fn(), useCallback: (fn) => fn, useEffect: (fn) => effects.push(fn),
   }
   const api = {
-    getPlaybackProgress: async () => { reads++; return { position: 30, duration: 100 } },
+    getPlaybackProgress: async () => { reads++; return { position: 30, duration: 100, profileKey: '1:11' } },
     recordWatchProgress: async ({ data }) => { writes.push(data); concurrency++; maxConcurrency = Math.max(maxConcurrency, concurrency); await new Promise((resolve) => { release = resolve }); concurrency--; return { ok: true } },
   }
   const document = { visibilityState: 'visible', addEventListener: (name, fn) => events.set(name, fn), removeEventListener: (name) => events.delete(name) }

@@ -1,5 +1,4 @@
 import { PersonalityCard } from '../components/Personality'
-import { LiquidGlassLayers } from '@/components/ui/liquid-glass'
 import { contentPath } from '@/lib/contentRoutes'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { getDashboard, getHomeAds, getContinueWatching } from '../lib/api'
@@ -40,7 +39,7 @@ function Home() {
       <RecommendationGroups recommendations={data.recommendations} fallback={data.popular} recentFallback={data.latest} />
       <HomeAds ads={data.homeAds} />
       {data.collections?.length > 0 && <section className="section home-explore" aria-labelledby="home-explore-heading">
-        <div className="section-head"><h2 id="home-explore-heading">Explore the Collection</h2></div>
+        <div className="section-head"><h2 id="home-explore-heading">Explore</h2></div>
         <div className="home-explore-grid">{data.collections.map((collection: any) => {
           const destinations: Record<string, string[]> = { movie: ['/sermons', 'Sermons', 'Find a message for today.'], teaching: ['/teachings', 'Teachings', 'Go deeper in the Word.'], tvshow: ['/shows', 'Shows', 'Start your next series.'], video: ['/videos', 'Videos', 'Make time for a new perspective.'] }
           const destination = destinations[collection.type]
@@ -66,7 +65,7 @@ function Home() {
       {data.free.length > 0 && <Rail title="Watch for Free">{data.free.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.genres.length > 0 && (
         <Rail title="Categories">
-          {data.genres.map((genre: any) => <Link key={genre.id} to="/search" search={{ q: '', type: 'all', genre: Number(genre.id) }} className="home-genre-link liquid-glass"><LiquidGlassLayers /><span>{genre.name}</span></Link>)}
+          {data.genres.map((genre: any) => <Link key={genre.id} to="/search" search={{ q: '', type: 'all', genre: Number(genre.id) }} className="home-genre-link category-glass"><span>{genre.name}</span></Link>)}
         </Rail>
       )}
       {data.mostWatched?.length > 0 && <Rail title="Most Watched Videos" seeAll="/videos">{data.mostWatched.map((item: any) => <PosterCard key={item.id} item={item} base="/video" />)}</Rail>}

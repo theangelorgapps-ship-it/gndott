@@ -24,7 +24,7 @@ export function CatalogueFilterBar({ label, categories, category, onCategoryChan
         {activeCount > 0 && <span className="filter-count" aria-hidden="true">{activeCount}</span>}
       </button></MobileLiquidGlass>
       <nav className="filter-category-slider" aria-label={`${label} categories`}>
-        {categories.map(option => <button key={option.value} type="button" aria-pressed={category === option.value}
+        {categories.map(option => <button key={option.value} type="button" className="category-glass" aria-pressed={category === option.value}
           onClick={() => onCategoryChange(option.value)}>{option.label}</button>)}
       </nav>
     </div>

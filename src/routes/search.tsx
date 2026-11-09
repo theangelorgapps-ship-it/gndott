@@ -1,7 +1,7 @@
 import { MobileLiquidGlass } from '../components/ui/liquid-glass'
 import { createFileRoute, Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { Home, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { searchContent, getGenresPage, getGenreContent, getTrending } from '../lib/api'
 import { PosterCard, IconSearch, img } from '../components/Poster'
 
@@ -36,7 +36,7 @@ export const Route = createFileRoute('/search')({
         const key: ResultKind = item.type === 'tvshow' ? 'tvshows' : item.type === 'teaching' ? 'teachings' : 'movies'
         results[key].push(item)
       }
-      return { results, genres, popular, genreName: (matches.genre as any)?.name ?? 'Genre' }
+      return { results, genres, popular, genreName: (matches.genre as any)?.name ?? 'Category' }
     }
     return { results: matches as SearchResults, genres, popular, genreName: '' }
   },
@@ -91,7 +91,6 @@ function Search() {
     <div className="tv-search-page">
       <header className="tv-search-heading"><h1>Search</h1>{genreName && <p>{genreName}</p>}</header>
       <div className="tv-search-entry">
-        <Link to="/" className="search-home" aria-label="Home"><Home size={23} /></Link>
         <MobileLiquidGlass asChild><form className="tv-search-field" role="search" onSubmit={(event) => { event.preventDefault(); submit() }}>
           <IconSearch size={22} />
           <input ref={inputRef} type="search" name="q" value={term} aria-label="Search sermons, shows, and more" placeholder="Sermons, Shows, and More" maxLength={200}
@@ -104,9 +103,9 @@ function Search() {
       </div>
 
       {!browsing && <nav className="tv-search-filters" aria-label="Search result types">
-        <Link to="/search" search={{ q, type: 'all', genre }} replace resetScroll={false} className={type === 'all' ? 'active' : ''} aria-current={type === 'all' ? 'true' : undefined}>All</Link>
-        {CATEGORIES.map((category) => <Link key={category.key} to="/search" search={{ q, type: category.key, genre }} replace resetScroll={false} className={type === category.key ? 'active' : ''} aria-current={type === category.key ? 'true' : undefined}>{category.label}</Link>)}
-        {genre && <Link to="/search" search={{ q, type, genre: undefined }} replace className="search-remove-genre">{genreName}<X size={14} /></Link>}
+        <Link to="/search" search={{ q, type: 'all', genre }} replace resetScroll={false} className={`category-glass${type === 'all' ? ' active' : ''}`} aria-current={type === 'all' ? 'true' : undefined}>All</Link>
+        {CATEGORIES.map((category) => <Link key={category.key} to="/search" search={{ q, type: category.key, genre }} replace resetScroll={false} className={`category-glass${type === category.key ? ' active' : ''}`} aria-current={type === category.key ? 'true' : undefined}>{category.label}</Link>)}
+        {genre && <Link to="/search" search={{ q, type, genre: undefined }} replace className="search-remove-genre category-glass">{genreName}<X size={14} /></Link>}
       </nav>}
 
       {browsing ? <>
@@ -114,16 +113,16 @@ function Search() {
           {CATEGORIES.map((category) => {
             const cover = results[category.key].find((item) => item.poster_url || item.thumbnail_url)
             return <Link key={category.key} to={category.to} className={`search-category search-category-${category.key}`}>
-              {cover && <img src={img(cover.poster_url || cover.thumbnail_url)} alt="" loading="lazy" decoding="async" />}
+              {cover && <img src={img(cover.thumbnail_url || cover.poster_url)} alt="" loading="lazy" decoding="async" />}
               <span>{category.label}</span>
             </Link>
           })}
           <Link to="/trending" className="search-category search-category-trending">
-            {popular[0] && <img src={img(popular[0].poster_url || popular[0].thumbnail_url)} alt="" loading="lazy" decoding="async" />}
+            {popular[0] && <img src={img(popular[0].thumbnail_url || popular[0].poster_url)} alt="" loading="lazy" decoding="async" />}
             <span>Trending</span>
           </Link>
         </section>
-        {genres.length > 0 && <section className="tv-search-genres"><h2>Browse by genre</h2><div>{genres.map((item: any) => <Link key={item.id} to="/search" search={{ q: '', type: 'all', genre: Number(item.id) }}>{item.name}</Link>)}</div></section>}
+        {genres.length > 0 && <section className="tv-search-genres"><h2>Browse by category</h2><div>{genres.map((item: any) => <Link key={item.id} to="/search" search={{ q: '', type: 'all', genre: Number(item.id) }} className="category-glass">{item.name}</Link>)}</div></section>}
         {popular.length > 0 && <section className="tv-popular-search"><h2>Popular searches</h2>{popular.slice(0, 5).map((item) => <button type="button" key={`${item.type}-${item.id}`} onClick={() => { setTerm(item.name); requestedQueries.current.add(item.name); void navigate({ to: '/search', search: { q: item.name, type: 'all', genre: undefined } }) }}><IconSearch size={17} />{item.name}</button>)}</section>}
       </> : <div className={`tv-search-results${searching ? ' is-searching' : ''}`} aria-busy={searching}>
         <p className="search-result-status" role="status">{searching ? 'Searching…' : `${total} ${total === 1 ? 'result' : 'results'}${q ? ` for “${q}”` : ''}`}</p>

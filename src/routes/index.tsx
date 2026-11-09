@@ -72,7 +72,7 @@ function ExploreCollections({ collections }: { collections: any[] }) {
           if (!destination) return null
           return <Link key={collection.type} to={destination[0] as any} className={`explore-promo explore-promo-${collection.type}`}>
             <div className="explore-promo-art">
-              <img src={`/images/explore-${destination[1].toLowerCase()}-20261109.avif`} alt="Prophet Uebert Angel" loading="lazy" decoding="async" width="720" height="720" />
+              <img src={`/images/explore-${destination[0].slice(1)}-20261109.avif`} alt="Prophet Uebert Angel" loading="lazy" decoding="async" width="720" height="720" />
               <div className="explore-promo-copy"><strong>{destination[1]}</strong><span>The Ra'ah - Prophet Uebert Angel</span></div>
             </div>
             <div className="explore-promo-caption"><strong>{destination[1]}</strong><span>{collection.count} {collection.count === 1 ? 'title' : 'titles'}</span></div>

@@ -40,3 +40,14 @@
 }
 @media(prefers-reduced-motion:reduce) { .filter-panel { animation:none; } }
 @media(prefers-reduced-transparency:reduce) { .filter-panel { background:#202229; backdrop-filter:none; -webkit-backdrop-filter:none; } }
+
+/* A quiet moving highlight follows the pill's outline; the search remains native. */
+@property --search-beam-angle { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+.catalogue-search.beam-search { border-radius:999px; background:#111216; border:1px solid #ffffff20; box-shadow:inset 0 1px 0 #ffffff08; }
+.beam-search::before { content:''; position:absolute; inset:-1px; border-radius:inherit; padding:1px; background:conic-gradient(from var(--search-beam-angle),transparent 0deg,transparent 285deg,#9fbded90 330deg,transparent 360deg); -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0); mask-composite:exclude; pointer-events:none; animation:search-border-beam 10s linear infinite; }
+.beam-search .catalogue-search-submit { background:#ffffff0b; color:#ced6e3; }
+.beam-search .catalogue-search-submit:hover { background:#ffffff19; color:#fff; }
+.beam-search:focus-within { outline:2px solid #a6c8ff; outline-offset:3px; }
+@keyframes search-border-beam { to { --search-beam-angle:360deg; } }
+@media(prefers-reduced-motion:reduce) { .beam-search::before { animation:none; } }
+@media(forced-colors:active) { .beam-search::before { display:none; } .catalogue-search.beam-search { border-color:CanvasText; } }

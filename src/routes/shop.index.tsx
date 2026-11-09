@@ -6,7 +6,6 @@ import { getStoreProducts } from '../lib/store'
 import { productPath, storeMoney, storeText } from '../lib/storeTypes'
 import { ProductCard } from '../components/ui/product-card-1'
 import { ChoicePicker } from '../components/ui/choice-picker'
-import { MobileLiquidGlass } from '../components/ui/liquid-glass'
 import { CatalogueFilterBar } from '../components/ui/catalogue-filter-bar'
 
 export const Route = createFileRoute('/shop/')({ loader: () => getStoreProducts(), component: ShopIndex })
@@ -38,9 +37,6 @@ function ShopIndex() {
     </>}
     <section ref={results} className="store-catalogue" aria-labelledby="store-products-title">
       <div className="store-section-head"><h2 id="store-products-title">{storeText(cats.find(c => c.slug === category)?.name) || 'All products'}</h2><span role="status">{filtered.length} products</span></div>
-      <div className="store-filters store-filters-search">
-        <MobileLiquidGlass asChild><label className="store-search"><Search size={20} aria-hidden="true" /><input type="search" aria-label="Search products" placeholder="Search the store" value={query} onChange={e => setQuery(e.target.value)} />{query && <button type="button" aria-label="Clear product search" onClick={() => setQuery('')}><X size={18} /></button>}</label></MobileLiquidGlass>
-      </div>
       <CatalogueFilterBar label="Store" category={category}
         categories={[{ value: '', label: 'All products' }, ...cats.map(c => ({ value: c.slug, label: storeText(c.name) }))]}
         onCategoryChange={setCategory} activeCount={Number(!!category) + Number(sort !== 'featured')}
@@ -48,6 +44,13 @@ function ShopIndex() {
         <ChoicePicker label="Category" value={category} options={[{ value: '', label: 'All products' }, ...cats.map(c => ({ value: c.slug, label: storeText(c.name) }))]} onChange={setCategory} />
         <ChoicePicker label="Relevance" value={sort} options={[{ value: 'featured', label: 'Featured' }, { value: 'name', label: 'Name: A–Z' }]} onChange={setSort} />
       </CatalogueFilterBar>
+      <form className="catalogue-toolbar catalogue-toolbar-search" role="search" aria-label="Search the store" onSubmit={event => event.preventDefault()}>
+        <div className="catalogue-search beam-search">
+          <input type="search" aria-label="Search products" placeholder="Search the store" value={query} onChange={event => setQuery(event.target.value)} maxLength={120} />
+          {query && <button type="button" className="catalogue-search-clear" aria-label="Clear product search" onClick={() => setQuery('')}><X size={18} aria-hidden="true" /></button>}
+          <button type="submit" className="catalogue-search-submit" aria-label="Search products"><Search size={21} aria-hidden="true" /></button>
+        </div>
+      </form>
       {error ? <div role="alert"><p>{error}</p><a className="btn btn-primary" href="https://uebertangel.org/shop/">Visit the original store</a></div> : filtered.length ? <div className="store-product-grid">{filtered.map(p => <ProductCard key={p.id} product={p} />)}</div> : <div className="store-empty"><Search size={32} /><h3>No matching products</h3><p>Try another category or search.</p><button type="button" className="btn" onClick={() => { setCategory(''); setQuery('') }}>Clear filters</button></div>}
     </section>
   </>

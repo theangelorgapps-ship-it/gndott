@@ -380,7 +380,7 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
         <button type="button" className="hero-chevron next" aria-label="Next featured title" onClick={() => selectSlide(idx + 1)}><IconChevronRight /></button>
         <div className="hero-carousel-controls">
           <div className="hero-dots">{slides.map((item, index) => <button type="button" key={`${item.type}-${item.id}`} className={index === idx ? 'active' : ''} aria-label={`Show ${item.name}`} aria-current={index === idx ? 'true' : undefined} onClick={() => selectSlide(index)}><span /></button>)}</div>
-          {!reducedMotion && <button type="button" className="hero-rotation-control" aria-label={paused ? 'Resume slideshow' : 'Pause slideshow'} aria-pressed={paused} onClick={() => { setInteracting(false); setPaused((value) => !value) }}>{paused ? 'Resume rotation' : 'Pause rotation'}</button>}
+          {!reducedMotion && <button type="button" className="hero-rotation-control" aria-label={paused ? 'Resume Slide' : 'Pause Slide'} aria-pressed={paused} onClick={() => { setInteracting(false); setPaused((value) => !value) }}>{paused ? 'Resume Slide' : 'Pause Slide'}</button>}
         </div>
       </>}
       <p className="hero-save-status" role="status">{saveStatus}</p>

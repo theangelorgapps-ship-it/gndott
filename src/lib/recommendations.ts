@@ -376,3 +376,36 @@ export function getContentRoute(content: Pick<Content, 'id' | 'type'> & Partial<
     default: return null
   }
 }
+
+/** Keep every browseable title, but use the existing preference engine for its initial order. */
+export function buildCatalogueRecommendations<T extends RecommendationCandidate>(candidates: T[], history: WatchHistoryEntry[], options: ProfileOptions = {}) {
+  const profile = buildWatchProfile(history, options)
+  const ranked = rankRecommendationCandidates(candidates, profile, options)
+  const byKey = new Map(candidates.map(item => [contentKey(item), item]))
+  const items = ranked.map(item => byKey.get(contentKey(item))!)
+  const payload = buildRecommendationPayload({ candidates, history, ...options })
+  return {
+    items,
+    suggestions: payload.forYou.map(item => byKey.get(contentKey(item))!),
+    personalized: profile.hasHistory,
+  }
+}
+
+/** Popular within each format, interleaved so the catalogue's largest format cannot hide the rest. */
+export function buildMixedPopular(candidates: RecommendationCandidate[], limit = 12): Content[] {
+  const now = Date.now()
+  const groups = ['movie', 'teaching', 'tvshow', 'video'].map(type => candidates.filter(item => item.type === type)
+    .sort((a, b) => Math.max(0, finiteNumber(b.total_views)) - Math.max(0, finiteNumber(a.total_views))
+      || effectiveTimestamp(b, now) - effectiveTimestamp(a, now) || stableOrder(a, b)))
+  const result: Content[] = []
+  const seen = new Set<string>()
+  for (let index = 0; result.length < limit && groups.some(group => group.length > index); index++) {
+    for (const group of groups) {
+      const item = group[index]
+      if (!item || seen.has(contentKey(item)) || result.length >= limit) continue
+      seen.add(contentKey(item))
+      result.push(toContent(item))
+    }
+  }
+  return result
+}

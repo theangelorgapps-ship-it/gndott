@@ -31,29 +31,39 @@ function HomeAds({ ads }: { ads: any[] }) {
 
 function Home() {
   const data = Route.useLoaderData() as any
-  const slides = data.heroes?.length ? data.heroes : (data.top10.length ? data.top10 : data.popularMovies).slice(0, 3)
+  const slides = data.heroes ?? []
   return (
     <div className="tv-home">
       <HeroSlider slides={slides} baseFor={(item) => contentBase(item.type)} bunnyLibraryId={data.bunnyLibraryId} />
       {data.continuing?.items?.length > 0 && <Rail title="Continue Watching" seeAll="/continue-watching">{data.continuing.items.map((item: any) => <ResumeCard key={item.cw_id} item={item} />)}</Rail>}
       {data.top10.length > 0 && <Rail title="Top 10">{data.top10.map((item: any, index: number) => <Top10Card key={item.id} item={item} rank={index + 1} base={contentBase(item.type)} />)}</Rail>}
-      <RecommendationGroups recommendations={data.recommendations} fallback={data.popularMovies} recentFallback={data.latest} />
+      <RecommendationGroups recommendations={data.recommendations} fallback={data.popular} recentFallback={data.latest} />
       <HomeAds ads={data.homeAds} />
-      {data.latest.length > 0 && <Rail title="New Released Sermons" seeAll="/sermons">{data.latest.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
+      {data.collections?.length > 0 && <section className="section home-explore" aria-labelledby="home-explore-heading">
+        <div className="section-head"><h2 id="home-explore-heading">Explore the Collection</h2></div>
+        <div className="home-explore-grid">{data.collections.map((collection: any) => {
+          const destinations: Record<string, string[]> = { movie: ['/sermons', 'Sermons', 'Find a message for today.'], teaching: ['/teachings', 'Teachings', 'Go deeper in the Word.'], tvshow: ['/shows', 'Shows', 'Start your next series.'], video: ['/videos', 'Videos', 'Make time for a new perspective.'] }
+          const destination = destinations[collection.type]
+          if (!destination) return null
+          return <Link key={collection.type} to={destination[0] as any} className="home-explore-card">
+            {collection.artwork && <img src={img(collection.artwork)} alt="" loading="lazy" />}
+            <span><small>{collection.count} {collection.count === 1 ? 'title' : 'titles'}</small><strong>{destination[1]}</strong><span>{destination[2]}</span></span>
+          </Link>
+        })}</div>
+      </section>}
       {data.payPerView?.length > 0 && <Rail title="Pay Per View" seeAll="/sermons">{data.payPerView.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
-      {data.popularMovies.length > 0 && <Rail title="Popular Sermons" seeAll="/sermons">{data.popularMovies.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
+      {data.popular?.length > 0 && <Rail title="Popular across Halobox">{data.popular.map((item: any) => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.channels.length > 0 && (
         <Rail title="Top Channels" seeAll="/live-tv">
           {data.channels.map((channel: any) => <Link key={channel.id} to={contentPath(channel,'/channel') as any} className="c-circle"><img src={img(channel.poster_url)} alt={channel.name} loading="lazy" /><div className="c-name">{channel.name}</div></Link>)}
         </Rail>
       )}
-      {data.popularTvShows.length > 0 && <Rail title="Popular Shows" seeAll="/shows">{data.popularTvShows.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.cast?.length > 0 && (
         <Rail title="Popular Personalities">
           {data.cast.map((person: any) => <PersonalityCard key={person.id} person={person} />)}
         </Rail>
       )}
-      {data.free.length > 0 && <Rail title="Free Sermons" seeAll="/sermons">{data.free.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
+      {data.free.length > 0 && <Rail title="Watch for Free">{data.free.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.genres.length > 0 && (
         <Rail title="Categories">
           {data.genres.map((genre: any) => <Link key={genre.id} to="/search" search={{ q: '', type: 'all', genre: Number(genre.id) }} className="home-genre-link liquid-glass"><LiquidGlassLayers /><span>{genre.name}</span></Link>)}

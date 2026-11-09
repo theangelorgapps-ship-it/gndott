@@ -21,8 +21,9 @@ function LiveAdmin() {
 }
 function ChannelSettings({ channel }: { channel: Awaited<ReturnType<typeof getLiveAdmin>>['channels'][number] }) {
   const router = useRouter()
-  const [sourceKind, setKind] = useState<'hls'|'rtmp'>(channel.source_kind || 'hls')
+  const [sourceKind, setKind] = useState<'hls'|'rtmp'|'embed'>(channel.source_kind || 'hls')
   const [hlsUrl, setHls] = useState(channel.hls_url || '')
+  const [embedUrl, setEmbed] = useState(channel.embed_url || '')
   const [ingestUrl, setIngest] = useState(channel.ingest_url || '')
   const [commentsEnabled, setComments] = useState(!!channel.comments_enabled)
   const [slowMode, setSlow] = useState(channel.slow_mode)
@@ -31,14 +32,14 @@ function ChannelSettings({ channel }: { channel: Awaited<ReturnType<typeof getLi
   const [error, setError] = useState('')
   return <form className="live-settings" onSubmit={async e => {
     e.preventDefault(); setBusy(true); setError(''); setStatus('')
-    try { await saveLiveSettings({ data: { channelId: channel.id, sourceKind, hlsUrl: hlsUrl.trim(), ingestUrl: ingestUrl.trim(), commentsEnabled, slowMode } }); setStatus('Channel settings saved.'); await router.invalidate() }
+    try { await saveLiveSettings({ data: { channelId: channel.id, sourceKind, embedUrl, hlsUrl: hlsUrl.trim(), ingestUrl: ingestUrl.trim(), commentsEnabled, slowMode } }); setStatus('Channel settings saved.'); await router.invalidate() }
     catch (e) { setError(e instanceof Error ? e.message : 'Unable to save settings.') }
     finally { setBusy(false) }
   }}>
     <h2>Stream settings</h2>
-    <label>Source<select value={sourceKind} onChange={e => setKind(e.target.value as 'hls'|'rtmp')}><option value="hls">HLS playback</option><option value="rtmp">RTMP broadcast via existing service</option></select></label>
+    <label>Source<select value={sourceKind} onChange={e => setKind(e.target.value as 'hls'|'rtmp'|'embed')}><option value="hls">HLS playback</option><option value="rtmp">RTMP broadcast via existing service</option><option value="embed">Embedded player</option></select></label>
     {sourceKind === 'rtmp' && <label>Private RTMP / RTMPS ingest URL<input type="password" autoComplete="off" spellCheck={false} value={ingestUrl} onChange={e => setIngest(e.target.value)} required /><small>Use your current streaming service. This address is visible only to administrators.</small></label>}
-    <label>HLS playback URL<input type="url" placeholder="https://…/playlist.m3u8" value={hlsUrl} onChange={e => setHls(e.target.value)} required={sourceKind === 'rtmp'} /><small>{sourceKind === 'hls' ? 'Leave empty to use the channel’s existing migrated stream.' : 'Paste the HLS output provided by the same streaming service. RTMP itself cannot play in the browser.'}</small></label>
+    {sourceKind === 'embed' ? <label>Player URL<input type="url" placeholder="https://iframe.viewmedia.tv?channel=030" value={embedUrl} onChange={e => setEmbed(e.target.value)} required/><small>Viewmedia, YouTube embed or Vimeo player URL.</small></label> : <label>HLS playback URL<input type="url" placeholder="https://…/playlist.m3u8" value={hlsUrl} onChange={e => setHls(e.target.value)} required={sourceKind === 'rtmp'} /><small>{sourceKind === 'hls' ? 'Leave empty to use the channel’s existing migrated stream.' : 'Paste the HLS output provided by the same streaming service. RTMP itself cannot play in the browser.'}</small></label>}
     <h2>Conversation</h2>
     <label className="live-switch"><input type="checkbox" role="switch" checked={commentsEnabled} onChange={e => setComments(e.target.checked)} /> Enable live comments</label>
     <p>Turning comments off blocks new viewer comments and replies. Existing messages and reporting remain available.</p>

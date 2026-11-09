@@ -43,7 +43,7 @@ const execute = (sql, params) => {
 request=json.load(sys.stdin)
 c=sqlite3.connect(':memory:');c.row_factory=sqlite3.Row
 c.executescript('''
-CREATE TABLE entertainments (id INTEGER,name TEXT,slug TEXT,description TEXT,type TEXT,poster_url TEXT,thumbnail_url TEXT,created_at TEXT,release_date TEXT,IMDb_rating TEXT,duration TEXT,language TEXT,movie_access TEXT,content_rating TEXT,trailer_url TEXT,bunny_video_url TEXT,bunny_trailer_url TEXT,video_url_input TEXT,video_upload_type TEXT,status INTEGER,deleted_at TEXT,is_restricted INTEGER);
+CREATE TABLE entertainments (id INTEGER,name TEXT,slug TEXT,description TEXT,type TEXT,poster_url TEXT,thumbnail_url TEXT,created_at TEXT,updated_at TEXT,total_views INTEGER,release_date TEXT,IMDb_rating TEXT,duration TEXT,language TEXT,movie_access TEXT,content_rating TEXT,trailer_url TEXT,bunny_video_url TEXT,bunny_trailer_url TEXT,video_url_input TEXT,video_upload_type TEXT,status INTEGER,deleted_at TEXT,is_restricted INTEGER);
 CREATE TABLE videos(id INTEGER,name TEXT,slug TEXT,description TEXT,poster_url TEXT,thumbnail_url TEXT,release_date TEXT,IMDb_rating TEXT,duration TEXT,access TEXT,content_rating TEXT,trailer_url TEXT,bunny_video_url TEXT,video_url_input TEXT,video_upload_type TEXT,status INTEGER,deleted_at TEXT,is_restricted INTEGER);
 CREATE TABLE video_gener_mappings(id INTEGER,video_id INTEGER,genre_id INTEGER,deleted_at TEXT);
 CREATE TABLE genres(id INTEGER,name TEXT,status INTEGER,deleted_at TEXT);
@@ -73,6 +73,9 @@ const server = load('src/lib/catalogue.ts', {
   './db': { all: async (sql, ...params) => execute(sql, params), first: async (_sql, profile, user) => { assert.deepEqual([profile, user], [21, 9]); return { is_child_profile: child } } },
   './viewer.server': { getActiveViewer: async () => ({ userId: 9, profileId: 21 }) },
   './catalogueFilters': filters,
+  './heroes.server': { loadConfiguredHeroes: async () => [] },
+  './recommendations.server': { isChildViewer: async () => !!child, loadRecommendationSignals: async () => ({ history: [], saved: [] }) },
+  './recommendations': load('src/lib/recommendations.ts', { './contentRoutes': load('src/lib/contentRoutes.ts') }),
 })
 const adult = await server.getCatalogue({ data: 'sermons' })
 assert.deepEqual(clean(adult.items.map(item => item.id)), [1, 2, 4])

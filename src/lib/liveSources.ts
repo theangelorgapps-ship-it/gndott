@@ -8,11 +8,25 @@ export function liveUrl(value: unknown, kind: 'hls' | 'rtmp' = 'hls'): string | 
   return u.href
  } catch { return null }
 }
-export function resolveLiveSource(settings: { hls_url?: string | null; source_kind?: string; ingest_url?: string | null } | null, mappings: { stream_type?: string; server_url?: string; server_url1?: string }[]) {
+/** Only known player endpoints may run in the embedded live player. Never render pasted HTML. */
+export function liveEmbedUrl(value: unknown): string | null {
+ if (typeof value !== 'string' || value.length > 4096) return null
+ const raw = value.trim()
+ const url = liveUrl(raw)
+ if (!url) return null
+ const u = new URL(url)
+ if (u.port && u.port !== '443') return null
+ if (u.hostname === 'iframe.viewmedia.tv' && u.pathname === '/' && /^\d{1,6}$/.test(u.searchParams.get('channel') || '') && [...u.searchParams.keys()].every(k => k === 'channel')) return u.href
+ if (['www.youtube.com', 'www.youtube-nocookie.com'].includes(u.hostname) && /^\/embed\/[a-zA-Z0-9_-]{11}$/.test(u.pathname)) return u.href
+ if (u.hostname === 'player.vimeo.com' && /^\/video\/\d+$/.test(u.pathname)) return u.href
+ return null
+}
+export function resolveLiveSource(settings: { hls_url?: string | null; embed_url?: string | null; source_kind?: string; ingest_url?: string | null } | null, mappings: { stream_type?: string; server_url?: string; server_url1?: string }[]) {
+ if (settings?.source_kind === 'embed') return liveEmbedUrl(settings.embed_url)
  if (settings?.hls_url) return liveUrl(settings.hls_url)
  if (settings?.source_kind === 'rtmp') return null
  const candidates = mappings.flatMap(row => [row.server_url, row.server_url1].map(url => ({ url: liveUrl(url), type: row.stream_type })))
- // Prefer actual HLS manifests over stale mapping rows containing an image/landing URL.
+ // Prefer actual HLS manifests over stale rows containing an image/landing URL.
  return candidates.find(x => x.url && /\.m3u8(?:[?#]|$)/i.test(x.url))?.url ??
   candidates.find(x => x.url && /hls/i.test(x.type || '') && !/\.(png|jpe?g|webp|avif|gif|html?)(?:[?#]|$)/i.test(x.url))?.url ?? null
 }

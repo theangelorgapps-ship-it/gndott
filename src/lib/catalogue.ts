@@ -1,7 +1,9 @@
 import { loadConfiguredHeroes } from './heroes.server'
 import { createServerFn } from '@tanstack/react-start'
 import type { Content } from './api'
-import { all, first } from './db'
+import { all } from './db'
+import { buildCatalogueRecommendations } from './recommendations'
+import { isChildViewer, loadRecommendationSignals } from './recommendations.server'
 import { getActiveViewer } from './viewer.server'
 import { catalogueCategories, catalogueYears, type CatalogueCategory } from './catalogueFilters'
 
@@ -25,13 +27,9 @@ export const getCatalogue = createServerFn({ method: 'GET' })
   })
   .handler(async ({ data: kind }) => {
     const viewer = await getActiveViewer()
-    const profile = viewer?.profileId ? await first<{ is_child_profile: number }>(
-      'SELECT is_child_profile FROM user_multi_profiles WHERE id = ? AND user_id = ? AND deleted_at IS NULL',
-      viewer.profileId, viewer.userId,
-    ) : null
-    const child = profile?.is_child_profile ? 1 : 0
+    const child = await isChildViewer(viewer) ? 1 : 0
     // Series is the episodic subset of Shows, not a new/invented content type.
-    type CatalogueRow = Omit<CatalogueTitle, 'categories' | 'genre_names'> & { categories_json: string }
+    type CatalogueRow = Omit<CatalogueTitle, 'categories' | 'genre_names'> & { categories_json: string; total_views?: number; created_at?: string; updated_at?: string }
     const rows = kind === 'videos' ? await all<CatalogueRow>(
       `SELECT v.id, v.name, v.slug, v.description, 'video' AS type, v.poster_url, v.thumbnail_url,
         v.release_date, v.IMDb_rating, v.duration, NULL AS language, v.access AS movie_access, v.content_rating,
@@ -49,6 +47,7 @@ export const getCatalogue = createServerFn({ method: 'GET' })
     ) : await all<CatalogueRow>(
       `SELECT e.id, e.name, e.slug, e.description, e.type, e.poster_url, e.thumbnail_url,
         e.release_date, e.IMDb_rating, e.duration, e.language, e.movie_access, e.content_rating,
+        e.total_views, e.created_at, e.updated_at,
         e.trailer_url, NULL AS bunny_video_url, e.bunny_trailer_url, CASE WHEN e.movie_access = 'free' THEN e.video_url_input ELSE NULL END AS video_url_input, e.video_upload_type,
         (SELECT json_group_array(json_object('id', category.id, 'name', category.name))
           FROM (SELECT DISTINCT g.id, g.name FROM genres g
@@ -67,12 +66,19 @@ export const getCatalogue = createServerFn({ method: 'GET' })
        ORDER BY e.name COLLATE NOCASE, e.id`,
       types[kind], child, kind === 'series' ? 1 : 0, child,
     )
-    const items: CatalogueTitle[] = rows.map(({ categories_json, ...item }) => {
+    const candidates = rows.map(({ categories_json, ...item }) => {
       const categories = catalogueCategories([{ categories: JSON.parse(categories_json || '[]') as CatalogueCategory[] }])
       return { ...item, categories, genre_names: categories.map(category => category.name).join(',') }
     })
+    const signals = kind === 'sermons' || kind === 'teachings'
+      ? await loadRecommendationSignals(viewer, !!child) : null
+    const ranked = signals ? buildCatalogueRecommendations(candidates, signals.history, { saved: signals.saved }) : null
+    // Return ordering, never profile history, preference weights or private ranking metadata.
+    const publicTitle = ({ total_views: _views, created_at: _created, updated_at: _updated, ...item }: typeof candidates[number]): CatalogueTitle => item
+    const items = (ranked?.items ?? candidates).map(publicTitle)
+    const suggestions = ranked?.suggestions.map(publicTitle) ?? []
     // Facets come from the entire visible catalogue, never just the first page or current results.
     const configured = await loadConfiguredHeroes(kind === 'shows' || kind === 'series' ? 'tv_show' : types[kind], !!child)
     const heroes = configured.filter(hero => items.some(item => item.id === hero.id && item.type === hero.type))
-    return { items, heroes, categories: catalogueCategories(items), years: catalogueYears(items) }
+    return { items, heroes, suggestions, personalized: ranked?.personalized ?? false, categories: catalogueCategories(items), years: catalogueYears(items) }
   })

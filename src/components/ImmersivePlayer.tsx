@@ -17,7 +17,7 @@ import { createDirectPlayback, type DirectPlayback, type VideoQuality } from './
 import { PlaybackEndScreen } from './PlaybackEndScreen'
 import { nearPlaybackEnd } from './playbackEnding'
 
-import { liveWindow } from '../lib/liveSources'
+import { liveWindow, liveEmbedUrl } from '../lib/liveSources'
 import { createIdleControls, createPlaybackWakeLock, supportsPictureInPicture, isPictureInPicture, togglePictureInPicture } from './playerCapabilities'
 
 type Panel = 'comments' | 'notes' | 'bible' | 'info' | null
@@ -82,11 +82,12 @@ export function ImmersivePlayer(props: WatchSectionProps) {
   const progressRef = useRef(progress)
   progressRef.current = progress
   const candidate = mediaUrl(directVideoUrl) || mediaUrl(trailerUrl)
-  const direct = !providerFallback && candidate && (live || /\.(mp4|webm|ogg|m4v|m3u8)(?:[?#]|$)/i.test(candidate)) ? candidate : null
-  const hasBunny = !direct && !!(bunnyLibraryId && bunnyVideoId)
+  const liveEmbed = live ? liveEmbedUrl(candidate) : null
+  const direct = !liveEmbed && !providerFallback && candidate && (live || /\.(mp4|webm|ogg|m4v|m3u8)(?:[?#]|$)/i.test(candidate)) ? candidate : null
+  const hasBunny = !liveEmbed && !direct && !!(bunnyLibraryId && bunnyVideoId)
   const yt = !hasBunny && !direct ? youtubeId(trailerUrl) : null
-  const source = hasBunny ? `https://iframe.mediadelivery.net/embed/${bunnyLibraryId}/${bunnyVideoId}?autoplay=false&preload=true&responsive=true&compactControls=true&showSpeed=false&showHeatmap=false` : yt ? `https://www.youtube.com/embed/${yt}?autoplay=0&rel=0` : null
-  const customControls = (ready || !!direct) && !fallback && !providerControls
+  const source = liveEmbed || (hasBunny ? `https://iframe.mediadelivery.net/embed/${bunnyLibraryId}/${bunnyVideoId}?autoplay=false&preload=true&responsive=true&compactControls=true&showSpeed=false&showHeatmap=false` : yt ? `https://www.youtube.com/embed/${yt}?autoplay=0&rel=0` : null)
+  const customControls = !liveEmbed && (ready || !!direct) && !fallback && !providerControls
   const idleState = useRef({ paused, panel, settingsOpen, mediaLoading })
   idleState.current = { paused, panel, settingsOpen, mediaLoading }
 
@@ -312,7 +313,7 @@ export function ImmersivePlayer(props: WatchSectionProps) {
       onPointerUpCapture={() => { holdingControl.current = false; revealControls() }}
       onPointerCancel={() => { holdingControl.current = false; scrubbing.current = false; setPosition(observed.current.position); revealControls() }}>
       <div className="tv-player-media">
-        {source ? <iframe ref={iframeRef} src={source} title={title} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen tabIndex={customControls ? -1 : 0} /> : direct ? <video ref={videoRef} poster={img(poster)} controls={!customControls} playsInline preload="metadata" onLoadedMetadata={(event) => { setReady(true); updateTiming(event.currentTarget.currentTime, event.currentTarget.duration) }} onRateChange={(event) => setSpeed(event.currentTarget.playbackRate)} onPlaying={() => { setMediaPlaying(true); setMediaLoading(false) }} onWaiting={() => setMediaLoading(true)} onTimeUpdate={(event) => updateTiming(event.currentTarget.currentTime, event.currentTarget.duration)} onPlay={() => { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); if (!live) resumeRef.current!.onPlay() }} onPause={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved() }} onEnded={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); if (!live) setEnded(true); flushObserved(); if (live) { setFallback(true); setMessage('This broadcast has ended. Reconnect when it resumes.') } }} onVolumeChange={(event) => { setMuted(event.currentTarget.muted); setVolume(event.currentTarget.volume) }} onError={() => { setMediaPlaying(false); setMediaLoading(false); if (bunnyLibraryId && bunnyVideoId) { setReady(false); setProviderFallback(true); setMessage('Opening the video provider’s player…') } else { setFallback(true); setMessage(live ? 'The live stream is unavailable or has ended. Try reconnecting.' : 'This video could not be loaded. Try its original link.') } }} /> : <img className="tv-player-poster" src={img(poster)} alt="" />}
+        {source ? <iframe ref={iframeRef} src={source} title={title} onLoad={() => { if (liveEmbed) setReady(true) }} sandbox={liveEmbed ? "allow-scripts allow-same-origin allow-presentation" : undefined} referrerPolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen tabIndex={customControls ? -1 : 0} /> : direct ? <video ref={videoRef} poster={img(poster)} controls={!customControls} playsInline preload="metadata" onLoadedMetadata={(event) => { setReady(true); updateTiming(event.currentTarget.currentTime, event.currentTarget.duration) }} onRateChange={(event) => setSpeed(event.currentTarget.playbackRate)} onPlaying={() => { setMediaPlaying(true); setMediaLoading(false) }} onWaiting={() => setMediaLoading(true)} onTimeUpdate={(event) => updateTiming(event.currentTarget.currentTime, event.currentTarget.duration)} onPlay={() => { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); if (!live) resumeRef.current!.onPlay() }} onPause={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved() }} onEnded={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); if (!live) setEnded(true); flushObserved(); if (live) { setFallback(true); setMessage('This broadcast has ended. Reconnect when it resumes.') } }} onVolumeChange={(event) => { setMuted(event.currentTarget.muted); setVolume(event.currentTarget.volume) }} onError={() => { setMediaPlaying(false); setMediaLoading(false); if (bunnyLibraryId && bunnyVideoId) { setReady(false); setProviderFallback(true); setMessage('Opening the video provider’s player…') } else { setFallback(true); setMessage(live ? 'The live stream is unavailable or has ended. Try reconnecting.' : 'This video could not be loaded. Try its original link.') } }} /> : <img className="tv-player-poster" src={img(poster)} alt="" />}
         {(mediaLoading || (!ready && !fallback && hasSource)) && <PlayerLoading kind="video" label="Loading video…" />}
         {panel && customControls && <button className="tv-player-panel-transport" type="button" onClick={togglePlay} aria-label={paused ? 'Play video while reading' : 'Pause video while reading'}>{paused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>}
       </div>

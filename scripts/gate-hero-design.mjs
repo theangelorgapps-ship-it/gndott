@@ -18,7 +18,7 @@ CREATE TABLE entertainments (
  poster_url TEXT, thumbnail_url TEXT, release_date TEXT, duration TEXT, movie_access TEXT DEFAULT 'free',
  status INTEGER DEFAULT 1, deleted_at TEXT, is_restricted INTEGER DEFAULT 0, video_url_input TEXT,
  bunny_video_url TEXT, bunny_trailer_url TEXT, trailer_url TEXT, language TEXT, content_rating TEXT,
- IMDb_rating TEXT, created_at TEXT, updated_at TEXT, created_by INTEGER, updated_by INTEGER, plan_id INTEGER
+ IMDb_rating TEXT, created_at TEXT, updated_at TEXT, created_by INTEGER, updated_by INTEGER, plan_id INTEGER, total_views INTEGER
 );
 CREATE TABLE videos (
  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, slug TEXT, description TEXT, poster_url TEXT,
@@ -27,9 +27,10 @@ CREATE TABLE videos (
  trailer_url TEXT, IMDb_rating TEXT, created_at TEXT, updated_at TEXT
 );
 CREATE TABLE banners (
- id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, type TEXT, type_id INTEGER, banner_for TEXT,
+ id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, type TEXT, type_id TEXT, banner_for TEXT,
  status INTEGER DEFAULT 1, file_url TEXT, poster_url TEXT, deleted_at TEXT, created_at TEXT, updated_at TEXT
-);`
+);
+CREATE TABLE banner_order (banner_id INTEGER PRIMARY KEY REFERENCES banners(id), sort_order INTEGER NOT NULL);`
 export const serial = value => JSON.parse(JSON.stringify(value))
 
 export function createHeroHarness(database) {

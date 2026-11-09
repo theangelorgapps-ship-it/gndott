@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader, getRequestUrl, setResponseHeader } from '@tanstack/react-start/server'
 import { all, first, run } from './db'
 import { getActiveViewer } from './viewer.server'
-import { liveUrl, resolveLiveSource } from './liveSources'
+import { liveUrl, liveEmbedUrl, resolveLiveSource } from './liveSources'
 import { subscriptionPlaybackAccess, entitlementDatabase } from './entitlement.server'
 import { resolveEntitlement } from './entitlement-core'
 
@@ -101,16 +101,22 @@ export const reportLiveComment=createServerFn({method:'POST'}).validator((d:{cha
  if(!(result.meta?.changes??result.changes))throw new Error('Please wait before sending another report.');return{ok:true}
 })
 export const getLiveAdmin=createServerFn({method:'GET'}).handler(async()=>{
- await admin();return{channels:await all<any>(`SELECT c.id,c.name,c.status,c.access,s.hls_url,s.ingest_url,s.source_kind,COALESCE(s.comments_enabled,1) AS comments_enabled,COALESCE(s.slow_mode,5) AS slow_mode FROM live_tv_channel c LEFT JOIN live_channel_settings s ON s.channel_id=c.id WHERE c.deleted_at IS NULL ORDER BY c.name`)}
+ await admin();return{channels:await all<any>(`SELECT c.id,c.name,c.status,c.access,s.hls_url,s.ingest_url,s.embed_url,s.source_kind,COALESCE(s.comments_enabled,1) AS comments_enabled,COALESCE(s.slow_mode,5) AS slow_mode FROM live_tv_channel c LEFT JOIN live_channel_settings s ON s.channel_id=c.id WHERE c.deleted_at IS NULL ORDER BY c.name`)}
 })
-export const saveLiveSettings=createServerFn({method:'POST'}).validator((d:{channelId:number;sourceKind:'hls'|'rtmp';hlsUrl:string;ingestUrl:string;commentsEnabled:boolean;slowMode:number})=>{
- id(d.channelId);if(!['hls','rtmp'].includes(d.sourceKind)||typeof d.commentsEnabled!=='boolean'||!Number.isInteger(d.slowMode)||d.slowMode<0||d.slowMode>120)throw new Error('Invalid channel settings.')
- if(typeof d.hlsUrl!=='string'||typeof d.ingestUrl!=='string'||(d.hlsUrl&&!liveUrl(d.hlsUrl))||(d.ingestUrl&&!liveUrl(d.ingestUrl,'rtmp')))throw new Error('Use a public HTTPS playback URL and a valid RTMP/RTMPS ingest URL.')
- if(d.sourceKind==='rtmp'&&(!d.hlsUrl||!d.ingestUrl))throw new Error('Add the existing service’s RTMP ingest and its HLS playback URL.')
- return d
+export const saveLiveSettings=createServerFn({method:'POST'}).validator((d:{channelId:number;sourceKind:'hls'|'rtmp'|'embed';hlsUrl:string;ingestUrl:string;embedUrl?:string;commentsEnabled:boolean;slowMode:number})=>{
+ id(d.channelId);if(!['hls','rtmp','embed'].includes(d.sourceKind)||typeof d.commentsEnabled!=='boolean'||!Number.isInteger(d.slowMode)||d.slowMode<0||d.slowMode>120)throw new Error('Invalid channel settings.')
+ // Source fields can remain in UI state after switching modes. Only the selected
+ // source is validated or persisted; hidden obsolete addresses must not block saving.
+ const hls=d.sourceKind==='embed'?'':typeof d.hlsUrl==='string'?d.hlsUrl.trim():null
+ const ingest=d.sourceKind==='rtmp'&&typeof d.ingestUrl==='string'?liveUrl(d.ingestUrl,'rtmp'):null
+ const embed=d.sourceKind==='embed'?liveEmbedUrl(d.embedUrl):null
+ if(hls===null||(hls&&!liveUrl(hls)))throw new Error('Use a public HTTPS HLS playback URL.')
+ if(d.sourceKind==='embed'&&!embed)throw new Error('Use a supported Viewmedia, YouTube or Vimeo player URL.')
+ if(d.sourceKind==='rtmp'&&(!hls||!ingest))throw new Error('Add the existing service’s RTMP ingest and its HLS playback URL.')
+ return {...d,hlsUrl:hls?liveUrl(hls)!:'',ingestUrl:ingest??'',embedUrl:embed??''}
 }).handler(async({data:d})=>{
  writeOrigin();const a=await admin();if(!await first('SELECT id FROM live_tv_channel WHERE id=? AND deleted_at IS NULL',d.channelId))throw new Error('Channel not found.')
- await run(`INSERT INTO live_channel_settings(channel_id,source_kind,hls_url,ingest_url,comments_enabled,slow_mode,updated_by) VALUES(?,?,?,?,?,?,?) ON CONFLICT(channel_id) DO UPDATE SET source_kind=excluded.source_kind,hls_url=excluded.hls_url,ingest_url=excluded.ingest_url,comments_enabled=excluded.comments_enabled,slow_mode=excluded.slow_mode,updated_by=excluded.updated_by,updated_at=datetime('now')`,d.channelId,d.sourceKind,d.hlsUrl.trim()||null,d.sourceKind==='rtmp'?d.ingestUrl.trim():null,d.commentsEnabled?1:0,d.slowMode,a.userId)
+ await run(`INSERT INTO live_channel_settings(channel_id,source_kind,hls_url,ingest_url,embed_url,comments_enabled,slow_mode,updated_by) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(channel_id) DO UPDATE SET source_kind=excluded.source_kind,hls_url=excluded.hls_url,ingest_url=excluded.ingest_url,embed_url=excluded.embed_url,comments_enabled=excluded.comments_enabled,slow_mode=excluded.slow_mode,updated_by=excluded.updated_by,updated_at=datetime('now')`,d.channelId,d.sourceKind,d.sourceKind==='embed'?null:d.hlsUrl.trim()||null,d.sourceKind==='rtmp'?d.ingestUrl.trim():null,d.sourceKind==='embed'?liveEmbedUrl(d.embedUrl):null,d.commentsEnabled?1:0,d.slowMode,a.userId)
  await run('INSERT INTO live_moderation_log(channel_id,admin_id,action) VALUES(?,?,?)',d.channelId,a.userId,'settings');return{ok:true}
 })
 export const moderateLive=createServerFn({method:'POST'}).validator((d:{channelId:number;targetId:number;action:string})=>{

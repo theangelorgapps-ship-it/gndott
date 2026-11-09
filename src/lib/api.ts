@@ -1,16 +1,18 @@
+import { sanitizePublicContentHtml } from './content-html'
 import type { HeroDesign } from './hero-design'
 import { loadConfiguredHeroes } from './heroes.server'
 import { createServerFn } from '@tanstack/react-start'
 import { playbackFields, positiveId, profileInput, publicHttpsUrl, readVastMedia } from './api-security'
 import { getSession, clearSessionCookie } from './session.server'
 import { all, first, run } from './db'
-import { buildRecommendationPayload, isMeaningfulWatch, parseWatchSeconds } from './recommendations'
+import { buildRecommendationPayload, buildMixedPopular, isMeaningfulWatch, parseWatchSeconds } from './recommendations'
+import { isChildViewer, loadRecommendationCandidates, loadRecommendationSignals } from './recommendations.server'
 import { getActiveViewer } from './viewer.server'
 import { subscriptionPlaybackAccess, entitlementDatabase } from './entitlement.server'
 import { resolveEntitlement, subscriptionDashboard } from './entitlement-core'
 import { requiresSubscription, subscriptionFields } from './subscriptionPolicy'
 import { loadPersonalities, loadTitlePeople, loadTitleLocations, loadPersonalityDetail } from './people.server'
-import type { RecommendationCandidate, RecommendationPayload, WatchHistoryEntry, SavedSignalEntry } from './recommendations'
+import type { RecommendationPayload } from './recommendations'
 
 export type { RecommendationPayload } from './recommendations'
 
@@ -103,52 +105,13 @@ interface RecommendationContext {
 async function loadRecommendations(context: RecommendationContext): Promise<RecommendationPayload> {
   const active = context.userId == null ? null : await getActiveViewer()
   const viewer = active?.userId === context.userId && active?.profileId ? active : null
-  const historyRequest = !viewer
-    ? Promise.resolve<WatchHistoryEntry[]>([])
-    : all<WatchHistoryEntry>(
-        `SELECT c.entertainment_id, COALESCE(c.entertainment_type, e.type) AS entertainment_type,
-                c.watched_time, c.total_watched_time, c.created_at, c.updated_at,
-                GROUP_CONCAT(DISTINCT g.name) AS genre_names
-         FROM continue_watch c
-         LEFT JOIN entertainments e ON e.id = c.entertainment_id
-           AND (c.entertainment_type IS NULL OR c.entertainment_type = e.type)
-         LEFT JOIN entertainment_gener_mapping m ON m.entertainment_id = e.id
-         LEFT JOIN genres g ON g.id = m.genre_id AND g.status = 1 AND g.deleted_at IS NULL
-         WHERE c.user_id = ? AND c.profile_id = ? AND c.deleted_at IS NULL
-         GROUP BY c.id ORDER BY COALESCE(c.updated_at, c.created_at) DESC, c.id DESC LIMIT 100`,
-        viewer.userId, viewer.profileId,
-      ).catch(() => [])
-  const savedRequest = !viewer ? Promise.resolve<SavedSignalEntry[]>([]) : all<SavedSignalEntry>(
-    `SELECT w.entertainment_id, e.type AS entertainment_type, w.created_at, w.updated_at,
-      GROUP_CONCAT(DISTINCT g.name) AS genre_names
-     FROM watchlists w JOIN entertainments e ON e.id = w.entertainment_id
-       AND (w.type IS NULL OR w.type = e.type) AND e.status = 1 AND e.deleted_at IS NULL
-     LEFT JOIN entertainment_gener_mapping m ON m.entertainment_id = e.id
-     LEFT JOIN genres g ON g.id = m.genre_id AND g.status = 1 AND g.deleted_at IS NULL
-     WHERE w.user_id = ? AND w.profile_id = ? AND w.deleted_at IS NULL
-     GROUP BY w.id ORDER BY COALESCE(w.updated_at, w.created_at) DESC LIMIT 100`,
-    viewer.userId, viewer.profileId,
-  ).catch(() => [])
-
-  const candidateRequest = all<RecommendationCandidate>(
-    `SELECT e.id, e.name, e.slug, e.description, e.type, e.poster_url, e.thumbnail_url,
-            e.release_date, e.IMDb_rating, e.duration, e.language, e.movie_access,
-            e.content_rating, e.trailer_url, e.bunny_trailer_url, CASE WHEN e.movie_access = 'paid' THEN NULL ELSE e.video_url_input END AS video_url_input, e.total_views, e.created_at, e.updated_at,
-            GROUP_CONCAT(DISTINCT g.name) AS genre_names
-     FROM entertainments e
-     LEFT JOIN entertainment_gener_mapping m ON m.entertainment_id = e.id
-     LEFT JOIN genres g ON g.id = m.genre_id AND g.status = 1 AND g.deleted_at IS NULL
-     WHERE e.status = 1 AND e.deleted_at IS NULL
-     GROUP BY e.id`,
-  ).catch(() => [])
-
-  const videoRequest = all<RecommendationCandidate>(`SELECT id, name, slug, description, 'video' AS type,
-    poster_url, thumbnail_url, release_date, IMDb_rating, duration, NULL AS language, access AS movie_access,
-    content_rating, trailer_url, NULL AS bunny_trailer_url, CASE WHEN access = 'free' THEN video_url_input ELSE NULL END AS video_url_input, 0 AS total_views, created_at, updated_at, NULL AS genre_names
-    FROM videos WHERE status = 1 AND deleted_at IS NULL`).catch(() => [])
-  const [history, saved, candidates, videos] = await Promise.all([historyRequest, savedRequest, candidateRequest, videoRequest])
+  const child = await isChildViewer(viewer)
+  const [{ history, saved }, candidates] = await Promise.all([
+    loadRecommendationSignals(viewer, child),
+    loadRecommendationCandidates(child),
+  ])
   return buildRecommendationPayload({
-    candidates: [...candidates, ...videos], history, saved,
+    candidates, history, saved,
     seed: viewer ? `${viewer.userId}:${viewer.profileId}` : 'guest',
     currentId: context.currentId,
     currentType: context.currentType,
@@ -162,37 +125,40 @@ export const getRecommendations = createServerFn({ method: 'GET' }).handler(asyn
 })
 
 export const getDashboard = createServerFn({ method: 'GET' }).handler(async () => {
+  const viewer = await getActiveViewer()
+  const child = await isChildViewer(viewer)
+  const visible = child ? ' AND COALESCE(is_restricted, 0) = 0' : ''
   const [top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon,
-    payPerView, languages, cast, mostWatched, heroes] =
+    payPerView, languages, cast, heroes, candidates, signals] =
     await Promise.all([
       all<Content>(
-        `SELECT ${HERO_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL ORDER BY total_views DESC LIMIT 10`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL${visible} ORDER BY total_views DESC LIMIT 10`,
       ).catch(() =>
         all<Content>(
-          `SELECT ${HERO_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 10`,
+          `SELECT ${HERO_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL${visible} ORDER BY id DESC LIMIT 10`,
         ),
       ),
       all<Content>(
-        `SELECT ${HERO_COLS} FROM entertainments WHERE type = 'movie' AND status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE type = 'movie' AND status = 1 AND deleted_at IS NULL${visible} ORDER BY id DESC LIMIT 12`,
       ),
       all<Content>(
-        `SELECT ${HERO_COLS} FROM entertainments WHERE type = 'tvshow' AND status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE type = 'tvshow' AND status = 1 AND deleted_at IS NULL${visible} ORDER BY id DESC LIMIT 12`,
       ),
       all<Content>(
-        `SELECT ${HERO_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL AND (release_date IS NULL OR release_date <= date('now')) ORDER BY release_date DESC LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL${visible} AND (release_date IS NULL OR release_date <= date('now')) ORDER BY release_date DESC LIMIT 12`,
       ),
       all<Content>(
-        `SELECT ${HERO_COLS} FROM entertainments WHERE movie_access = 'free' AND status = 1 AND deleted_at IS NULL LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE movie_access = 'free' AND status = 1 AND deleted_at IS NULL${visible} LIMIT 12`,
       ),
       all(`SELECT id, name, slug, file_url FROM genres WHERE status = 1 AND deleted_at IS NULL ORDER BY name`),
       all(
         `SELECT id, name, poster_url FROM live_tv_channel WHERE status = 1 AND deleted_at IS NULL LIMIT 12`,
       ).catch(() => []),
       all<Content>(
-        `SELECT ${HERO_COLS} FROM entertainments WHERE release_date > date('now') AND status = 1 AND deleted_at IS NULL ORDER BY release_date LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE release_date > date('now') AND status = 1 AND deleted_at IS NULL${visible} ORDER BY release_date LIMIT 12`,
       ),
       all<Content>(
-        `SELECT ${HERO_COLS} FROM entertainments WHERE movie_access = 'paid' AND status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE movie_access = 'paid' AND status = 1 AND deleted_at IS NULL${visible} ORDER BY id DESC LIMIT 12`,
       ),
       all(
         `SELECT language AS name, COUNT(*) AS titles FROM entertainments
@@ -200,15 +166,19 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
          GROUP BY language ORDER BY titles DESC LIMIT 10`,
       ).catch(() => []),
       loadPersonalities(12),
-      all<Content>(
-        `SELECT id, name, slug, description, poster_url, thumbnail_url, release_date, IMDb_rating, duration, trailer_url, NULL AS bunny_trailer_url, CASE WHEN access = 'free' THEN video_url_input ELSE NULL END AS video_url_input, 'video' AS type
-         FROM videos WHERE status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 12`,
-      ).catch(() => []),
-      loadConfiguredHeroes('home'),
+      loadConfiguredHeroes('home', child),
+      loadRecommendationCandidates(child),
+      loadRecommendationSignals(viewer, child),
     ])
-  const [session, bunnyLibraryId] = await Promise.all([getSession(), getBunnyLibraryId()])
-  const recommendations = await loadRecommendations({ userId: session?.uid ?? null })
-  return { top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon, payPerView, languages, cast, mostWatched, recommendations, bunnyLibraryId, heroes }
+  const bunnyLibraryId = await getBunnyLibraryId()
+  const recommendations = buildRecommendationPayload({ candidates, ...signals, seed: viewer?.profileId ? `${viewer.userId}:${viewer.profileId}` : 'guest' })
+  const popular = buildMixedPopular(candidates)
+  const mostWatched = buildMixedPopular(candidates.filter(item => item.type === 'video'))
+  const collections = (['movie', 'teaching', 'tvshow', 'video'] as const).flatMap(type => {
+    const titles = candidates.filter(item => item.type === type)
+    return titles.length ? [{ type, count: titles.length, artwork: titles.find(item => item.thumbnail_url || item.poster_url)?.thumbnail_url || titles.find(item => item.poster_url)?.poster_url || null }] : []
+  })
+  return { popular, collections, top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon, payPerView, languages, cast, mostWatched, recommendations, bunnyLibraryId, heroes }
 })
 
 export const getMovies = createServerFn({ method: 'GET' }).handler(async () => {
@@ -646,15 +616,17 @@ export const getCastDetail = createServerFn({ method: 'GET' })
   .validator((id: number) => positiveId(id))
   .handler(({ data: id }) => loadPersonalityDetail(id))
 
-export const getFaqs = createServerFn({ method: 'GET' }).handler(async () =>
-  all(`SELECT id, question, answer FROM faqs WHERE status = 1 AND deleted_at IS NULL ORDER BY id`),
-)
+export const getFaqs = createServerFn({ method: 'GET' }).handler(async () => {
+  const rows = await all<any>(`SELECT id, question, answer FROM faqs WHERE status = 1 AND deleted_at IS NULL ORDER BY id`)
+  return rows.map(row => ({ ...row, answer: sanitizePublicContentHtml(row.answer) }))
+})
 
 export const getPage = createServerFn({ method: 'GET' })
   .validator((slug: string) => slug)
-  .handler(async ({ data: slug }) =>
-    first<any>(`SELECT id, name, description FROM pages WHERE slug = ? AND status = 1 AND deleted_at IS NULL`, slug),
-  )
+  .handler(async ({ data: slug }) => {
+    const page = await first<any>(`SELECT id, name, description FROM pages WHERE slug = ? AND status = 1 AND deleted_at IS NULL`, slug)
+    return page ? { ...page, description: sanitizePublicContentHtml(page.description) } : null
+  })
 
 // ---------- trending / channels / ppv ----------
 

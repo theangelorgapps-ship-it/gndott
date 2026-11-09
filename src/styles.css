@@ -1297,3 +1297,6 @@ button, input, textarea, select { max-width: 100%; }
   .hero-preview { display: none; }
   .hero-sound-toggle, .pv-card { transition: none; }
 }
+
+/* Public page and FAQ content shares the semantic formatting produced by the admin editor. */
+:is(.page-content,.faq-a) p{margin:0 0 1em}:is(.page-content,.faq-a) p:last-child{margin-bottom:0}:is(.page-content,.faq-a) :is(h1,h2,h3,h4,h5,h6){font-weight:650;line-height:1.35;margin:1.3em 0 .6em;color:var(--text)}:is(.page-content,.faq-a) h1{font-size:2em}:is(.page-content,.faq-a) h2{font-size:1.6em}:is(.page-content,.faq-a) h3{font-size:1.3em}:is(.page-content,.faq-a) ul{list-style:disc;padding-left:1.7em;margin:1em 0}:is(.page-content,.faq-a) ol{list-style:decimal;padding-left:1.7em;margin:1em 0}:is(.page-content,.faq-a) li{margin:.35em 0}:is(.page-content,.faq-a) li p{margin:0}:is(.page-content,.faq-a) blockquote{border-left:3px solid var(--primary);padding-left:1em;margin:1em 0}:is(.page-content,.faq-a) a{color:var(--primary);text-decoration:underline;text-underline-offset:3px}:is(.page-content,.faq-a) pre{overflow:auto;border-radius:8px;background:#ffffff08;padding:14px}:is(.page-content,.faq-a) code{font-family:monospace}:is(.page-content,.faq-a) hr{border:0;border-top:1px solid var(--border);margin:1.5em 0}

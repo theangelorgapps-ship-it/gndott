@@ -12,11 +12,12 @@ const temporary = mkdtempSync(path.join(tmpdir(), 'halobox-playback-progress-'))
 let server, browser
 try {
   const fixture = `
-    window.reads=[];window.writes=[];window.persisted=[];window.sessionKey='1:11';
+    window.reads=[];window.writes=[];window.persisted=[];window.sessionKey='1:11';window.holdWrites=false;window.writeReleases=[];
     export const getPlaybackProgress=({data})=>new Promise((resolve,reject)=>window.reads.push({data,resolve,reject}));
     export const recordWatchProgress=async({data})=>{
       window.writes.push(data);
       const result=!window.sessionKey?{ok:false,needsAuth:true}:data.profileKey!=null&&data.profileKey!==window.sessionKey?{ok:false,needsProfile:true}:{ok:true};
+      if(window.holdWrites)await new Promise(resolve=>window.writeReleases.push(resolve));
       if(result.ok)window.persisted.push(data);
       return result;
     };
@@ -60,6 +61,68 @@ try {
   await settle(0)
   assert.deepEqual(await page.evaluate(()=>window.persisted),[{contentType:'movie',contentId:1,position:18,duration:600,profileKey:'1:11'}],'Closing during the read preserves the final observed position')
   assert.equal(await page.locator('output').count(),0)
+
+  await reset();await mount()
+  await page.evaluate(()=>{window.observe(12,600,true);window.closePlayback()})
+  await mount()
+  await page.evaluate(()=>window.observe(30,600,true))
+  await settle(1)
+  await page.evaluate(()=>window.closePlayback())
+  await settle(0)
+  assert.deepEqual(await page.evaluate(()=>window.persisted.map(value=>value.position)),[30],'Reopening the same title keeps the newer observation even after both sessions close')
+
+  await reset();await mount()
+  await page.evaluate(()=>{window.observe(12,600,true);window.closePlayback()})
+  await mount();await settle(1)
+  await page.evaluate(()=>window.closePlayback())
+  await settle(0)
+  assert.deepEqual(await page.evaluate(()=>window.persisted.map(value=>value.position)),[12],'Reopening without observing playback preserves the earlier valid observation')
+
+  await reset();await mount()
+  await page.evaluate(()=>{window.observe(12,600,true);window.closePlayback()})
+  await mount()
+  await page.evaluate(()=>window.observe(30,600,true))
+  await settle(1)
+  await page.evaluate(()=>window.observe(5,600,true))
+  await page.waitForFunction(()=>window.persisted.some(value=>value.position===5))
+  await page.evaluate(()=>window.closePlayback())
+  await settle(0)
+  assert.deepEqual(await page.evaluate(()=>window.persisted.map(value=>value.position)),[30,5],'A later backward seek wins over the older pending observation')
+
+  await reset();await mount();await settle(0)
+  await page.evaluate(()=>{window.holdWrites=true;window.observe(12,600,true)})
+  await page.waitForFunction(()=>window.writes.length===1)
+  await page.evaluate(()=>window.closePlayback())
+  await mount()
+  await page.evaluate(()=>window.observe(30,600,true))
+  await settle(1)
+  assert.equal(await page.evaluate(()=>window.writes.length),1,'Reopened playback waits for an older in-flight write to finish')
+  await page.evaluate(()=>window.writeReleases[0]())
+  await page.waitForFunction(()=>window.writes.length===2)
+  await page.evaluate(()=>window.writeReleases[1]())
+  await page.waitForFunction(()=>window.persisted.length===2)
+  assert.deepEqual(await page.evaluate(()=>window.persisted.map(value=>value.position)),[12,30],'Overlapping sessions write in observed order')
+
+  await reset();await mount();await settle(0)
+  await page.evaluate(()=>window.observe(12,600,true))
+  await page.waitForFunction(()=>window.persisted.length===1)
+  await page.evaluate(()=>{window.holdWrites=true;window.observe(30,600,true)})
+  await page.waitForFunction(()=>window.writes.length===2)
+  await page.evaluate(()=>{window.observe(12,600,true);window.writeReleases[0]()})
+  await page.waitForFunction(()=>window.persisted.length===2)
+  assert.equal(await page.evaluate(()=>window.writes.length),3,'Seeking back to the previously saved position still queues behind the in-flight write')
+  await page.evaluate(()=>window.writeReleases[1]())
+  await page.waitForFunction(()=>window.persisted.length===3)
+  assert.deepEqual(await page.evaluate(()=>window.persisted.map(value=>value.position)),[12,30,12])
+
+  await reset();await mount()
+  await page.evaluate(()=>{window.observe(12,600,true);window.closePlayback();window.sessionKey='1:12'})
+  await mount()
+  await page.evaluate(()=>window.observe(30,600,true))
+  await settle(1,'1:12')
+  await page.evaluate(()=>{window.closePlayback();window.sessionKey='1:11'})
+  await settle(0,'1:11')
+  assert.deepEqual(await page.evaluate(()=>window.persisted.map(value=>[value.profileKey,value.position])),[['1:12',30],['1:11',12]],'Observations from another profile cannot supersede a valid save for the original profile')
 
   await reset();await mount()
   await page.evaluate(()=>{window.observe(12,600,true);window.sessionKey='2:21'})
@@ -128,5 +191,5 @@ try {
   }
 
   assert.deepEqual(errors,[])
-  console.log('PLAYBACK_PROGRESS_BROWSER_OK: delayed read/close, title changes, read ordering, auth/profile isolation, missing ownership, read failure and no-event playback')
+  console.log('PLAYBACK_PROGRESS_BROWSER_OK: delayed read/close, title changes/reopens, observation and write ordering, backward seeks, auth/profile isolation, missing ownership, read failure and no-event playback')
 } finally {await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));rmSync(temporary,{recursive:true,force:true})}

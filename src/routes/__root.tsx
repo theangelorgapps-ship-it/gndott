@@ -2,7 +2,7 @@ import { BrandOpener } from '@/components/BrandOpener'
 import { contentPath } from '@/lib/contentRoutes'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import { Outlet, Link, createRootRoute, HeadContent, Scripts, useRouterState, useNavigate } from '@tanstack/react-router'
+import { Outlet, Link, createRootRoute, HeadContent, Scripts, useRouterState } from '@tanstack/react-router'
 import { Bookmark, BookOpen, ChevronDown, ChevronRight, Clapperboard, Clock3, Home, Layers, Menu, PlaySquare, Radio, ShoppingBag, Tv, UserRound, X } from 'lucide-react'
 import { getSessionUser, getFooterData } from '../lib/api'
 import { IconSearch } from '../components/Poster'
@@ -27,6 +27,7 @@ import '../player-chat-refinement.css'
 import '../release2-experience.css'
 import '../release2-visual.css'
 import '../player-interaction.css'
+import '../discovery.css'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -69,7 +70,6 @@ function destinationActive(pathname: string, item: typeof NAV_ITEMS[number]) {
 function RootComponent() {
   const { user, footer } = Route.useLoaderData()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const navigate = useNavigate()
   const [spotlightOpen, setSpotlightOpen] = useState(false)
   const [watchOpen, setWatchOpen] = useState(false)
   const watchRef = useRef<HTMLDivElement>(null)
@@ -148,7 +148,8 @@ function RootComponent() {
 
   const openSearch = () => {
     setMenuOpen(false)
-    void navigate({ to: '/search', search: { q: '' } as any })
+    setWatchOpen(false)
+    setSpotlightOpen(true)
   }
   const toggleMenu = () => {
     setSpotlightOpen(false)
@@ -173,7 +174,7 @@ function RootComponent() {
             ))}
           </nav>
           <div className="header-actions">
-            <Link to="/search" search={{ q: '' } as any} className="icon-btn-plain header-search" aria-label="Search"><IconSearch size={19} /></Link>
+            <button type="button" className="icon-btn-plain header-search" aria-label="Search" aria-haspopup="dialog" aria-expanded={spotlightOpen} aria-controls="catalogue-search-dialog" onClick={openSearch}><IconSearch size={19} /></button>
             {user && <Link to="/notifications" className="icon-btn-plain header-notifications" aria-label="Notifications"><IconBell /></Link>}
             {user ? <Link to="/account-setting" className="header-login">Account</Link> : <Link to="/login" className="header-login">Login</Link>}
             <Link to="/account-setting" className={`header-library${LIBRARY_ROUTES.includes(pathname) ? ' active' : ''}`} aria-label="Library" aria-current={LIBRARY_ROUTES.includes(pathname) ? 'page' : undefined}><Bookmark size={21} aria-hidden="true" /></Link>
@@ -195,7 +196,7 @@ function RootComponent() {
             <button type="button" className="mobile-menu-close" aria-label="Close menu" onClick={() => setMenuOpen(false)}><X size={22} aria-hidden="true" /></button>
           </div>
           <div className="mobile-menu-body">
-            <button type="button" className="mobile-menu-search" onClick={openSearch}><IconSearch size={21} /><span>Search messages, shows and more</span></button>
+            <button type="button" className="mobile-menu-search" aria-haspopup="dialog" aria-controls="catalogue-search-dialog" onClick={openSearch}><IconSearch size={21} /><span>Search messages, shows and more</span></button>
             <nav className="mobile-menu-nav" aria-label="Mobile navigation" onClick={(event) => { if (event.target instanceof Element && event.target.closest('a')) setMenuOpen(false) }}>
               {NAV_ITEMS.slice(0, 8).map((item, index) => {
                 const Icon = MENU_ICONS[index]
@@ -228,7 +229,7 @@ function RootComponent() {
           <Link to="/live-tv" className={destinationActive(pathname, NAV_ITEMS[5]) ? 'active' : ''} aria-current={destinationActive(pathname, NAV_ITEMS[5]) ? 'page' : undefined}><Radio size={23} /><span>Live TV</span></Link>
           <Link to="/shop" className={destinationActive(pathname, NAV_ITEMS[7]) ? 'active' : ''} aria-current={destinationActive(pathname, NAV_ITEMS[7]) ? 'page' : undefined}><ShoppingBag size={23} aria-hidden="true" /><span>Store</span></Link>
         </nav></MobileLiquidGlass>
-        <MobileLiquidGlass asChild interactive><Link to="/search" search={{ q: '' } as any} className={`mobile-search-circle liquid-glass${pathname === '/search' ? ' active' : ''}`} aria-label="Search"><IconSearch size={27} /></Link></MobileLiquidGlass>
+        <MobileLiquidGlass asChild interactive><button type="button" className={`mobile-search-circle liquid-glass${spotlightOpen ? ' active' : ''}`} aria-label="Search" aria-haspopup="dialog" aria-expanded={spotlightOpen} aria-controls="catalogue-search-dialog" onClick={openSearch}><IconSearch size={27} /></button></MobileLiquidGlass>
       </div>
 
       {pathname === '/' && <BrandOpener />}

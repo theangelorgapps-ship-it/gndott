@@ -126,7 +126,7 @@
   position: fixed; z-index: 65; inset: auto 0 0; color: #f5f7fc;
   padding: 14px clamp(20px,4vw,140px) max(14px,env(safe-area-inset-bottom,0px));
   background: linear-gradient(125deg,rgba(74,84,108,.76),rgba(18,22,32,.82));
-  backdrop-filter: blur(28px) saturate(145%); -webkit-backdrop-filter: blur(28px) saturate(145%);
+  -webkit-backdrop-filter: blur(28px) saturate(145%); backdrop-filter: blur(28px) saturate(145%);
   box-shadow: inset 0 1px 0 #ffffff28,0 -10px 38px #0004;
 }
 .store-purchase-bar-inner { display: flex; align-items: center; gap: 24px; max-width: 2400px; margin-inline: auto; flex-wrap: wrap; }
@@ -146,7 +146,7 @@
 .store-purchase-bar :is(button,input,a):focus-visible,.store-cart-preview :is(button,a):focus-visible { outline: 2px solid #b9cbff; outline-offset: 4px; }
 .store-quantity-error { position: absolute; bottom: -13px; left: 0; font-size: 10px; color: #ffd7d7; }
 .store-checkout-bar-message { width: 100%; margin: 0; color: #ffd7d7; font-size: 13px; }
-.store-cart-preview { position: fixed; z-index: 66; right: clamp(20px,4vw,140px); bottom: 100px; width: min(390px,calc(100vw - 32px)); max-height: calc(100dvh - 200px); overflow: auto; border-radius: 24px; padding: 20px; color: #f5f7fc; background: linear-gradient(130deg,#333d51ed,#111621f2); backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px); box-shadow: inset 0 1px #ffffff3b,0 16px 50px #0009; }
+.store-cart-preview { position: fixed; z-index: 66; right: clamp(20px,4vw,140px); bottom: 100px; width: min(390px,calc(100vw - 32px)); max-height: calc(100dvh - 200px); overflow: auto; border-radius: 24px; padding: 20px; color: #f5f7fc; background: linear-gradient(130deg,#333d51ed,#111621f2); -webkit-backdrop-filter: blur(28px); backdrop-filter: blur(28px); box-shadow: inset 0 1px #ffffff3b,0 16px 50px #0009; }
 .store-cart-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .store-cart-preview-heading h2 { margin: 0; font-size: 20px; }
 .store-cart-preview-heading button { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; color: inherit; background: #ffffff10; }
@@ -183,4 +183,4 @@
   .store-purchase-bar-inner { gap: 9px; }
   .store-cart-actions .store-cart-toggle>svg { display: none; }
 }
-@media(prefers-reduced-transparency:reduce) { .store-purchase-bar,.store-cart-preview { background: #1c2434; backdrop-filter: none; -webkit-backdrop-filter: none; } }
+@media(prefers-reduced-transparency:reduce) { .store-purchase-bar,.store-cart-preview { background: #1c2434; -webkit-backdrop-filter: none; backdrop-filter: none; } }

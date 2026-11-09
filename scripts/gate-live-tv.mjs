@@ -108,6 +108,8 @@ db.exec(`CREATE TABLE users(id INTEGER PRIMARY KEY,user_type TEXT,first_name TEX
 const liveSchema=readFileSync('migrations/20261108_live_tv.sql','utf8')
 db.exec(liveSchema.replace("CHECK(source_kind IN ('hls','rtmp'))", "CHECK(source_kind IN ('hls','rtmp','embed'))").replace('hls_url TEXT, ingest_url TEXT,','hls_url TEXT, ingest_url TEXT, embed_url TEXT,'))
 db.exec(readFileSync('migrations/20261108_live_chat_blocks.sql','utf8'))
+db.exec(readFileSync('migrations/20261109_live_moderators.sql','utf8'))
+db.exec(readFileSync('migrations/20261109_live_moderators.sql','utf8'))
 // Use the real shared-subscription database policy for paid-channel access.
 db.exec(`ALTER TABLE users ADD COLUMN email TEXT;
  UPDATE users SET email='viewer'||id||'@example.test';
@@ -120,9 +122,9 @@ const entitlementCore=load('src/lib/entitlement-core.ts')
 const entitlementDB={prepare(query){return{query,args:[],bind(...args){return{...this,args}},async first(){return db.prepare(this.query).get(...this.args)||null},async run(){return db.prepare(this.query).run(...this.args)}}}}
 
 const adapter={all:async(s,...p)=>db.prepare(s).all(...p),first:async(s,...p)=>db.prepare(s).get(...p)||null,run:async(s,...p)=>db.prepare(s).run(...p)}
-let viewer=null,origin='https://site.test';const asUser=n=>viewer=n?{userId:n,profileId:n===1?11:n===2?21:null,profileName:'Viewer'}:null
+let viewer=null,origin='https://site.test',fetchSite='same-origin';const asUser=n=>viewer=n?{userId:n,profileId:n===1?11:n===2?21:n===4?41:null,profileName:'Viewer'}:null
 const factory={createServerFn(){let validate=x=>x;return{validator(fn){validate=fn;return this},handler(fn){return async(input={})=>fn({data:validate(input.data)})}}}}
-const api=load('src/lib/liveTv.ts',{'@tanstack/react-start':factory,'@tanstack/react-start/server':{setResponseHeader(){},getRequestHeader:k=>k==='origin'?origin:null,getRequestUrl:()=> 'https://site.test/channel/34'},'./db':adapter,'./viewer.server':{getActiveViewer:async()=>viewer},'./liveSources':sources,'./entitlement-core':entitlementCore,'./entitlement.server':{entitlementDatabase:()=>entitlementDB,subscriptionPlaybackAccess:async()=>!!viewer&&entitlementCore.admitSubscriptionDevice(entitlementDB,{uid:viewer.userId,email:'viewer'+viewer.userId+'@example.test',sessionId:'live-'+viewer.userId},'Test browser')}})
+const api=load('src/lib/liveTv.ts',{'@tanstack/react-start':factory,'@tanstack/react-start/server':{setResponseHeader(){},getRequestHeader:k=>k==='origin'?origin:k==='sec-fetch-site'?fetchSite:null,getRequestUrl:()=> 'https://site.test/channel/34'},'./db':adapter,'./viewer.server':{getActiveViewer:async()=>viewer},'./liveSources':sources,'./entitlement-core':entitlementCore,'./entitlement.server':{entitlementDatabase:()=>entitlementDB,subscriptionPlaybackAccess:async()=>!!viewer&&entitlementCore.admitSubscriptionDevice(entitlementDB,{uid:viewer.userId,email:'viewer'+viewer.userId+'@example.test',sessionId:'live-'+viewer.userId},'Test browser')}})
 const call=(fn,data)=>api[fn]({data});const read=()=>call('getLiveDiscussion',{channelId:34});let sequence=0
 const post=(extra={})=>call('sendLiveComment',{channelId:34,body:'Hello',requestId:'test-message-'+String(++sequence).padStart(12,'0'),...extra})
 const age=()=>db.exec("UPDATE live_comments SET created_at=datetime('now','-3 minutes')")
@@ -188,4 +190,67 @@ asUser(null);assert.ok((await read()).comments.some(c=>c.id===secondId),'Public 
 asUser(1);origin='https://attacker.test';await assert.rejects(call('blockLiveViewer',{channelId:34,commentId:secondId}));await assert.rejects(call('unblockLiveViewer',{blockId}));origin='https://site.test'
 await call('unblockLiveViewer',{blockId});assert.equal((await read()).blocked.length,0);assert.ok((await read()).comments.some(c=>c.id===secondId),'Unblocking restores messages')
 age();await post({body:'❤️',requestId:'real-reaction-000000001'});await post({body:'❤️',requestId:'real-reaction-000000001'});assert.equal((await read()).comments.filter(c=>c.body==='❤️').length,1,'Reactions use authenticated idempotent messages');await assert.rejects(post({body:'❤️'}),/quickly/)
-console.log('LIVE_DISCUSSION_PASS');db.close()
+// Public moderation uses channel assignments, never the global administrator role.
+db.exec(`INSERT INTO users(id,user_type,first_name,status,is_banned,email) VALUES(4,'user','Moderator',1,0,'mod@example.test'),(5,'demo_admin','Demo',1,0,'demo@example.test');
+ INSERT INTO user_multi_profiles VALUES(41,4,0,NULL),(42,4,1,NULL);
+ INSERT INTO live_chat_moderators(channel_id,user_id,assigned_by) VALUES(34,4,3),(36,4,3),(37,4,3);
+ INSERT INTO live_chat_blocks(user_id,blocked_user_id,author_name) VALUES(4,2,'Blocked viewer');
+ INSERT INTO live_comments(channel_id,user_id,author_name,body,request_id) VALUES(34,5,'Demo','Staff message','demo-staff-message-00001'),(35,2,'Other viewer','Other channel report','other-channel-report-00001');
+ INSERT INTO live_comment_reports(channel_id,comment_id,user_id,reason,detail) SELECT 35,id,2,'spam','Other channel evidence' FROM live_comments WHERE channel_id=35;
+ INSERT INTO live_chat_mutes(channel_id,user_id,moderator_id) VALUES(35,2,3);`)
+asUser(4)
+assert.equal((await read()).canModerate,true)
+assert.equal((await read()).isAdmin,false)
+assert.equal((await call('getLiveChannel',34)).isAdmin,false)
+assert.equal((await read()).reports.length,1,'Assigned moderators can review other viewers’ reports')
+assert.ok((await read()).comments.some(c=>c.id===secondId),'Blocking cannot conceal evidence from assigned moderators')
+assert.equal((await read()).comments.find(c=>c.id===quotedId).reply_body,'Second viewer message','Moderation includes blocked reply evidence')
+assert.equal((await call('getLiveDiscussion',{channelId:35})).canModerate,false)
+assert.equal((await call('getLiveDiscussion',{channelId:35})).reports.length,0)
+assert.equal((await call('getLiveDiscussion',{channelId:35})).mutes.length,0)
+await assert.rejects(api.getLiveAdmin(),/Administrator/)
+await assert.rejects(call('saveLiveSettings',settings),/Administrator/)
+await assert.rejects(call('getLiveChannel',36),/subscription/)
+await assert.rejects(call('getLiveChannel',37),/not available/)
+const moderate=(action,targetId=secondId,channelId=34)=>call('moderateLive',{channelId,targetId,action})
+await assert.rejects(moderate('hide',secondId,35),/access/)
+await assert.rejects(moderate('hide',999999),/not found/)
+await assert.rejects(moderate('hide',db.prepare('SELECT id FROM live_comments WHERE channel_id=35').get().id),/not found/)
+await assert.rejects(moderate('resolve',db.prepare('SELECT id FROM live_comment_reports WHERE channel_id=35').get().id),/not found/)
+await assert.rejects(moderate('hide',secondId,36),/subscription/)
+await assert.rejects(moderate('hide',secondId,37),/not available/)
+await assert.rejects(moderate('delete'),/Invalid/)
+await assert.rejects(moderate('hide',-1),/valid/)
+origin='https://attacker.test';await assert.rejects(moderate('hide'),/not allowed/)
+origin=null;fetchSite='cross-site';await assert.rejects(moderate('hide'),/not allowed/)
+origin='https://site.test';fetchSite='same-origin'
+age();await post({body:'Ordinary moderator comment'})
+const moderatorComment=(await read()).comments.find(c=>c.body==='Ordinary moderator comment')
+assert.equal(moderatorComment.official,0,'Assignments cannot publish official administrator comments')
+await assert.rejects(post(),/quickly/);age();await assert.rejects(post({announcement:true}),/administrators/)
+viewer.profileId=42;assert.equal((await read()).canComment,false);await assert.rejects(post(),/profile/)
+viewer.profileId=null;await assert.rejects(post(),/profile/);viewer.profileId=41
+db.exec('INSERT INTO live_chat_mutes(channel_id,user_id,moderator_id) VALUES(34,4,3)')
+assert.equal((await read()).canComment,false);await assert.rejects(post(),/paused/)
+db.exec('DELETE FROM live_chat_mutes WHERE channel_id=34 AND user_id=4; UPDATE live_channel_settings SET comments_enabled=0 WHERE channel_id=34')
+assert.equal((await read()).canComment,false);await assert.rejects(post(),/paused/)
+db.exec('UPDATE live_channel_settings SET comments_enabled=1 WHERE channel_id=34')
+const demoComment=db.prepare('SELECT id FROM live_comments WHERE user_id=5').get().id
+for(const userId of [4,3]) {
+ asUser(userId)
+ for(const targetId of [moderatorComment.id,officialId,demoComment]) await assert.rejects(moderate('mute',targetId),/staff/)
+}
+asUser(4);await moderate('pin');assert.equal((await read()).comments[0].id,secondId)
+await moderate('unpin');await moderate('mute',ownId)
+assert.equal((await read()).mutes.some(m=>m.user_id===1),true)
+await moderate('unmute',ownId);await moderate('dismiss',reportId)
+assert.equal((await read()).reports[0].status,'dismissed')
+await moderate('resolve',reportId);await moderate('hide')
+assert.equal(db.prepare('SELECT hidden FROM live_comments WHERE id=?').get(secondId).hidden,1)
+assert.ok(db.prepare('SELECT COUNT(*) AS n FROM live_moderation_log WHERE admin_id=4').get().n>=6)
+db.exec('UPDATE users SET is_banned=1 WHERE id=4');assert.equal((await read()).canModerate,false);await assert.rejects(moderate('hide'),/access/)
+db.exec('UPDATE users SET is_banned=0 WHERE id=4; DELETE FROM live_chat_moderators WHERE channel_id=34 AND user_id=4')
+assert.equal((await read()).canModerate,false);assert.equal((await read()).reports.length,0);assert.equal((await read()).mutes.length,0)
+await assert.rejects(moderate('hide'),/access/)
+asUser(null);assert.equal((await read()).canModerate,false);await assert.rejects(moderate('hide'),/access/)
+console.log('LIVE_DISCUSSION_PASS: scoped public moderators, staff mute protection, reports/evidence, revocation, strict writes, unchanged admin/subscription/profile/posting restrictions');db.close()

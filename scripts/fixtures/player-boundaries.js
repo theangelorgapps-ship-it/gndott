@@ -5,8 +5,9 @@ async function boundary(name,input) {
   if(name==='getVideo')return {...common,video:title(input.data,'video')}
   if(name==='getTvShow')return {...common,show:{...title(input.data,'tvshow'),video_url_input:null},seasons:[{id:1,name:'Season 1'}],episodes:[{...title(20),name:'First episode',season_id:1,episode_index:1}]}
   if(name==='getLiveChannel')return {channel:{id:input.data,name:'Fixture Channel',access:'free'},related:[],streamUrl:input.data===99?null:input.data===98?'https://www.youtube.com/embed/dQw4w9WgXcQ':location.origin+'/fixture.m3u8',viewerId:null,isAdmin:false,unavailable:input.data===99?'This stream is unavailable.':null}
-  if(name==='getLiveDiscussion')return {signedIn:true,canComment:true,enabled:true,slowMode:5,isAdmin:false,blocked:[],mutes:[],reports:[],comments:[{id:1,author_name:'Fixture Viewer',body:'A message for local layout verification.',mine:false}]}
-  if(name==='sendLiveComment')throw Error('Please wait 5 seconds before commenting again.')
+  if(name==='getLiveDiscussion')return {signedIn:true,canComment:true,enabled:true,slowMode:5,isAdmin:false,canModerate:input.data.channelId===77,blocked:[],mutes:[],reports:input.data.channelId===77?[{id:11,comment_id:1,reason:'spam',status:'open',body:'Reported fixture message'}]:[],comments:[{id:1,author_name:'Fixture Viewer',body:'A message for local layout verification.',mine:false}]}
+  if(name==='moderateLive'){(window.fixtureModerationCalls??=[]).push(input.data);return {ok:true}}
+  if(name==='sendLiveComment'){(window.fixtureCommentCalls??=[]).push(input.data);throw Error('Please wait 5 seconds before commenting again.')}
   if(name==='getWatchlist')return {items:[]}
   if(name==='getPlaybackProgress')return {position:0,duration:0}
   if(name==='recordWatchProgress')return {ok:true}

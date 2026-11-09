@@ -105,11 +105,41 @@ with sync_playwright() as p:
   print(f'PASS: {width}×{height} borderless chat, unclipped viewport-safe picker, Escape, typing after idle, emoji and rate-limit error.')
   page.context.close()
  mobile=page_for(390,844,True);mobile.goto(BASE+'/')
- card=mobile.locator('.p-card-link').first;card.tap();expect(mobile.locator('.p-inline-preview')).to_be_visible()
+ card=mobile.locator('.p-card-link .p-poster').first;card.tap();expect(mobile.locator('.p-inline-preview')).to_be_visible()
  assert mobile.url==BASE+'/'
  mobile.locator('.p-inline-action-row').get_by_role('link',name='Watch',exact=True).tap()
  expect(mobile.get_by_role('button',name='Close playback',exact=True)).to_be_visible()
  print('PASS: mobile thumbnail tap previews; explicit Watch enters playback.')
+ for name,path in [('Fixture Sermon','/movie/'),('Fixture Video','/video/'),('Fixture Series','/tv-show/')]:
+  mobile.goto(BASE+'/')
+  mobile.locator('.p-card-link .p-name').filter(has_text=name).tap()
+  expect(mobile.get_by_role('button',name='Close playback',exact=True)).to_be_visible()
+  assert path in mobile.url and mobile.url.endswith('#watch'),mobile.url
+  expect(mobile.locator('.p-inline-preview')).to_have_count(0)
+  mobile.get_by_role('button',name='Close playback',exact=True).tap()
+  assert '#watch' not in mobile.url and path in mobile.url
+ print('PASS: real touch taps on movie, video and series title text open playback directly and close back to detail.')
+ # The public chat uses the shipping component with an assigned, non-admin capability.
+ open_player(mobile,'/channel/moderated-77#watch')
+ mobile.get_by_role('button',name='Live discussion',exact=True).tap()
+ expect(mobile.get_by_role('tab',name='Reports',exact=True)).to_be_visible()
+ mobile.get_by_role('tab',name='Reports',exact=True).tap()
+ expect(mobile.get_by_text('Reported fixture message',exact=True)).to_be_visible()
+ mobile.get_by_role('button',name='Resolve',exact=True).tap()
+ expect(mobile.get_by_text('Moderation saved.',exact=True)).to_be_visible()
+ assert mobile.evaluate('window.fixtureModerationCalls')==[{'channelId':77,'targetId':11,'action':'resolve'}]
+ mobile.get_by_role('tab',name='Live comments',exact=True).tap()
+ mobile.get_by_label('Options for Fixture Viewer’s message',exact=True).tap()
+ mobile.get_by_role('button',name='Hide',exact=True).tap()
+ expect(mobile.get_by_text('Moderation saved.',exact=True)).to_be_visible()
+ assert mobile.evaluate('window.fixtureModerationCalls.at(-1)')=={'channelId':77,'targetId':1,'action':'hide'}
+ mobile.get_by_role('tab',name='Admin comments',exact=True).tap()
+ expect(mobile.get_by_label('Official announcement',exact=True)).to_have_count(0)
+ mobile.get_by_label('Your comment',exact=True).fill('A regular moderator response')
+ mobile.get_by_role('button',name='Send comment',exact=True).tap()
+ expect(mobile.get_by_role('alert')).to_have_text('Please wait 5 seconds before commenting again.')
+ assert mobile.evaluate('window.fixtureCommentCalls.at(-1).announcement') is False
+ print('PASS: assigned public moderator sees reports/actions; real controls send scoped targets without administrator announcements.')
  assert not errors,errors
  browser.close()
 print('PLAYER_INTERACTIONS_BROWSER_OK')

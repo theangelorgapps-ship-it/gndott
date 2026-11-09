@@ -12,7 +12,7 @@ const tabs = ['Live comments', 'Responses', 'Admin comments', 'Reports'] as cons
 const reactions = [{ emoji: '❤️', label: 'heart' }, { emoji: '🙌', label: 'praise' }, { emoji: '🙏', label: 'prayer' }, { emoji: '😊', label: 'smile' }, { emoji: '💯', label: 'one hundred' }]
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(word => word.charAt(0)).join('').toUpperCase()
 /** Viewer presentation and moderation share the existing authenticated chat API. */
-export function LiveDiscussion({ channelId, moderation = false }: { channelId: number; moderation?: boolean }) {
+export function LiveDiscussion({ channelId }: { channelId: number }) {
   const [data, setData] = useState<Discussion | null>(null)
   const [tab, setTab] = useState<typeof tabs[number]>('Live comments')
   const [body, setBody] = useState(''), [reply, setReply] = useState<{ id: number; author_name: string } | null>(null)
@@ -62,7 +62,7 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
     return () => { dialog.close(); blockTrigger.current?.focus({ preventScroll: true }) }
   }, [blockTarget])
   useEffect(() => { if (report !== null) reportForm.current?.querySelector('select')?.focus({ preventScroll: true }) }, [report])
-  const canModerate = moderation && !!data?.isAdmin
+  const canModerate = !!data?.canModerate
   const activeTab = canModerate ? tab : 'Live comments'
   const filtered = data?.comments.filter(c => activeTab === 'Responses' ? !!c.parent_id : activeTab === 'Admin comments' ? !!c.official : true) ?? []
   const pinned = canModerate ? [] : filtered.filter(c => c.pinned)
@@ -86,7 +86,7 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
   const moderate = (targetId: number, action: string) => mutate(() => moderateLive({ data: { channelId, targetId, action } }), () => setNotice('Moderation saved.'))
   function send(text = body, reaction = false) {
     if (!text.trim() || !data?.canComment) return
-    const parentId = reaction ? undefined : reply?.id, announcement = canModerate && activeTab === 'Admin comments'
+    const parentId = reaction ? undefined : reply?.id, announcement = !!data.isAdmin && activeTab === 'Admin comments'
     const key = JSON.stringify([text, parentId, announcement])
     if (submission.current?.text !== key) submission.current = { text: key, id: crypto.randomUUID() }
     const requestId = submission.current.id
@@ -143,7 +143,7 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
         </form>}
         {activeTab!=='Reports'&&(data.canComment?<form className="live-composer chat-composer" onSubmit={e=>{e.preventDefault();send()}}>
           {reply&&<p className="chat-replying">Replying to {reply.author_name}<button type="button" aria-label="Cancel reply" onClick={()=>setReply(null)}><X size={16}/></button></p>}
-          <label className="chat-sr-only" htmlFor={`${prefix}-message`}>{canModerate&&activeTab==='Admin comments'?'Official announcement':'Your comment'}</label>
+          <label className="chat-sr-only" htmlFor={`${prefix}-message`}>{data.isAdmin&&activeTab==='Admin comments'?'Official announcement':'Your comment'}</label>
           <div className="chat-input-row"><div className="chat-input-pill"><textarea ref={composer} id={`${prefix}-message`} rows={1} maxLength={1000} value={body} readOnly={busy} aria-busy={busy} onChange={e=>setBody(e.target.value)} placeholder="Chat…" required onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send()}}}/><button ref={emojiTrigger} type="button" aria-label="Add emoji" aria-expanded={emojiOpen} disabled={busy} onClick={()=>setEmojiOpen(value=>!value)}><Smile size={22}/></button></div><button type="submit" className="chat-send" disabled={busy||!body.trim()} aria-label={busy?'Sending comment':'Send comment'}><Send size={23}/></button></div>
           {emojiOpen&&<ChatPicker anchor={emojiTrigger} className="chat-emoji-options" label="Add emoji to comment" onClose={()=>setEmojiOpen(false)}>{[...reactions,{emoji:'✨',label:'sparkles'},{emoji:'👏',label:'applause'},{emoji:'🔥',label:'fire'}].map(r=><button key={r.label} type="button" aria-label={`Add ${r.label}`} onClick={()=>{setBody(value=>(value+r.emoji).slice(0,1000));setEmojiOpen(false);composer.current?.focus()}}>{r.emoji}</button>)}</ChatPicker>}
           {body.length>800&&<p className="chat-composer-hint">{body.length}/1,000</p>}

@@ -117,6 +117,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
   useEffect(() => {
     const host = marker.current?.closest('.p-card') as HTMLElement | null
     const link = host?.querySelector('.p-card-link')
+    const thumbnail = link?.querySelector('.p-poster')
     if (!host || !link) return
     let removal: ReturnType<typeof setTimeout> | undefined
     let present = false
@@ -163,7 +164,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
     }
     const blur = (event: FocusEvent) => { if (!host.contains(event.relatedTarget as Node) && !popup.current?.contains(event.relatedTarget as Node)) hide() }
     const down = (event: PointerEvent) => {
-      if (!link.contains(event.target as Node) || event.pointerType === 'mouse') return
+      if (!thumbnail?.contains(event.target as Node) || event.pointerType === 'mouse') return
       gesture = {x: event.clientX, y: event.clientY, moved: false}; suppressClick = false; clearTimeout(resetClick)
     }
     const move = (event: PointerEvent) => {
@@ -178,7 +179,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
       clearTimeout(resetClick); resetClick = setTimeout(() => { suppressClick = false }, 700)
     }
     const click = (event: MouseEvent) => {
-      if (!link.contains(event.target as Node) || !event.detail || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      if (!thumbnail?.contains(event.target as Node) || !event.detail || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
       if (!window.matchMedia('(hover: none), (pointer: coarse)').matches) return
       event.preventDefault(); event.stopPropagation()
       if (!suppressClick) show(true)

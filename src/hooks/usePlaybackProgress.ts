@@ -13,7 +13,10 @@ export function usePlaybackProgress(identity: Identity, enabled = true) {
   const [saved, setSaved] = useState<PlaybackPosition | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [saveError, setSaveError] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [saveRequirement, setSaveRequirement] = useState<'profile' | 'auth' | null>(null)
+  const profileKey = useRef<string | null | undefined>(undefined)
+  const readComplete = useRef(false)
   const blockedRequirement = useRef(false)
   const latest = useRef<PlaybackPosition | null>(null)
   const lastWritten = useRef('')
@@ -22,16 +25,17 @@ export function usePlaybackProgress(identity: Identity, enabled = true) {
   const { contentType, contentId } = identity
 
   const flush = useCallback(() => {
-    if (!enabled || blockedRequirement.current) return
+    if (!enabled || !readComplete.current || blockedRequirement.current) return
     const value = latest.current
     if (!value) return
     const signature = `${Math.floor(value.position)}:${Math.floor(value.duration)}`
     if (signature === lastWritten.current) return
+    const expectedProfile = profileKey.current
     lastWriteAt.current = Date.now()
     // Preserve event ordering: an older request must not overwrite a later pause.
     pending.current = (pending.current ?? Promise.resolve()).catch(() => undefined).then(async () => {
       try {
-        const result = await recordWatchProgress({ data: { contentType, contentId, ...value } })
+        const result = await recordWatchProgress({ data: { contentType, contentId, ...value, profileKey: expectedProfile } })
         if (result.ok) { lastWritten.current = signature; setSaveError(false) }
         else if ('needsProfile' in result && result.needsProfile) { blockedRequirement.current = true; setSaveRequirement('profile'); setSaveError(false) }
         else if ('needsAuth' in result && result.needsAuth) { blockedRequirement.current = true; setSaveRequirement('auth'); setSaveError(false) }
@@ -43,6 +47,9 @@ export function usePlaybackProgress(identity: Identity, enabled = true) {
   useEffect(() => {
     let active = true
     setLoaded(false)
+    setLoadError(false)
+    readComplete.current = false
+    profileKey.current = undefined
     setSaved(null)
     latest.current = null
     lastWritten.current = ''
@@ -50,8 +57,8 @@ export function usePlaybackProgress(identity: Identity, enabled = true) {
     setSaveRequirement(null)
     if (!enabled) { setLoaded(true); return }
     getPlaybackProgress({ data: { contentType, contentId } }).then((result) => {
-      if (active) setSaved(validPlaybackPosition(result.position, result.duration))
-    }).catch(() => undefined).finally(() => { if (active) setLoaded(true) })
+      if (active) { profileKey.current = result.profileKey; setSaved(validPlaybackPosition(result.position, result.duration)); readComplete.current = true; flush() }
+    }).catch(() => { if (active) { blockedRequirement.current = true; setLoadError(true) } }).finally(() => { if (active) setLoaded(true) })
     const onHidden = () => { if (document.visibilityState === 'hidden') flush() }
     document.addEventListener('visibilitychange', onHidden)
     return () => { active = false; document.removeEventListener('visibilitychange', onHidden); flush() }
@@ -64,5 +71,5 @@ export function usePlaybackProgress(identity: Identity, enabled = true) {
     latest.current = actual
     if (immediately || Date.now() - lastWriteAt.current >= 10_000) flush()
   }, [flush, enabled])
-  return { saved, loaded, record, flush, saveError, saveRequirement }
+  return { saved, loaded, record, flush, saveError, loadError, saveRequirement }
 }

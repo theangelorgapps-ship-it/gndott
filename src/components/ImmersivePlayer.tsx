@@ -10,6 +10,7 @@ import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, X, SlidersHorizonta
 import { BiblePanel, ContentNotes, youtubeId, type WatchSectionProps } from './Detail'
 import { img, plainText } from './Poster'
 import { createPlayerBridge, type PlayerBridge } from './playerBridge'
+import { createYouTubeBridge } from './youtubeBridge'
 import { usePlaybackProgress } from '../hooks/usePlaybackProgress'
 import { useTypingViewport } from '../hooks/useTypingViewport'
 import { PlayerLoading } from './PlayerLoading'
@@ -87,8 +88,8 @@ export function ImmersivePlayer(props: WatchSectionProps) {
   const direct = !liveEmbed && !providerFallback && candidate && (live || /\.(mp4|webm|ogg|m4v|m3u8)(?:[?#]|$)/i.test(candidate)) ? candidate : null
   const hasBunny = !liveEmbed && !direct && !!(bunnyLibraryId && bunnyVideoId)
   const yt = !hasBunny && !direct ? youtubeId(trailerUrl) : null
-  const source = liveEmbed || (hasBunny ? `https://iframe.mediadelivery.net/embed/${bunnyLibraryId}/${bunnyVideoId}?autoplay=false&preload=true&responsive=true&compactControls=true&showSpeed=false&showHeatmap=false` : yt ? `https://www.youtube.com/embed/${yt}?autoplay=0&rel=0` : null)
-  const customControls = !liveEmbed && (ready || !!direct) && !fallback && !providerControls
+  const source = liveEmbed || (hasBunny ? `https://iframe.mediadelivery.net/embed/${bunnyLibraryId}/${bunnyVideoId}?autoplay=false&preload=true&responsive=true&compactControls=true&showSpeed=false&showHeatmap=false` : yt ? `https://www.youtube.com/embed/${yt}?autoplay=0&rel=0&enablejsapi=1` : null)
+  const customControls = !liveEmbed && !yt && (ready || !!direct) && !fallback && !providerControls
   const idleState = useRef({ settingsOpen })
   idleState.current = { settingsOpen }
 
@@ -192,11 +193,11 @@ export function ImmersivePlayer(props: WatchSectionProps) {
   }, [direct, bunnyLibraryId, bunnyVideoId, live, retry])
 
   useEffect(() => {
-    if (!hasBunny || !iframeRef.current) return
+    if ((!hasBunny && !yt) || !iframeRef.current) return
     let active = true
-    const fail = () => { if (active) { setFallback(true); setMessage('Use the video player’s controls to watch.'); } }
+    const fail = () => { if (active) { setFallback(true); setMessage(yt ? 'Use the video player’s controls to watch. Progress cannot be saved until the video connection is restored.' : 'Use the video player’s controls to watch.'); } }
     const timeout = setTimeout(fail, 8000)
-    const bridge = createPlayerBridge(iframeRef.current, {
+    const bridge = (yt ? createYouTubeBridge : createPlayerBridge)(iframeRef.current, {
       ready: (player) => {
         if (!active) return
         clearTimeout(timeout)
@@ -216,7 +217,7 @@ export function ImmersivePlayer(props: WatchSectionProps) {
     })
     bridgeRef.current = bridge
     return () => { active = false; clearTimeout(timeout); bridge.destroy(); bridgeRef.current = null }
-  }, [hasBunny, source, flushObserved, updateTiming])
+  }, [hasBunny, yt, source, flushObserved, updateTiming])
 
   const seek = useCallback((next: number) => {
     if (!ready || !Number.isFinite(next)) return
@@ -378,6 +379,7 @@ export function ImmersivePlayer(props: WatchSectionProps) {
           {panel === 'comments' ? liveDiscussion : panel === 'info' ? <div className="tv-player-info"><img src={img(props.portrait || poster)} alt="" /><div><h3>{title}</h3><p>{plainText(description) || 'No description is available for this title.'}</p>{metadata.filter(Boolean).length > 0 && <p className="tv-player-meta">{metadata.filter(Boolean).join(' · ')}</p>}</div>{Boolean(props.locations?.length) && <TitlePeople locations={props.locations} />}<div className="tv-player-info-actions">{customControls && <><button type="button" onClick={() => continueWatching(true)}><Play size={17} fill="currentColor" /> {live ? 'Back to live' : 'From Beginning'}</button><button type="button" onClick={() => continueWatching()}>Continue Watching</button></>}</div></div> : panel === 'notes' ? <ContentNotes contentType={contentType} contentId={contentId} title={title} /> : <BiblePanel />}
         </section>}
         {!live && progress.saveRequirement && <p className="tv-player-status"><a href={progress.saveRequirement === 'profile' ? '/manage-profile' : '/login'}>{progress.saveRequirement === 'profile' ? 'Choose a profile to save your place' : 'Sign in to save your place'}</a></p>}
+        {progress.loadError && <p className="tv-player-status" role="status">Your viewing activity could not load. Reopen this title to save progress.</p>}
         {(message || progress.saveError) && <p className="tv-player-status" role="status">{message || 'Your latest progress could not be saved. We’ll try again as you watch.'}</p>}
         {fallback && live && <button type="button" className="btn btn-primary" onClick={() => { setFallback(false); setReady(false); setPaused(true); pausedIntent.current = true; setMessage('Press Play to reconnect.'); setRetry(n => n + 1) }}>Reconnect stream</button>}
         {fallback && !live && candidate && <a className="tv-player-original" href={candidate} target="_blank" rel="noreferrer">Open original video ↗</a>}

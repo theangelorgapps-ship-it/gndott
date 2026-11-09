@@ -13,13 +13,20 @@ const queries = []
 const columns = {
 users:'id INTEGER PRIMARY KEY,status INTEGER DEFAULT 1,is_banned INTEGER DEFAULT 0,deleted_at TEXT',
 user_multi_profiles:'id INTEGER PRIMARY KEY,user_id INTEGER,name TEXT,avatar TEXT,is_child_profile INTEGER,deleted_at TEXT',
-entertainments:'id INTEGER PRIMARY KEY,name TEXT,slug TEXT,description TEXT,type TEXT,poster_url TEXT,thumbnail_url TEXT,release_date TEXT,IMDb_rating TEXT,duration TEXT,language TEXT,movie_access TEXT,content_rating TEXT,trailer_url TEXT,total_views INTEGER,created_at TEXT,updated_at TEXT,status INTEGER DEFAULT 1,deleted_at TEXT',
-videos:'id INTEGER PRIMARY KEY,name TEXT,slug TEXT,description TEXT,poster_url TEXT,thumbnail_url TEXT,release_date TEXT,IMDb_rating TEXT,duration TEXT,access TEXT,content_rating TEXT,trailer_url TEXT,created_at TEXT,updated_at TEXT,status INTEGER DEFAULT 1,deleted_at TEXT',
+entertainments:'id INTEGER PRIMARY KEY,name TEXT,slug TEXT,description TEXT,type TEXT,poster_url TEXT,thumbnail_url TEXT,release_date TEXT,IMDb_rating TEXT,duration TEXT,language TEXT,movie_access TEXT,is_restricted INTEGER DEFAULT 0,content_rating TEXT,bunny_trailer_url TEXT,video_upload_type TEXT,bunny_video_url TEXT,video_url_input TEXT,enable_quality INTEGER,enable_subtitle INTEGER,subtitle_file TEXT,subtitle_language TEXT,plan_id INTEGER,price REAL,purchase_type TEXT,access_duration TEXT,available_for TEXT,meta_title TEXT,meta_description TEXT,trailer_url TEXT,total_views INTEGER,created_at TEXT,updated_at TEXT,status INTEGER DEFAULT 1,deleted_at TEXT',
+videos:'id INTEGER PRIMARY KEY,name TEXT,slug TEXT,description TEXT,poster_url TEXT,thumbnail_url TEXT,release_date TEXT,IMDb_rating TEXT,duration TEXT,access TEXT,is_restricted INTEGER DEFAULT 0,content_rating TEXT,video_url_input TEXT,trailer_url TEXT,created_at TEXT,updated_at TEXT,status INTEGER DEFAULT 1,deleted_at TEXT',
 episodes:'id INTEGER PRIMARY KEY,entertainment_id INTEGER,name TEXT,poster_url TEXT,thumbnail_url TEXT,status INTEGER DEFAULT 1,deleted_at TEXT',
 continue_watch:'id INTEGER PRIMARY KEY,user_id INTEGER,profile_id INTEGER,entertainment_id INTEGER,entertainment_type TEXT,episode_id INTEGER,watched_time TEXT,total_watched_time TEXT,created_at TEXT,updated_at TEXT,deleted_at TEXT',
 watchlists:'id INTEGER PRIMARY KEY,user_id INTEGER,profile_id INTEGER,entertainment_id INTEGER,type TEXT,created_at TEXT,updated_at TEXT,deleted_at TEXT',
-genres:'id INTEGER PRIMARY KEY,name TEXT,status INTEGER DEFAULT 1,deleted_at TEXT',
-entertainment_gener_mapping:'id INTEGER PRIMARY KEY,entertainment_id INTEGER,genre_id INTEGER'
+video_gener_mappings:'id INTEGER PRIMARY KEY,video_id INTEGER,genre_id INTEGER,deleted_at TEXT',
+genres:'id INTEGER PRIMARY KEY,name TEXT,description TEXT,status INTEGER DEFAULT 1,deleted_at TEXT',
+custom_ads_setting:'id INTEGER PRIMARY KEY,name TEXT,type TEXT,url_type TEXT,placement TEXT,media TEXT,redirect_url TEXT,duration INTEGER,skip_enabled INTEGER,skip_after INTEGER,is_enable TEXT,status TEXT,start_date TEXT,end_date TEXT,deleted_at TEXT',
+settings:'name TEXT,val TEXT',
+cast_crew:'id INTEGER PRIMARY KEY,name TEXT,type TEXT,file_url TEXT,designation TEXT,status INTEGER,deleted_at TEXT',
+entertainment_talent_mapping:'entertainment_id INTEGER,talent_id INTEGER,deleted_at TEXT',
+locations:'id INTEGER PRIMARY KEY,source_cast_crew_id INTEGER,name TEXT,file_url TEXT,description TEXT,address TEXT,status INTEGER,deleted_at TEXT',
+content_location_mapping:'location_id INTEGER,content_type TEXT,content_id INTEGER',
+entertainment_gener_mapping:'id INTEGER PRIMARY KEY,entertainment_id INTEGER,genre_id INTEGER,deleted_at TEXT'
 }
 for (const [name, fields] of Object.entries(columns)) db.exec(`CREATE TABLE ${name} (${fields})`)
 db.exec(`INSERT INTO users(id) VALUES(1),(2); INSERT INTO user_multi_profiles(id,user_id,name) VALUES(11,1,'First'),(12,1,'Second'),(21,2,'Other');
@@ -42,6 +49,12 @@ const viewer=compile('src/lib/viewer.server.ts',{'./db':database,'./session.serv
 const recommendations=compile('src/lib/recommendations.ts', {'./contentRoutes':compile('src/lib/contentRoutes.ts',{})})
 const security=compile('src/lib/api-security.ts',{})
 const imports={'./api-security':security,'@tanstack/react-start':factory,'./db':database,'./session.server':sessionModule,'./viewer.server':viewer,'./recommendations':recommendations}
+imports['./viewing-history.server']=compile('src/lib/viewing-history.server.ts',imports)
+imports['./personalityData']=compile('src/lib/personalityData.ts',imports)
+imports['./people.server']=compile('src/lib/people.server.ts',imports)
+imports['./subscriptionPolicy']=compile('src/lib/subscriptionPolicy.ts',imports)
+imports['./recommendations.server']=compile('src/lib/recommendations.server.ts',imports)
+for (const match of readFileSync(new URL('../src/lib/api.ts',import.meta.url),'utf8').matchAll(/^import .* from '([^']+)'/gm)) if (!(match[1] in imports)) imports[match[1]]={}
 const playback=compile('src/lib/playback.ts',imports), api=compile('src/lib/api.ts',imports)
 const save=(contentType,contentId,position=120,duration=600)=>playback.recordWatchProgress({data:{contentType,contentId,position,duration}})
 const read=(contentType,contentId)=>playback.getPlaybackProgress({data:{contentType,contentId}})
@@ -71,6 +84,14 @@ try{
  assert.equal((await save('teaching',1)).ok,false,'Incorrect content type cannot write colliding title')
  db.exec("UPDATE continue_watch SET watched_time='00:04:00',total_watched_time='00:10:00' WHERE entertainment_type='video'")
  assert.equal((await read('video',1)).position,240,'Legacy clock values resume correctly')
+ db.exec("INSERT INTO custom_ads_setting(id,name,is_enable,status,placement,redirect_url) VALUES(1,'Safe','1','1','home_page','/sermons'),(2,'Unsafe legacy','1','1','home_page','javascript:alert(1)'),(3,'Deleted','1','1','home_page','https://example.org/');UPDATE custom_ads_setting SET deleted_at='2026-01-01' WHERE id=3;UPDATE entertainments SET movie_access='free'")
+ const homeAds=await api.getHomeAds();assert.deepEqual(Array.from(homeAds,x=>x.id),[1,2]);assert.equal(homeAds[0].redirect_url,'/sermons');assert.equal(homeAds[1].redirect_url,null)
+ const detail=await api.getMovie({data:1});assert.deepEqual(Array.from(detail.ads.custom,x=>x.id),[1,2]);assert.equal(detail.ads.custom[1].redirect_url,null)
+ db.exec("UPDATE entertainment_gener_mapping SET deleted_at='2026-01-01' WHERE entertainment_id=3;UPDATE entertainments SET is_restricted=1 WHERE id=1;UPDATE user_multi_profiles SET is_child_profile=1 WHERE id=11")
+ assert.equal((await api.getGenreContent({data:1})).items.length,0,'Category page hides deleted mappings and restricted titles from children')
+ db.exec("UPDATE genres SET status=0 WHERE id=2")
+ assert.equal((await api.getGenreContent({data:2})).genre,null,'Inactive categories cannot be read by direct ID')
+ await assert.rejects(()=>api.getGenreContent({data:-1}))
  db.exec('UPDATE users SET is_banned=1 WHERE id=1');assert.equal((await save('movie',1)).needsAuth,true)
- console.log('PLAYBACK_DATA_OK: real SQLite read/write, landscape artwork and fallback, typed IDs, episode resume, completion, watchlists, recommendation profile isolation, invalid input and inactive accounts')
+ console.log('PLAYBACK_DATA_OK: real SQLite read/write, landscape artwork and fallback, typed IDs, episode resume, completion, watchlists, recommendation profile isolation, invalid input, inactive accounts, safe ads and child-safe active categories')
 }finally{db.close()}

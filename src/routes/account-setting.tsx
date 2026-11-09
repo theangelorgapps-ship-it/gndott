@@ -31,8 +31,8 @@ function AccountSetting() {
     {user.user_type === 'admin' && <a className="btn btn-secondary" href="/admin/live-tv">Live TV administration</a>}
     <AccountLibrary />
     <div className="tv-library-shortcuts">
-      <Link to="/continue-watching"><Clock3 size={23} aria-hidden="true" /><span><strong>Continue watching</strong><small>Pick up where you left off</small></span><ArrowRight size={20} aria-hidden="true" /></Link>
-      <Link to="/watchlist"><Bookmark size={23} aria-hidden="true" /><span><strong>Your watchlist</strong><small>Titles saved for later</small></span><ArrowRight size={20} aria-hidden="true" /></Link>
+      <Link to="/continue-watching"><Clock3 size={23} aria-hidden="true" /><span><strong>Your viewing</strong><small>Continue watching and watch history</small></span><ArrowRight size={20} aria-hidden="true" /></Link>
+      <Link to="/watchlist"><Bookmark size={23} aria-hidden="true" /><span><strong>Saved list</strong><small>Titles saved for later</small></span><ArrowRight size={20} aria-hidden="true" /></Link>
     </div>
     <div className="acct-grid">
       <section className="acct-card" aria-labelledby="account-plan"><div className="acct-card-head"><span className="acct-ico"><Crown size={25} aria-hidden="true" /></span><div><h2 id="account-plan">{active ? subscription.name : 'Find your next great watch.'}</h2><p>{active ? 'Your current subscription' : 'Explore the available streaming plans.'}</p></div></div>

@@ -14,7 +14,7 @@ function compile(path, imports = {}, globals = {}) {
   const module = { exports: {} }
   const source = readFileSync(resolve(root, path), 'utf8')
   const out = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText
-  vm.runInNewContext(out, { module, exports: module.exports, require: (name) => name.endsWith('.css') ? {} : imports[name] ?? require(name), URL, console, ...globals })
+  vm.runInNewContext(out, { module, exports: module.exports, require: (name) => name.endsWith('.css') ? {} : name === './youtubeBridge' ? compile('src/components/youtubeBridge.ts', { './playerBridge': compile('src/components/playerBridge.ts') }) : imports[name] ?? require(name), URL, console, ...globals })
   return module.exports
 }
 function bridgeGate() {

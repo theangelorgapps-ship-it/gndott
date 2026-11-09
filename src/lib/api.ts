@@ -2,12 +2,13 @@ import { sanitizePublicContentHtml } from './content-html'
 import type { HeroDesign } from './hero-design'
 import { loadConfiguredHeroes } from './heroes.server'
 import { createServerFn } from '@tanstack/react-start'
-import { playbackFields, positiveId, profileInput, publicHttpsUrl, readVastMedia } from './api-security'
+import { playbackFields, positiveId, profileInput, publicHttpsUrl, publicNavigationUrl, readVastMedia } from './api-security'
 import { getSession, clearSessionCookie } from './session.server'
 import { all, first, run } from './db'
-import { buildRecommendationPayload, buildMixedPopular, isMeaningfulWatch, parseWatchSeconds } from './recommendations'
+import { buildRecommendationPayload, buildMixedPopular } from './recommendations'
 import { isChildViewer, loadRecommendationCandidates, loadRecommendationSignals } from './recommendations.server'
 import { getActiveViewer } from './viewer.server'
+import { loadViewingHistory, viewingQuery } from './viewing-history.server'
 import { subscriptionPlaybackAccess, entitlementDatabase } from './entitlement.server'
 import { resolveEntitlement, subscriptionDashboard } from './entitlement-core'
 import { requiresSubscription, subscriptionFields } from './subscriptionPolicy'
@@ -61,11 +62,11 @@ async function getPlaybackAds(contentType: string, contentId: number) {
   const vast = vastAllFilter(vastAll, contentType, contentId)
   const custom = await all<any>(
     `SELECT id, name, type, url_type, placement, media, redirect_url, duration, skip_enabled, skip_after
-     FROM custom_ads_setting WHERE is_enable = '1' AND status = '1'
+     FROM custom_ads_setting WHERE is_enable = '1' AND status = '1' AND deleted_at IS NULL
        AND (start_date IS NULL OR start_date <= ?) AND (end_date IS NULL OR end_date >= ?)`,
     today, today,
   ).catch(() => [])
-  return { vast, custom }
+  return { vast, custom: custom.map(ad => ({ ...ad, redirect_url: publicNavigationUrl(ad.redirect_url) })) }
 }
 
 function vastAllFilter(rows: any[], contentType: string, contentId: number) {
@@ -176,7 +177,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
   const mostWatched = buildMixedPopular(candidates.filter(item => item.type === 'video'))
   const collections = (['movie', 'teaching', 'tvshow', 'video'] as const).flatMap(type => {
     const titles = candidates.filter(item => item.type === type)
-    return titles.length ? [{ type, count: titles.length, artwork: titles.find(item => item.thumbnail_url || item.poster_url)?.thumbnail_url || titles.find(item => item.poster_url)?.poster_url || null }] : []
+    return titles.length ? [{ type, count: titles.length, artwork: titles.find(item => item.thumbnail_url)?.thumbnail_url || titles.find(item => item.poster_url)?.poster_url || null }] : []
   })
   return { popular, collections, top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon, payPerView, languages, cast, mostWatched, recommendations, bunnyLibraryId, heroes }
 })
@@ -457,13 +458,17 @@ export const getGenres = createServerFn({ method: 'GET' }).handler(async () =>
 )
 
 export const getGenreContent = createServerFn({ method: 'GET' })
-  .validator((id: number) => id)
+  .validator((id: number) => positiveId(id))
   .handler(async ({ data: id }) => {
-    const genre = await first(`SELECT id, name, description FROM genres WHERE id = ?`, id)
+    const genre = await first(`SELECT id, name, description FROM genres WHERE id = ? AND status = 1 AND deleted_at IS NULL`, id)
+    if (!genre) return { genre: null, items: [] as Content[] }
+    const child = await isChildViewer(await getActiveViewer())
     const items = await all<Content>(
-      `SELECT ${CONTENT_COLS.split(',').map((column) => `e.${column.trim()}`).join(', ')} FROM entertainments e JOIN entertainment_gener_mapping m ON m.entertainment_id = e.id WHERE m.genre_id = ? AND e.status = 1 AND e.deleted_at IS NULL`,
-      id,
-    ).catch(() => [])
+      `SELECT DISTINCT ${CONTENT_COLS.split(',').map((column) => `e.${column.trim()}`).join(', ')} FROM entertainments e JOIN entertainment_gener_mapping m ON m.entertainment_id = e.id
+       WHERE m.genre_id = ? AND m.deleted_at IS NULL AND e.status = 1 AND e.deleted_at IS NULL
+         AND TRIM(COALESCE(e.name, '')) != '' AND (? = 0 OR COALESCE(e.is_restricted, 0) = 0) ORDER BY e.name`,
+      id, child ? 1 : 0,
+    )
     return { genre, items }
   })
 
@@ -535,36 +540,7 @@ export const toggleWatchlist = createServerFn({ method: 'POST' })
     return { ok: true, added: true }
   })
 
-export const getContinueWatching = createServerFn({ method: 'GET' }).handler(async () => {
-  const viewer = await getActiveViewer()
-  if (!viewer) return { needsAuth: true, needsProfile: false, items: [] }
-  if (!viewer.profileId) return { needsAuth: false, needsProfile: true, items: [] }
-  const rows = await all<any>(
-    `SELECT c.id AS cw_id, c.watched_time, c.total_watched_time, c.episode_id,
-      COALESCE(e.id, v.id) AS id, COALESCE(e.name, v.name) AS name,
-      COALESCE(e.type, 'video') AS type, COALESCE(ep.poster_url, e.poster_url, v.poster_url) AS poster_url,
-      COALESCE(NULLIF(TRIM(ep.thumbnail_url), ''), NULLIF(TRIM(e.thumbnail_url), ''), NULLIF(TRIM(v.thumbnail_url), '')) AS thumbnail_url,
-      ep.name AS episode_name
-     FROM continue_watch c
-     LEFT JOIN entertainments e ON e.id = c.entertainment_id
-       AND (c.entertainment_type IS NULL OR c.entertainment_type = e.type) AND e.status = 1 AND e.deleted_at IS NULL
-     LEFT JOIN videos v ON v.id = c.entertainment_id AND c.entertainment_type = 'video' AND v.status = 1 AND v.deleted_at IS NULL
-     LEFT JOIN episodes ep ON ep.id = c.episode_id AND ep.entertainment_id = e.id AND ep.status = 1 AND ep.deleted_at IS NULL
-     WHERE c.user_id = ? AND c.profile_id = ? AND c.deleted_at IS NULL
-       AND (e.id IS NOT NULL OR v.id IS NOT NULL) AND (c.episode_id IS NULL OR ep.id IS NOT NULL)
-     ORDER BY COALESCE(c.updated_at, c.created_at) DESC, c.id DESC`,
-    viewer.userId, viewer.profileId,
-  )
-  const seen = new Set<string>()
-  const items = rows.filter((row) => {
-    const key = `${row.type}:${row.id}:${row.episode_id ?? ''}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    const duration = parseWatchSeconds(row.total_watched_time)
-    return duration > 0 && isMeaningfulWatch(row) && parseWatchSeconds(row.watched_time) / duration < .9
-  }).map((row) => ({ ...row, position: parseWatchSeconds(row.watched_time), duration: parseWatchSeconds(row.total_watched_time) }))
-  return { needsAuth: false, needsProfile: false, items }
-})
+export const getContinueWatching = createServerFn({ method: 'GET' }).handler(() => loadViewingHistory(viewingQuery()))
 
 // ---------- footer ----------
 
@@ -926,10 +902,10 @@ export const getHomeAds = createServerFn({ method: 'GET' }).handler(async () => 
   const today = new Date().toISOString().slice(0, 10)
   return all<any>(
     `SELECT id, name, type, url_type, placement, media, redirect_url, duration
-     FROM custom_ads_setting WHERE is_enable = '1' AND status = '1' AND placement = 'home_page'
+     FROM custom_ads_setting WHERE is_enable = '1' AND status = '1' AND deleted_at IS NULL AND placement = 'home_page'
        AND (start_date IS NULL OR start_date <= ?) AND (end_date IS NULL OR end_date >= ?)`,
     today, today,
-  ).catch(() => [])
+  ).then(rows => rows.map(ad => ({ ...ad, redirect_url: publicNavigationUrl(ad.redirect_url) }))).catch(() => [])
 })
 
 // ---------- social login ----------

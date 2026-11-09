@@ -52,7 +52,8 @@
 .chat-sheet .chat-input-pill textarea::placeholder{color:#afb3be}
 .chat-input-pill:focus-within{outline:2px solid var(--royal-pastel,#a5b8ff);outline-offset:2px}
 .chat-sheet .chat-input-pill textarea:focus-visible{outline:none}
-.chat-sheet .chat-send{color:var(--royal-pastel,#a5b8ff);background:none}
+.chat-sheet.live-discussion .chat-composer button.chat-send{display:grid;place-items:center;align-self:center;box-sizing:border-box;width:44px;height:44px;min-height:44px;flex:0 0 44px;padding:0;margin:0;border:0;border-radius:50%;color:var(--royal-pastel,#a5b8ff);background:none}
+.chat-sheet.live-discussion .chat-send>svg{display:block;margin:0;width:23px;height:23px}
 .chat-sheet .chat-send:not(:disabled):hover{background:#657fff1c}
 .chat-composer-hint{font-size:10px;line-height:1.4;color:#9297a6;margin:7px 2px 0}
 .chat-sheet .chat-replying{display:flex;justify-content:space-between;align-items:center;margin:0 0 8px;color:#b8bece;font-size:12px}

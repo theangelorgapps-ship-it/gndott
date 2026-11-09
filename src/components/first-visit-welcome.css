@@ -1,0 +1,19 @@
+.first-visit-welcome { box-sizing:border-box; width:min(480px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; margin:auto; padding:32px; border:1px solid #ffffff1a; border-radius:28px; color:#f4f6fc; background:radial-gradient(ellipse at 80% 0%,#233a68aa,transparent 65%),#0e1421f2; box-shadow:0 24px 100px #0009; backdrop-filter:blur(28px); -webkit-backdrop-filter:blur(28px); }
+.first-visit-welcome::backdrop { background:#0008; backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); }
+.first-visit-welcome .welcome-close { position:absolute; right:16px; top:16px; display:grid; place-items:center; width:44px; height:44px; padding:0; border:0; border-radius:50%; color:inherit; background:#ffffff0b; cursor:pointer; }
+.welcome-crest { display:block; width:64px; height:64px; object-fit:contain; }
+.welcome-brand { margin:14px 0 26px; font-size:22px; font-weight:650; }
+.welcome-brand span { display:block; margin-top:4px; font-size:12px; font-weight:400; color:#c6cddd; }
+.first-visit-welcome h1 { margin:0 0 12px; max-width:350px; font-size:30px; line-height:1.12; letter-spacing:-.035em; }
+#welcome-description { margin:0 0 22px; font-size:14px; line-height:1.6; color:#bfc9db; }
+.first-visit-welcome nav { display:grid; gap:8px; }
+.first-visit-welcome nav a { display:flex; align-items:center; gap:14px; padding:13px 16px; min-height:44px; border-radius:16px; background:#ffffff06; text-decoration:none; color:#eaf0ff; }
+.first-visit-welcome nav a>span { flex:1; }
+.first-visit-welcome nav strong { display:block; font-size:14px; font-weight:600; }
+.first-visit-welcome nav small { display:block; margin-top:3px; font-size:12px; color:#b5c0d4; }
+.first-visit-welcome nav a:hover { background:#ffffff10; }
+.first-visit-welcome .welcome-browse { display:flex; justify-content:center; align-items:center; gap:10px; width:100%; min-height:48px; margin-top:24px; padding:12px; border:0; border-radius:999px; font:inherit; font-size:14px; font-weight:600; color:#101827; background:#f2f4fb; cursor:pointer; }
+.welcome-sign-in { display:block; padding:18px 0 0; text-align:center; font-size:12px; color:#b9c9ef; text-decoration:none; }
+.first-visit-welcome :is(a,button):focus-visible { outline:2px solid #b6c9ff; outline-offset:3px; }
+@media(max-width:380px), (max-height:700px) { .first-visit-welcome { padding:24px; } .welcome-crest { width:44px; height:44px; } .welcome-brand { margin-block:10px 18px; } .first-visit-welcome h1 { font-size:26px; } }
+@media(prefers-reduced-transparency:reduce) { .first-visit-welcome { background:#111a2a; backdrop-filter:none; -webkit-backdrop-filter:none; } .first-visit-welcome::backdrop { backdrop-filter:none; -webkit-backdrop-filter:none; background:#000d; } }

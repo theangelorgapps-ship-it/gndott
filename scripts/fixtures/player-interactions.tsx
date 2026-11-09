@@ -3,10 +3,10 @@ import { useState } from 'react'
 import { createRootRoute, createRoute, createRouter, RouterProvider, Outlet } from '@tanstack/react-router'
 import { PosterCard, LiveChannelCard, Top10Card, HeroSlider } from '../../src/components/Poster'
 import { AppleSpotlight } from '../../src/components/ui/apple-spotlight'
-import { Route as movie } from '../../src/routes/movie.$id'
-import { Route as video } from '../../src/routes/video.$id'
-import { Route as show } from '../../src/routes/tv-show.$id'
-import { Route as teaching } from '../../src/routes/teaching.$id'
+import { Route as movie } from '../../src/routes/sermon.$id'
+import { Route as video } from '../../src/routes/videos_.$id'
+import { Route as show } from '../../src/routes/shows_.$id'
+import { Route as teaching } from '../../src/routes/teachings_.$id'
 import { Route as channel } from '../../src/routes/channel.$id'
 function Home() {
   const [search,setSearch]=useState(false)
@@ -17,7 +17,7 @@ const root=createRootRoute({component:Outlet})
 const home=createRoute({getParentRoute:()=>root,path:'/',component:Home})
 const routes=[movie,video,show,teaching,channel]
 // File routes receive their path at generated-tree registration in production.
-const paths=['/movie/$id','/video/$id','/tv-show/$id','/teaching/$id','/channel/$id']
+const paths=['/sermon/$id','/videos/$id','/shows/$id','/teachings/$id','/channel/$id']
 routes.forEach((route:any,index)=>route.update({id:paths[index],path:paths[index],getParentRoute:()=>root}))
 const router=createRouter({routeTree:root.addChildren([home,...routes]),defaultPendingMinMs:0})
 createRoot(document.getElementById('root')!).render(<RouterProvider router={router}/>)

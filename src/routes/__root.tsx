@@ -1,4 +1,5 @@
-import { BrandOpener } from '@/components/BrandOpener'
+import { FirstVisitWelcome } from '@/components/FirstVisitWelcome'
+import { siteHead } from '@/lib/siteMetadata'
 import { contentPath } from '@/lib/contentRoutes'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
@@ -30,14 +31,7 @@ import '../player-interaction.css'
 import '../discovery.css'
 
 export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-      { title: 'GoodNews Halobox: Sermons, Shows & Teachings' },
-      { name: 'description', content: 'Watch sermons, shows, teachings, live TV and videos on GoodNews Halobox.' },
-    ],
-  }),
+  head: ({ matches }) => siteHead(matches.at(-1)?.pathname || '/'),
   loader: async () => ({ user: await getSessionUser(), footer: await getFooterData() }),
   component: RootComponent,
 })
@@ -46,7 +40,7 @@ const BARE_ROUTES = ['/login', '/register', '/forgot-password', '/otp-login', '/
 const MENU_ICONS = [Home, Clapperboard, BookOpen, Tv, PlaySquare, Radio, Layers, ShoppingBag]
 const NAV_ITEMS = [
   { label: 'Home', to: '/', aliases: ['/'] },
-  { label: 'Sermons', to: '/sermons', aliases: ['/sermons', '/movies', '/movie'] },
+  { label: 'Sermons', to: '/sermons', aliases: ['/sermons', '/sermon', '/movies', '/movie'] },
   { label: 'Teachings', to: '/teachings', aliases: ['/teachings', '/teaching'] },
   { label: 'Shows', to: '/shows', aliases: ['/shows', '/tv-shows', '/tv-show'] },
   { label: 'Videos', to: '/videos', aliases: ['/videos', '/video'] },
@@ -232,7 +226,7 @@ function RootComponent() {
         <MobileLiquidGlass asChild interactive><button type="button" className={`mobile-search-circle liquid-glass${spotlightOpen ? ' active' : ''}`} aria-label="Search" aria-haspopup="dialog" aria-expanded={spotlightOpen} aria-controls="catalogue-search-dialog" onClick={openSearch}><IconSearch size={27} /></button></MobileLiquidGlass>
       </div>
 
-      {pathname === '/' && <BrandOpener />}
+      {pathname === '/' && !user && <FirstVisitWelcome />}
       <AppleSpotlight isOpen={spotlightOpen} handleClose={() => setSpotlightOpen(false)} />
       <main key={pathname} className={`page-enter${pathname === '/shop' || pathname.startsWith('/shop/') ? ' page-store' : ''}`}><Outlet /></main>
       <SiteFooter footer={footer} />

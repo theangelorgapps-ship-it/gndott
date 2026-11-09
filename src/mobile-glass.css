@@ -3,10 +3,11 @@
    search circle stay in one aligned row. Import after responsive-glass.css. */
 .mobile-glass-surface > [data-glass-rim] { display: none; }
 .mobile-glass-surface { border: 0; }
+:root { --mobile-dock-height: 64px; }
 
 @media (max-width: 860px) {
   .mobile-navigation {
-    --dock-height: 64px;
+    --dock-height: var(--mobile-dock-height);
     position: fixed;
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--dock-height);
@@ -80,7 +81,8 @@
   .mobile-navigation [data-liquid-glass]:focus-visible { outline: 2px solid #70caff; outline-offset: -4px; }
 }
 @media (max-width: 360px) {
-  .mobile-navigation { --dock-height: 60px; width: calc(100% - 16px); gap: 7px; }
+  :root { --mobile-dock-height: 60px; }
+  .mobile-navigation { width: calc(100% - 16px); gap: 7px; }
   .mobile-navigation .mobile-dock[data-liquid-glass] a { font-size: 9px; }
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

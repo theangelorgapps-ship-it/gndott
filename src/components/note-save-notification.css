@@ -1,0 +1,28 @@
+.note-save-notification {
+  position: fixed;
+  inset: auto max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) auto;
+  box-sizing: border-box;
+  margin: 0;
+  width: min(390px, calc(100vw - 32px));
+  padding: 18px 12px 18px 18px;
+  border: 1px solid #ffffff26;
+  border-radius: 22px;
+  background: #24262cf5;
+  color: #f7f7f8;
+  box-shadow: 0 12px 45px #0007, inset 0 1px 0 #ffffff0d;
+  backdrop-filter: blur(24px);
+  z-index: 11000;
+  font: inherit;
+}
+.note-save-notification:popover-open,
+.note-save-notification:not([popover]) { display: flex; align-items: flex-start; gap: 12px; }
+@supports not selector(:popover-open) { .note-save-notification { display: flex; align-items: flex-start; gap: 12px; } }
+.note-save-notification-icon { flex: none; margin-top: 1px; color: #aee2c5; }
+.note-save-notification.is-error .note-save-notification-icon { color: #ffd7a3; }
+.note-save-notification-copy { flex: 1; min-width: 0; }
+.note-save-notification-copy strong { display: block; font-size: 15px; line-height: 1.4; font-weight: 650; }
+.note-save-notification-copy p { margin: 5px 0 0; color: #d6d7dc; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.note-save-notification > button { display: grid; place-items: center; flex: none; width: 36px; height: 36px; margin-top: -6px; border: 0; border-radius: 50%; background: transparent; color: #d4d5da; cursor: pointer; }
+.note-save-notification > button:hover { background: #ffffff15; color: white; }
+.note-save-notification > button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+@media (max-width: 600px) { .note-save-notification { inset-inline: 16px; width: auto; max-width: none; } }

@@ -118,3 +118,52 @@
   .category-glass { border:1px solid ButtonText; background:Canvas; box-shadow:none; }
   .category-glass:is([aria-pressed=true],[aria-current=true],.active) { outline:2px solid Highlight; color:Highlight; }
 }
+
+/* Compact landscape thumbnails, with portraits extending above the artwork. */
+.section.home-explore { padding-block: 18px; }
+.home-explore .section-head { margin-bottom: 24px; }
+.explore-promo-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; }
+.explore-promo { min-width: 0; color: #fff; text-decoration: none; }
+.explore-promo-art { position: relative; isolation: isolate; aspect-ratio: 16/9; border-radius: 16px; background: radial-gradient(ellipse at 85% 10%,#47c7ff55,transparent 60%),linear-gradient(130deg,#067a9d,#082743); }
+.explore-promo-teaching .explore-promo-art { background: radial-gradient(ellipse at 85% 10%,#a888ff55,transparent 60%),linear-gradient(130deg,#6634b2,#1c113c); }
+.explore-promo-tvshow .explore-promo-art { background: radial-gradient(ellipse at 85% 10%,#7b93ff66,transparent 60%),linear-gradient(130deg,#254e9b,#0d1938); }
+.explore-promo-video .explore-promo-art { background: radial-gradient(ellipse at 85% 10%,#e87bff44,transparent 60%),linear-gradient(130deg,#7424a2,#29103c); }
+.explore-promo-art::after { content: ''; position: absolute; z-index: 1; inset: 0; border-radius: inherit; background: linear-gradient(90deg,#00101c77,transparent 68%),linear-gradient(0deg,#0008,transparent 45%); pointer-events: none; }
+.explore-promo-art > img { position: absolute; width: 64%; height: 114%; right: 0; bottom: 0; object-fit: contain; object-position: bottom; border-bottom-right-radius: 16px; }
+.explore-promo-copy { position: absolute; z-index: 2; inset: 0 auto 0 0; width: 59%; padding: 14px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-shadow: 0 2px 10px #0009; }
+.explore-promo-copy > strong { font-size: clamp(20px,2vw,30px); font-weight: 600; letter-spacing: -.035em; line-height: 1.05; }
+.explore-promo-copy > span { max-width: 140px; font-size: clamp(10px,.85vw,13px); line-height: 1.35; margin-top: 8px; }
+.explore-promo-caption { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; margin-top: 9px; }
+.explore-promo-caption > strong { font-size: 16px; letter-spacing: -.025em; }
+.explore-promo-caption > span { font-size: 12px; color: #b8bbc5; white-space: nowrap; }
+.explore-promo:focus-visible { outline: 2px solid #b7c9ff; outline-offset: 5px; border-radius: 16px; }
+@media(max-width:800px) {
+  .explore-promo-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 26px 12px; }
+  .explore-promo-copy { padding: 12px; }
+  .explore-promo-copy > strong { font-size: clamp(19px,4vw,28px); }
+  .explore-promo-copy > span { font-size: clamp(10px,1.7vw,12px); margin-top: 6px; }
+  .explore-promo-caption > strong { font-size: 14px; }
+  .explore-promo-caption > span { font-size: 11px; }
+}
+@media(max-width:360px) {
+  .explore-promo-copy { padding: 9px; width: 64%; }
+  .explore-promo-copy > strong { font-size: 17px; }
+  .explore-promo-copy > span { font-size: 9px; }
+  .explore-promo-caption { flex-direction: column; gap: 2px; }
+}
+
+/* Small, immediate responses identify the whole card as a link without
+   moving surrounding content or cropping the portrait. */
+@media(prefers-reduced-motion:no-preference) {
+  .explore-promo { transition: transform 240ms cubic-bezier(.2,0,0,1); }
+  .explore-promo-art { transition: box-shadow 240ms cubic-bezier(.2,0,0,1); }
+  .explore-promo-art > img { transition: transform 240ms cubic-bezier(.2,0,0,1); transform-origin: bottom center; }
+  .explore-promo:focus-visible { transform: translateY(-3px); }
+  .explore-promo:focus-visible .explore-promo-art { box-shadow: 0 8px 24px #0005,inset 0 0 0 1px #ffffff35; }
+  @media(hover:hover) and (pointer:fine) {
+    .explore-promo:hover { transform: translateY(-3px); transition-duration: 90ms; }
+    .explore-promo:hover .explore-promo-art { box-shadow: 0 8px 24px #0005,inset 0 0 0 1px #ffffff35; }
+    .explore-promo:hover .explore-promo-art > img { transform: translateY(-2px); }
+  }
+  .explore-promo:active { transform: scale(.985); transition-duration: 120ms; }
+}

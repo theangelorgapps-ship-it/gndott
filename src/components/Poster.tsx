@@ -1,7 +1,7 @@
 import { ScrollRail } from './ScrollRail'
 import { contentPath } from '@/lib/contentRoutes'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { createPreviewPlayback } from './previewPlayback'
 import { TitlePreview } from './TitlePreview'
@@ -399,26 +399,29 @@ type RecommendationPayload = {
   topGenres?: string[]
 }
 
-export function RecommendationGroups({ recommendations, fallback = [], recentFallback }: {
+export function DiscoveryRail({ recommendations, fallback = [] }: { recommendations?: RecommendationPayload | null; fallback?: any[] }) {
+  const discovery = recommendations ? recommendations.discovery : (fallback[1] ?? fallback[0] ?? null)
+  const discoveries = recommendations?.discoveries ?? (discovery ? [discovery, ...fallback.filter(item => item.id !== discovery.id)].slice(0,8) : [])
+  return <div className="recommendation-discovery"><Rail title="Discover Something Different">
+    {discoveries.length ? discoveries.map(item => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} landscape />) : <p className="rail-empty">A new selection will appear here.</p>}
+  </Rail></div>
+}
+
+export function RecommendationGroups({ recommendations, fallback = [], recentFallback, discoverySlot }: {
   recommendations?: RecommendationPayload | null
   fallback?: any[]
   recentFallback?: any[]
+  discoverySlot?: ReactNode
 }) {
   const forYou = recommendations?.forYou ?? fallback
   const recent = recommendations?.recent ?? recentFallback ?? fallback
-  const discovery = recommendations ? recommendations.discovery : (fallback[1] ?? fallback[0] ?? null)
-  const discoveries = recommendations?.discoveries ?? (discovery ? [discovery, ...fallback.filter(item => item.id !== discovery.id)].slice(0,8) : [])
   const title = recommendations?.hasHistory ? 'Recommended for You' : 'Featured for You'
   return (
     <div className="recommendation-groups">
       <Rail title={title}>
         {forYou.map((item: any) => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} />)}
       </Rail>
-      <div className="recommendation-discovery">
-        <Rail title="Discover Something Different">
-          {discoveries.length ? discoveries.map(item => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} landscape />) : <p className="rail-empty">A new selection will appear here.</p>}
-        </Rail>
-      </div>
+      {discoverySlot ?? <DiscoveryRail recommendations={recommendations} fallback={fallback} />}
       <Rail title="Recently Updated">
         {recent.map((item: any) => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} badge="Recently Uploaded" />)}
       </Rail>

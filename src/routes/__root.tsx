@@ -1,10 +1,9 @@
-import { FirstVisitWelcome } from '@/components/FirstVisitWelcome'
 import { siteHead } from '@/lib/siteMetadata'
 import { contentPath } from '@/lib/contentRoutes'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { Outlet, Link, createRootRoute, HeadContent, Scripts, useRouterState } from '@tanstack/react-router'
-import { Bookmark, BookOpen, ChevronDown, ChevronRight, Clapperboard, Clock3, Home, Layers, Menu, PlaySquare, Radio, ShoppingBag, Tv, UserRound, X } from 'lucide-react'
+import { Bookmark, BookOpen, ChevronDown, ChevronRight, Clapperboard, Clock3, Home, Menu, PlaySquare, Radio, ShoppingBag, Tv, UserRound, X } from 'lucide-react'
 import { getSessionUser, getFooterData } from '../lib/api'
 import { IconSearch } from '../components/Poster'
 import { MotionRoot } from '../components/Motion'
@@ -37,7 +36,7 @@ export const Route = createRootRoute({
 })
 
 const BARE_ROUTES = ['/login', '/register', '/forgot-password', '/otp-login', '/manage-profile']
-const MENU_ICONS = [Home, Clapperboard, BookOpen, Tv, PlaySquare, Radio, Layers, ShoppingBag]
+const MENU_ICONS = [Home, Clapperboard, BookOpen, Tv, PlaySquare, Radio]
 const NAV_ITEMS = [
   { label: 'Home', to: '/', aliases: ['/'] },
   { label: 'Sermons', to: '/sermons', aliases: ['/sermons', '/sermon', '/movies', '/movie'] },
@@ -45,10 +44,9 @@ const NAV_ITEMS = [
   { label: 'Shows', to: '/shows', aliases: ['/shows', '/tv-shows', '/tv-show'] },
   { label: 'Videos', to: '/videos', aliases: ['/videos', '/video'] },
   { label: 'Live TV', to: '/live-tv', aliases: ['/live-tv', '/channel'] },
-  { label: 'Series', to: '/series', aliases: ['/series'] },
-  { label: 'Shop', to: '/shop', aliases: ['/shop'] },
   { label: 'Watchlist', to: '/watchlist', aliases: ['/watchlist'] },
 ]
+const STORE_ITEM = { label: 'Store', to: '/shop', aliases: ['/shop'] }
 const WATCH_ITEMS = NAV_ITEMS.slice(1, 5)
 const LIBRARY_ROUTES = ['/account-setting', '/watchlist', '/continue-watching']
 
@@ -173,7 +171,7 @@ function RootComponent() {
             {user ? <Link to="/account-setting" className="header-login">Account</Link> : <Link to="/login" className="header-login">Login</Link>}
             <Link to="/account-setting" className={`header-library${LIBRARY_ROUTES.includes(pathname) ? ' active' : ''}`} aria-label="Library" aria-current={LIBRARY_ROUTES.includes(pathname) ? 'page' : undefined}><Bookmark size={21} aria-hidden="true" /></Link>
             <Link to={user ? '/account-setting' : '/login'} className="header-profile" aria-label={user ? 'Your account' : 'Sign in'}><UserRound size={21} aria-hidden="true" /></Link>
-            <Link to={user ? '/shop' : '/subscription-plan'} className="header-subscribe">{user ? 'Store' : 'Subscribe'}</Link>
+            <Link to="/shop" className="header-subscribe">Store</Link>
             <button type="button" className="icon-btn-plain mobile-menu-trigger" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-controls="mobile-navigation-sheet" aria-expanded={menuOpen} onClick={toggleMenu}>
               {menuOpen ? <X size={21} /> : <Menu size={21} />}
             </button>
@@ -192,7 +190,7 @@ function RootComponent() {
           <div className="mobile-menu-body">
             <button type="button" className="mobile-menu-search" aria-haspopup="dialog" aria-controls="catalogue-search-dialog" onClick={openSearch}><IconSearch size={21} /><span>Search messages, shows and more</span></button>
             <nav className="mobile-menu-nav" aria-label="Mobile navigation" onClick={(event) => { if (event.target instanceof Element && event.target.closest('a')) setMenuOpen(false) }}>
-              {NAV_ITEMS.slice(0, 8).map((item, index) => {
+              {NAV_ITEMS.slice(0, 6).map((item, index) => {
                 const Icon = MENU_ICONS[index]
                 const active = destinationActive(pathname, item)
                 return <Link key={item.to} to={item.to} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><Icon size={23} className="mobile-menu-icon" aria-hidden="true" /><span>{item.label}</span>{item.to === '/live-tv' ? <span className="mobile-menu-live">Live</span> : <ChevronRight size={17} className="mobile-menu-chevron" aria-hidden="true" />}</Link>
@@ -221,12 +219,11 @@ function RootComponent() {
           <Link to="/" className={pathname === '/' ? 'active' : ''} aria-current={pathname === '/' ? 'page' : undefined}><Home size={23} /><span>Home</span></Link>
           <button ref={watchButton} type="button" className={watchOpen || WATCH_ITEMS.some(item => destinationActive(pathname, item)) ? 'active' : ''} aria-expanded={watchOpen} aria-controls="watch-submenu" onClick={() => setWatchOpen(open => !open)}><Tv size={23} /><span>Watch</span></button>
           <Link to="/live-tv" className={destinationActive(pathname, NAV_ITEMS[5]) ? 'active' : ''} aria-current={destinationActive(pathname, NAV_ITEMS[5]) ? 'page' : undefined}><Radio size={23} /><span>Live TV</span></Link>
-          <Link to="/shop" className={destinationActive(pathname, NAV_ITEMS[7]) ? 'active' : ''} aria-current={destinationActive(pathname, NAV_ITEMS[7]) ? 'page' : undefined}><ShoppingBag size={23} aria-hidden="true" /><span>Store</span></Link>
+          <Link to="/shop" className={destinationActive(pathname, STORE_ITEM) ? 'active' : ''} aria-current={destinationActive(pathname, STORE_ITEM) ? 'page' : undefined}><ShoppingBag size={23} aria-hidden="true" /><span>Store</span></Link>
         </nav></MobileLiquidGlass>
         <MobileLiquidGlass asChild interactive><button type="button" className={`mobile-search-circle liquid-glass${spotlightOpen ? ' active' : ''}`} aria-label="Search" aria-haspopup="dialog" aria-expanded={spotlightOpen} aria-controls="catalogue-search-dialog" onClick={openSearch}><IconSearch size={27} /></button></MobileLiquidGlass>
       </div>
 
-      {pathname === '/' && !user && <FirstVisitWelcome />}
       <AppleSpotlight isOpen={spotlightOpen} handleClose={() => setSpotlightOpen(false)} />
       <main key={pathname} className={`page-enter${pathname === '/shop' || pathname.startsWith('/shop/') ? ' page-store' : ''}`}><Outlet /></main>
       <SiteFooter footer={footer} />

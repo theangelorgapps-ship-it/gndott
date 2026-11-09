@@ -1,7 +1,7 @@
 export const SITE_TITLE = 'HaloBox - With Prophet Uebert Angel'
 export const SITE_DESCRIPTION = 'Watch sermons and teachings with Prophet Uebert Angel on HaloBox. Discover inspiring shows, videos and live TV, and keep your favourites in one place.'
-const SOCIAL_IMAGE = 'https://halobox.tv/images/halobox-social-20261109.jpg'
-const SOCIAL_ALT = 'HaloBox — With Prophet Uebert Angel. Sermons, Teachings, Shows and Live TV.'
+const SOCIAL_IMAGE = 'https://halobox.tv/images/halobox-social-portrait-20261109.jpg'
+const SOCIAL_ALT = 'Prophet Uebert Angel on HaloBox. Sermons, Teachings, Shows and Live TV.'
 
 export function siteHead(pathname: string) {
   const url = 'https://halobox.tv' + (pathname.startsWith('/') ? pathname : '/')

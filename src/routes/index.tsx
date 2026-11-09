@@ -3,7 +3,7 @@ import { contentPath } from '@/lib/contentRoutes'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { getDashboard, getHomeAds, getContinueWatching } from '../lib/api'
 import { ResumeCard } from '../components/ResumeCard'
-import { PosterCard, Top10Card, Rail, HeroSlider, RecommendationGroups, contentBase, img } from '../components/Poster'
+import { PosterCard, Top10Card, Rail, HeroSlider, RecommendationGroups, DiscoveryRail, contentBase, img } from '../components/Poster'
 
 export const Route = createFileRoute('/')({
   loader: async () => {
@@ -36,20 +36,9 @@ function Home() {
       <HeroSlider slides={slides} baseFor={(item) => contentBase(item.type)} bunnyLibraryId={data.bunnyLibraryId} />
       {data.continuing?.items?.length > 0 && <Rail title="Continue Watching" seeAll="/continue-watching">{data.continuing.items.map((item: any) => <ResumeCard key={item.cw_id} item={item} />)}</Rail>}
       {data.top10.length > 0 && <Rail title="Top 10">{data.top10.map((item: any, index: number) => <Top10Card key={item.id} item={item} rank={index + 1} base={contentBase(item.type)} />)}</Rail>}
-      <RecommendationGroups recommendations={data.recommendations} fallback={data.popular} recentFallback={data.latest} />
+      <RecommendationGroups recommendations={data.recommendations} fallback={data.popular} recentFallback={data.latest} discoverySlot={<ExploreCollections collections={data.collections ?? []} />} />
       <HomeAds ads={data.homeAds} />
-      {data.collections?.length > 0 && <section className="section home-explore" aria-labelledby="home-explore-heading">
-        <div className="section-head"><h2 id="home-explore-heading">Explore</h2></div>
-        <div className="home-explore-grid">{data.collections.map((collection: any) => {
-          const destinations: Record<string, string[]> = { movie: ['/sermons', 'Sermons', 'Find a message for today.'], teaching: ['/teachings', 'Teachings', 'Go deeper in the Word.'], tvshow: ['/shows', 'Shows', 'Start your next series.'], video: ['/videos', 'Videos', 'Make time for a new perspective.'] }
-          const destination = destinations[collection.type]
-          if (!destination) return null
-          return <Link key={collection.type} to={destination[0] as any} className="home-explore-card">
-            {collection.artwork && <img src={img(collection.artwork)} alt="" loading="lazy" />}
-            <span><small>{collection.count} {collection.count === 1 ? 'title' : 'titles'}</small><strong>{destination[1]}</strong><span>{destination[2]}</span></span>
-          </Link>
-        })}</div>
-      </section>}
+      <DiscoveryRail recommendations={data.recommendations} fallback={data.popular} />
       {data.payPerView?.length > 0 && <Rail title="Pay Per View" seeAll="/sermons">{data.payPerView.map((item: any) => <PosterCard key={item.id} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.popular?.length > 0 && <Rail title="Popular across Halobox">{data.popular.map((item: any) => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.channels.length > 0 && (
@@ -71,4 +60,23 @@ function Home() {
       {data.mostWatched?.length > 0 && <Rail title="Most Watched Videos" seeAll="/videos">{data.mostWatched.map((item: any) => <PosterCard key={item.id} item={item} base="/video" />)}</Rail>}
     </div>
   )
+}
+
+function ExploreCollections({ collections }: { collections: any[] }) {
+  if (!collections.length) return null
+  return <section className="section home-explore" aria-labelledby="home-explore-heading">
+        <div className="section-head"><h2 id="home-explore-heading">Explore</h2></div>
+        <div className="explore-promo-grid">{collections.map((collection: any) => {
+          const destinations: Record<string, string[]> = { movie: ['/sermons', 'Sermons'], teaching: ['/teachings', 'Teachings'], tvshow: ['/shows', 'Shows'], video: ['/videos', 'Videos'] }
+          const destination = destinations[collection.type]
+          if (!destination) return null
+          return <Link key={collection.type} to={destination[0] as any} className={`explore-promo explore-promo-${collection.type}`}>
+            <div className="explore-promo-art">
+              <img src={`/images/explore-${destination[1].toLowerCase()}-20261109.avif`} alt="Prophet Uebert Angel" loading="lazy" decoding="async" width="720" height="720" />
+              <div className="explore-promo-copy"><strong>{destination[1]}</strong><span>The Ra'ah - Prophet Uebert Angel</span></div>
+            </div>
+            <div className="explore-promo-caption"><strong>{destination[1]}</strong><span>{collection.count} {collection.count === 1 ? 'title' : 'titles'}</span></div>
+          </Link>
+        })}</div>
+      </section>
 }

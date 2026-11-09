@@ -4,7 +4,7 @@
 @media(min-width:2400px){.live-channel-discussion{max-width:1600px}.live-discussion{font-size:20px}.live-feed{max-height:650px}}
 
 .tv-immersive-player.is-live .tv-player-tabs button{flex:0 0 auto;white-space:nowrap;min-width:max-content}
-.tv-immersive-player.is-live .tv-player-tabs{overflow-x:auto;max-width:100%;scrollbar-width:none}
+.tv-immersive-player.is-live .tv-player-tabs{overflow-x:auto;overflow-y:hidden;max-width:100%;scrollbar-width:none}
 .tv-player-panel:has(.live-discussion){height:min(58dvh,640px);max-height:min(58dvh,640px);overflow:hidden;padding-bottom:0}
 .tv-player-panel .live-discussion{display:flex;flex-direction:column;height:100%;overflow-y:auto}
 .tv-player-panel .live-feed{flex:1 1 140px;min-height:70px;max-height:none}

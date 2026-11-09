@@ -67,7 +67,7 @@ export function AboutPanel({ cast = [], locations = [] }: { cast?: any[]; locati
   return <TitlePeople cast={Array.isArray(cast) ? cast : []} locations={Array.isArray(locations) ? locations : []} />
 }
 
-export function BiblePanel() { return <BibleReader /> }
+export function BiblePanel({ playbackTime }: { playbackTime?: () => number | null } = {}) { return <BibleReader playbackTime={playbackTime} /> }
 
 export function ContentNotes({ contentType, contentId, title }: { contentType: string; contentId: number; title: string }) {
  return <LibraryNoteEditor key={`${contentType}:${contentId}`} noteKey={`${contentType}:${contentId}`} title={title}/>

@@ -57,7 +57,7 @@
 .tv-immersive-player.panel-open[data-typing-active] .tv-player-scrim { opacity: 0; }
 .tv-immersive-player.panel-open.controls-visible[data-typing-active] .tv-player-bottom { top: calc(var(--panel-media-top) + var(--panel-media-height) + 2px); left: 0; bottom: 0; display: flex; flex-direction: column; min-height: 0; padding: 0 8px 8px; transition: none; background: #08090c; }
 .tv-immersive-player.panel-open[data-typing-active] .tv-player-bottom::before { display: none; }
-.tv-immersive-player.panel-open[data-typing-active] .tv-player-tabs { flex: none; margin: 0; width: 100%; overflow-x: auto; }
+.tv-immersive-player.panel-open[data-typing-active] .tv-player-tabs { flex: none; margin: 0; width: 100%; overflow-x: auto; overflow-y: hidden; }
 .tv-immersive-player.panel-open[data-typing-active] .tv-player-tabs button { min-height: 40px; padding-block: 8px; white-space: nowrap; }
 .tv-immersive-player.panel-open[data-typing-active] .tv-player-panel { flex: 1 1 0; min-height: 0; max-height: none; height: auto; padding: 4px 0 0; overflow: hidden; }
 .tv-immersive-player.panel-open[data-typing-active] .tv-player-panel-close { display: none; }

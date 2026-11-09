@@ -7,6 +7,14 @@ import { img, IconPlay, IconPlus } from './Poster'
 import { ImmersivePlayer } from './ImmersivePlayer'
 import type { NextPlayback } from './playbackEnding'
 
+export type PlayerNextEpisode = {
+  title: string
+  subtitle?: string
+  poster?: string | null
+  meta?: string
+  onPlay: () => void
+}
+
 export function IconCheck({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
@@ -147,6 +155,7 @@ export type WatchSectionProps = {
   locations?: import('../lib/personalityData').TitleLocation[]
   recommendations?: any[]
   upNext?: NextPlayback
+  nextEpisodes?: PlayerNextEpisode[]
   onNavigate?: () => void
   initialAutoPlay?: boolean
   live?: boolean

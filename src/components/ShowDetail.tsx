@@ -35,7 +35,10 @@ function ShowDetailContent({ data, kind }: { data: any; kind: 'tvshow' | 'teachi
     recommendations: data.recommendations?.forYou ?? similar,
   }
   function episodePlayback(episode: any): WatchSectionProps {
-    const next = ordered[ordered.findIndex(item => Number(item.id) === Number(episode.id)) + 1]
+    const currentIndex = ordered.findIndex(item => Number(item.id) === Number(episode.id))
+    const next = ordered[currentIndex + 1]
+    const following = ordered.slice(currentIndex + 1).filter(canOpenEpisode).slice(0, 12)
+    const episodeSubtitle = (item: any) => `${seasons.find((seasonItem: any) => String(seasonItem.id) === String(item.season_id))?.name || (isTeaching ? 'Volume' : 'Season')} · Episode ${item.episode_index ?? item.episode_number ?? ordered.indexOf(item) + 1}`
     return {
       locations: episode.locations ?? [],
       contentType: 'episode',
@@ -58,9 +61,16 @@ function ShowDetailContent({ data, kind }: { data: any; kind: 'tvshow' | 'teachi
       recommendations: data.recommendations?.forYou ?? similar,
       upNext: next && canOpenEpisode(next) ? {
         title: next.name, poster: next.thumbnail_url || next.poster_url || show.thumbnail_url || show.poster_url,
-        description: next.description || next.short_desc, subtitle: `${seasons.find((item: any) => String(item.id) === String(next.season_id))?.name || (isTeaching ? 'Volume' : 'Season')} · Episode ${next.episode_index ?? next.episode_number ?? ordered.indexOf(next) + 1}`,
+        description: next.description || next.short_desc, subtitle: episodeSubtitle(next),
         requiresPurchase: needsEpisodeRental(next), requiresSubscription: needsEpisodeSubscription(next), onPlay: () => setSelectedPlayback(episodePlayback(next)),
       } : undefined,
+      nextEpisodes: following.map((item: any) => ({
+        title: item.name,
+        subtitle: episodeSubtitle(item),
+        poster: item.thumbnail_url || item.poster_url || show.thumbnail_url || show.poster_url,
+        meta: [item.duration, item.release_date && String(item.release_date).slice(0, 10)].filter(Boolean).join(' · '),
+        onPlay: () => setSelectedPlayback(episodePlayback(item)),
+      })),
     }
   }
   const firstPlayableEpisode = seasonEps.find(canOpenEpisode)

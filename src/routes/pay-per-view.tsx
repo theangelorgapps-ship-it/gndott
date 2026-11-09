@@ -1,3 +1,4 @@
+import { contentPath } from '@/lib/contentRoutes'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { getPayPerView } from '../lib/api'
@@ -33,9 +34,9 @@ function PayPerView() {
   const { movies, videos, episodes } = Route.useLoaderData() as any
   const [kind, setKind] = useState<Kind>('all')
   const items: { item: any; to: string; kind: Exclude<Kind, 'all'> }[] = [
-    ...movies.map((m: any) => ({ item: m, to: `/movie/${m.id}`, kind: 'movie' as const })),
-    ...videos.map((v: any) => ({ item: v, to: `/video/${v.id}`, kind: 'video' as const })),
-    ...episodes.map((e: any) => ({ item: e, to: `/tv-show/${e.entertainment_id}`, kind: 'episode' as const })),
+    ...movies.map((m: any) => ({ item: m, to: contentPath(m,'/movie'), kind: 'movie' as const })),
+    ...videos.map((v: any) => ({ item: v, to: contentPath(v,'/video'), kind: 'video' as const })),
+    ...episodes.map((e: any) => ({ item: e, to: `${contentPath({id:e.entertainment_id,name:e.show_name,slug:e.show_slug},'/tv-show')}?episode=${e.id}`, kind: 'episode' as const })),
   ]
   const shown = kind === 'all' ? items : items.filter((i) => i.kind === kind)
 

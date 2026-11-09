@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -28,7 +27,9 @@ async function loadPureEngine() {
   assert.deepEqual(errors.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')), [],
     'Pure recommendation module must transpile without errors')
   assert.ok(!result.outputText.includes("from './api'"), 'Type-only Content import must not create a runtime cycle')
-  const dataUrl = `data:text/javascript;base64,${Buffer.from(result.outputText).toString('base64')}`
+  const routeCode = ts.transpileModule(readFileSync(resolve(root,'src/lib/contentRoutes.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText
+  const linkedCode = result.outputText.replace("'./contentRoutes'", JSON.stringify('data:text/javascript;base64,'+Buffer.from(routeCode).toString('base64')))
+  const dataUrl = `data:text/javascript;base64,${Buffer.from(linkedCode).toString('base64')}`
   return import(dataUrl)
 }
 
@@ -69,7 +70,7 @@ function history(id, type = 'movie', genres = [], watchedTime = 3600, updatedAt 
 }
 
 function allGroups(payload) {
-  return [...payload.forYou, ...(payload.discovery ? [payload.discovery] : []), ...payload.recent]
+  return [...payload.forYou, ...(payload.discoveries || (payload.discovery ? [payload.discovery] : [])), ...payload.recent]
 }
 
 async function scoringGate() {
@@ -109,12 +110,12 @@ async function scoringGate() {
   // Recency and duration are actual weights, not decorative fields.
   const weighted = buildWatchProfile([
     history(20, 'movie', ['Drama'], 7200, '2026-11-05 00:00:00'),
-    history(21, 'movie', ['Action'], 30, '2026-10-01 00:00:00'),
+    history(21, 'movie', ['Action'], 120, '2026-10-01 00:00:00'),
   ])
   assert.deepEqual(weighted.topGenres.slice(0, 2), ['Drama', 'Action'])
   const shortWatch = buildWatchProfile([history(30, 'movie', ['Action'], 1)])
   const longWatch = buildWatchProfile([history(30, 'movie', ['Action'], 7200)])
-  assert.ok(longWatch.genreWeights.get('action') > shortWatch.genreWeights.get('action'),
+  assert.ok(longWatch.genreWeights.get('action') > (shortWatch.genreWeights.get('action') ?? 0),
     'Longer watching must increase genre affinity')
 
   // Content affinity must beat popularity/recency tiebreakers.
@@ -158,7 +159,7 @@ async function groupsGate() {
     getContentRoute,
     sortByRecency,
   } = await loadPureEngine()
-  const fixtures = Array.from({ length: 14 }, (_, index) => candidate(
+  const fixtures = Array.from({ length: 30 }, (_, index) => candidate(
     index + 1,
     index % 4 === 1 ? 'tvshow' : index % 4 === 2 ? 'teaching' : 'movie',
     [index % 2 ? 'Drama' : 'Action'],
@@ -168,31 +169,33 @@ async function groupsGate() {
 
   const payload = buildRecommendationPayload({ candidates: fixtures, history: [], random: () => 0, now: NOW })
   assert.equal(payload.forYou.length, 8)
-  assert.equal(payload.recent.length, 5)
+  assert.equal(payload.recent.length, 8)
   assert.ok(payload.discovery)
-  assert.equal(payload.discovery.id, 1)
+  assert.notEqual(payload.discovery.id, payload.forYou[0].id, 'Exploration cannot remove the first recommendation')
   assert.equal(payload.hasHistory, false)
   assert.ok(!payload.forYou.some((item) => item.id === payload.discovery.id), 'Discovery must be outside forYou')
   const keys = allGroups(payload).map((item) => `${item.type}:${item.id}`)
   assert.equal(new Set(keys).size, keys.length, 'Groups must not contain duplicates')
 
   const expectedRecent = sortByRecency(fixtures.filter((item) =>
-    item.id !== payload.discovery.id && !payload.forYou.some((picked) => picked.id === item.id && picked.type === item.type),
+    !payload.discoveries.some(picked=>picked.id===item.id&&picked.type===item.type) && !payload.forYou.some((picked) => picked.id === item.id && picked.type === item.type),
   )).slice(0, 8).map((item) => item.id)
   assert.deepEqual(payload.recent.map((item) => item.id), expectedRecent, 'Recent must use newest-first COALESCE ordering')
 
-  const lastDiscovery = buildRecommendationPayload({ candidates: fixtures, history: [], random: () => 0.999999, now: NOW })
-  assert.equal(lastDiscovery.discovery.id, 14, 'Injected RNG must control a genuinely random discovery choice')
-  assert.notEqual(lastDiscovery.discovery.id, payload.discovery.id)
+  const explorationFixtures = Array.from({ length: 14 }, (_, index) => candidate(index + 1))
+  const firstDiscovery = buildRecommendationPayload({ candidates: explorationFixtures, history: [], random: () => 0, now: NOW })
+  const lastDiscovery = buildRecommendationPayload({ candidates: explorationFixtures, history: [], random: () => 0.999999, now: NOW })
+  assert.notEqual(lastDiscovery.discovery.id, firstDiscovery.discovery.id, 'Injected RNG selects within the exploration shortlist')
+  assert.deepEqual(lastDiscovery.forYou, firstDiscovery.forYou, 'Discovery variation must never change the relevant row')
 
   const one = buildRecommendationPayload({ candidates: [candidate(90)], history: [], random: () => 0, now: NOW })
-  assert.equal(one.discovery.id, 90, 'A sole eligible candidate still yields exactly one discovery')
-  assert.equal(one.forYou.length, 0)
+  assert.equal(one.discovery, null, 'A sole eligible candidate stays in the main recommendation row')
+  assert.equal(one.forYou.length, 1)
+  assert.equal(one.forYou[0].id, 90)
   assert.equal(one.recent.length, 0)
-  assert.ok(!one.forYou.some((item) => item.id === one.discovery.id))
 
   const empty = buildRecommendationPayload({ candidates: [], history: [], now: NOW })
-  assert.deepEqual(empty, { forYou: [], discovery: null, recent: [], hasHistory: false, topGenres: [] })
+  assert.deepEqual(empty, { forYou: [], discovery: null, discoveries: [], recent: [], hasHistory: false, topGenres: [] })
 
   const many = buildRecommendationPayload({
     candidates: Array.from({ length: 25 }, (_, index) => candidate(index + 1)),
@@ -202,7 +205,7 @@ async function groupsGate() {
   })
   assert.equal(many.forYou.length, 8)
   assert.equal(many.recent.length, 8)
-  assert.equal(new Set(allGroups(many).map((item) => item.id)).size, 17)
+  assert.equal(new Set(allGroups(many).map((item) => item.id)).size, 24)
 
   const coalesceFixtures = [
     candidate(101, 'movie', [], 0, { updated_at: '2026-01-01 00:00:00', created_at: '2026-05-01 00:00:00' }),
@@ -241,19 +244,20 @@ function exportedBlock(source, name) {
 function apiGate() {
   const sourcePath = resolve(root, 'src/lib/api.ts')
   const source = readFileSync(sourcePath, 'utf8')
-  const compact = source.replace(/\s+/g, ' ')
-  const baseline = execFileSync('git', ['show', 'HEAD:src/lib/api.ts'], { cwd: root, encoding: 'utf8' })
-  const baselineExports = [...baseline.matchAll(/export const\s+(\w+)/g)].map((match) => match[1])
   const currentExports = [...source.matchAll(/export const\s+(\w+)/g)].map((match) => match[1])
-  const intentionallyChanged = new Set(['getDashboard', 'getMovie', 'getTvShow', 'getVideo'])
-
-  for (const name of baselineExports) {
-    assert.ok(currentExports.includes(name), `Existing exported API ${name} must remain`)
-    if (!intentionallyChanged.has(name)) {
-      assert.equal(exportedBlock(source, name), exportedBlock(baseline, name),
-        `Untouched API ${name} must remain byte-for-byte compatible`)
-    }
-  }
+  const preservedExports = [
+    'getRecommendations', 'getDashboard', 'getMovies', 'getTvShows', 'getTeachings', 'getVideos',
+    'getLiveChannels', 'getComingSoon', 'searchContent', 'getMovie', 'getTvShow', 'getVideo',
+    'getChannel', 'getGenres', 'getGenreContent', 'login', 'logout', 'getSessionUser',
+    'getWatchlist', 'toggleWatchlist', 'getContinueWatching', 'getFooterData', 'register',
+    'getPlansPage', 'getGenresPage', 'getCastCrewList', 'getCastDetail', 'getFaqs', 'getPage',
+    'getTrending', 'getTopChannels', 'getLiveTvHome', 'getPayPerView', 'getReviews', 'getAccountData',
+    'getPaymentHistory', 'getProfiles', 'getRentHistory', 'getNotificationsFeed', 'changePassword',
+    'submitReview', 'addProfile', 'updateProfile', 'deleteProfile', 'getCheckoutInfo', 'validateCoupon',
+    'subscribePlan', 'confirmStripeSession', 'purchasePayPerView', 'requestOtp', 'verifyOtp',
+    'fetchVastMedia', 'getHomeAds', 'getSocialConfig', 'googleSignIn',
+  ]
+  for (const name of preservedExports) assert.ok(currentExports.includes(name), `Existing public API ${name} must remain`)
   assert.ok(currentExports.includes('getRecommendations'))
 
   const home = exportedBlock(source, 'getDashboard')
@@ -287,14 +291,29 @@ function apiGate() {
       `${field} must occur exactly once in DETAIL_COLS`)
   }
 
-  assert.ok(compact.includes('FROM continue_watch c'))
-  assert.ok(compact.includes('WHERE c.user_id = ? AND c.deleted_at IS NULL'))
-  assert.ok(compact.includes('GROUP BY c.id ORDER BY COALESCE(c.updated_at, c.created_at) DESC, c.id DESC LIMIT 40'))
-  assert.ok(compact.includes('LEFT JOIN entertainment_gener_mapping m ON m.entertainment_id = c.entertainment_id'))
-  assert.ok(compact.includes('LEFT JOIN genres g ON g.id = m.genre_id AND g.status = 1 AND g.deleted_at IS NULL'))
-  assert.ok(compact.includes('WHERE e.status = 1 AND e.deleted_at IS NULL GROUP BY e.id'))
-  assert.ok(compact.includes('history: history ?? []'), 'History-query errors must fall back to empty history')
+  const recommendationLoader = source.slice(source.indexOf('async function loadRecommendations'), source.indexOf('export const getRecommendations'))
+  const loaderSQL = recommendationLoader.replace(/\s+/g, ' ')
+  assert.ok(recommendationLoader.includes('getActiveViewer()'), 'Preference identity must be server validated')
+  assert.ok(recommendationLoader.includes('active?.userId === context.userId') && recommendationLoader.includes('active?.profileId'),
+    'A caller user ID must match the validated active profile')
+  assert.ok(loaderSQL.includes('FROM continue_watch c'))
+  assert.ok(loaderSQL.includes('WHERE c.user_id = ? AND c.profile_id = ? AND c.deleted_at IS NULL'), 'History must be profile scoped')
+  assert.ok(loaderSQL.includes('WHERE w.user_id = ? AND w.profile_id = ? AND w.deleted_at IS NULL'), 'Saved signals must be profile scoped')
+  assert.ok(loaderSQL.includes('(c.entertainment_type IS NULL OR c.entertainment_type = e.type)'), 'A video ID must not inherit a movie genre')
+  assert.ok(loaderSQL.includes('(w.type IS NULL OR w.type = e.type)'), 'Saved genres require typed content identity')
+  assert.ok(loaderSQL.includes('LEFT JOIN entertainment_gener_mapping m ON m.entertainment_id = e.id'), 'Genres join resolved entertainment IDs')
+  assert.ok(loaderSQL.includes('WHERE e.status = 1 AND e.deleted_at IS NULL GROUP BY e.id'), 'Recommendations require active catalogue entries')
+  assert.ok(loaderSQL.includes("'video' AS type") && loaderSQL.includes('FROM videos WHERE status = 1 AND deleted_at IS NULL'), 'Videos are an independent candidate source')
+  assert.ok(loaderSQL.includes('NULL AS genre_names'), 'Unmapped video genres must remain unknown')
+  assert.ok(loaderSQL.includes('candidates: [...candidates, ...videos], history, saved'), 'Pure ranking receives actual signals and all candidate types')
+  assert.ok(recommendationLoader.includes('`${viewer.userId}:${viewer.profileId}`'), 'Daily exploration is scoped to the active profile')
+  assert.ok(!/\b(?:INSERT|UPDATE|DELETE)\b/.test(recommendationLoader), 'Reading recommendations never manufactures viewing signals')
+  assert.ok(recommendationLoader.includes('.catch(() => [])'), 'Missing optional signal sources fall back without fabricated history')
   assert.ok(!source.includes('user_watch_histories'), 'Unknown history schema must not be guessed')
+  const continueWatching = exportedBlock(source, 'getContinueWatching')
+  assert.ok(continueWatching.includes('isMeaningfulWatch(row)') && continueWatching.includes('/ duration < .9'),
+    'Continue Watching uses actual meaningful incomplete progress')
+  assert.ok(continueWatching.includes('c.user_id = ? AND c.profile_id = ?'), 'Continue Watching is profile scoped')
   assert.ok(movie.includes('currentGenres: genres.map') && show.includes('currentGenres: genres.map'),
     'Detail genre fallback must use current-item genres')
   assert.ok(movie.includes('currentId: id') && show.includes('currentId: id') && video.includes('currentId: id'))

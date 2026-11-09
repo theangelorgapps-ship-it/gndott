@@ -1,54 +1,72 @@
-import { Link, useRouterState } from '@tanstack/react-router'
-import { useEffect, useState, type ReactNode } from 'react'
-import { getSessionUser } from '../lib/api'
+import { Link, useRouter, useRouterState } from '@tanstack/react-router'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Bookmark, Clock3, CreditCard, ExternalLink, KeyRound, LogOut, MonitorPlay, Settings2, UserRound, UsersRound } from 'lucide-react'
+import { getSessionUser, logout } from '../lib/api'
+import { getViewer } from '../lib/viewer'
+import type { ActiveViewer } from '../lib/viewer.server'
 
-export const ADMIN_URL = 'https://gndottadmin.theangelorgapps.workers.dev'
-
+export const ADMIN_URL = 'https://fort.halobox.tv'
 const LINKS = [
-  { to: '/account-setting', label: 'Account Settings', icon: 'M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z' },
-  { to: '/watchlist', label: 'My Watchlist', icon: 'M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z' },
-  { to: '/pay-per-view-history', label: 'Rent Videos', icon: 'M4 5h16v11H4zM2 19h20v2H2z' },
-  { to: '/payment-history', label: 'Payment History', icon: 'M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zm1 4v2h6v-2z' },
-  { to: '/profile-details', label: 'Profile Details', icon: 'M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z' },
-  { to: '/change-password', label: 'Change Password', icon: 'M17 9V7a5 5 0 0 0-10 0v2H5v13h14V9h-2zm-8-2a3 3 0 0 1 6 0v2H9V7z' },
-]
+  { to: '/account-setting', label: 'Account settings', Icon: Settings2 },
+  { to: '/continue-watching', label: 'Your viewing', Icon: Clock3 },
+  { to: '/watchlist', label: 'Saved list', Icon: Bookmark },
+  { to: '/pay-per-view-history', label: 'My rentals', Icon: MonitorPlay },
+  { to: '/payment-history', label: 'Payment history', Icon: CreditCard },
+  { to: '/profile-details', label: 'Personal details', Icon: UserRound },
+  { to: '/change-password', label: 'Change password', Icon: KeyRound },
+] as const
 
 export function AccountShell({ title, children }: { title: string; children: ReactNode }) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const [viewer, setViewer] = useState<ActiveViewer | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
-  useEffect(() => {
-    getSessionUser().then((u: any) => setIsAdmin(u?.user_type === 'admin')).catch(() => {})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [signingOut, setSigningOut] = useState(false)
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const [user, activeViewer] = await Promise.all([getSessionUser(), getViewer()])
+      setViewer(activeViewer); setIsAdmin(user?.user_type === 'admin')
+    } catch { setError('Your profile could not load. Please try again.') }
+    finally { setLoading(false) }
   }, [])
-  return (
-    <div className="account-shell">
-      <aside className="account-side">
-        {LINKS.map((l) => (
-          <Link key={l.to} to={l.to as any} className={pathname.startsWith(l.to) ? 'active' : ''}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d={l.icon} /></svg>
-            {l.label}
-          </Link>
-        ))}
-        {isAdmin && (
-          <a href={ADMIN_URL} target="_blank" rel="noopener">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M12 2a7 7 0 0 0-7 7c0 2.4 1.2 4.5 3 5.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3c1.8-1.2 3-3.3 3-5.7a7 7 0 0 0-7-7zm-2 19a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-1h-4z" /></svg>
-            Admin Panel
-          </a>
-        )}
-      </aside>
-      <div className="account-main">
-        <h1 className="account-title">{title}</h1>
-        {children}
+  useEffect(() => { void load(); window.addEventListener('halobox-profile-updated',load); return()=>window.removeEventListener('halobox-profile-updated',load) }, [load])
+  async function signOut() {
+    if (signingOut) return
+    setSigningOut(true); setError(null)
+    try {
+      const result = await logout()
+      if (result.ok) window.location.assign('/login')
+      else { setError('Could not sign out. Please try again.'); setSigningOut(false) }
+    } catch { setError('Could not sign out. Check your connection and try again.'); setSigningOut(false) }
+  }
+  return <div className="account-shell tv-account">
+    <aside className="account-side" aria-label="Your account">
+      <div className="tv-account-profile">
+        <span className="tv-account-avatar" aria-hidden="true">{viewer?.avatar ? <img src={viewer.avatar} alt=""/> : viewer?.profileName?.slice(0, 1).toUpperCase() || <UserRound size={24} />}</span>
+        <div><small>Watching as</small><strong>{loading ? 'Loading profile…' : viewer?.profileName ?? 'Choose a profile'}</strong></div>
       </div>
-    </div>
-  )
+      <Link to="/manage-profile" className="tv-account-switch"><UsersRound size={17} aria-hidden="true" />{viewer?.profileId ? 'Switch profile' : 'Choose your profile'}</Link>
+      <nav aria-label="Account destinations">{LINKS.map(({ to, label, Icon }) => <Link key={to} to={to} className={pathname.startsWith(to) ? 'active' : ''} aria-current={pathname.startsWith(to) ? 'page' : undefined}><Icon size={18} aria-hidden="true" />{label}</Link>)}</nav>
+      {isAdmin && <a href={ADMIN_URL} target="_blank" rel="noopener noreferrer"><ExternalLink size={18} aria-hidden="true" />Admin panel</a>}
+      <button type="button" className="tv-account-signout" disabled={signingOut} onClick={signOut}><LogOut size={18} aria-hidden="true" />{signingOut ? 'Signing out…' : 'Sign out'}</button>
+      {error && <div className="tv-account-error"><p role="alert">{error}</p><button type="button" className="tv-text-button" disabled={loading || signingOut} onClick={load}>Reload profile</button></div>}
+    </aside>
+    <main className="account-main"><p className="tv-account-eyebrow">GoodNews Halobox · Your space</p><h1 className="account-title">{title}</h1>{children}</main>
+  </div>
 }
 
 export function NeedsAuth() {
-  return (
-    <div className="empty">
-      <h2>Sign in required</h2>
-      <p>Sign in to access your account area.</p>
-      <Link to="/login" className="btn btn-primary">Sign in</Link>
-    </div>
-  )
+  return <main className="tv-flow-empty"><UserRound size={36} aria-hidden="true" /><h1>Your space on GoodNews Halobox.</h1><p>Sign in to choose a profile, find your saved titles and continue watching.</p><div className="tv-flow-actions"><Link to="/login" className="btn btn-primary">Sign in</Link><Link to="/" className="btn btn-dark">Browse titles</Link></div></main>
+}
+
+export function FlowLoadError({ title, reset }: { title: string; reset: () => void }) {
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+  return <main className="tv-flow-empty"><h1>{title}</h1><p role={failed ? 'alert' : undefined}>{failed ? 'Still unable to connect. Please try again in a moment.' : 'Check your connection, then try again.'}</p><div className="tv-flow-actions"><button type="button" className="btn btn-primary" disabled={busy} onClick={async () => {
+    setBusy(true); setFailed(false)
+    try { await router.invalidate(); reset() } catch { setFailed(true) } finally { setBusy(false) }
+  }}>{busy ? 'Trying again…' : 'Try again'}</button><Link to="/" className="btn btn-dark">Browse titles</Link></div></main>
 }

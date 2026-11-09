@@ -1,9 +1,19 @@
+import { sanitizePublicContentHtml } from './content-html'
+import type { HeroDesign } from './hero-design'
+import { loadConfiguredHeroes } from './heroes.server'
 import { createServerFn } from '@tanstack/react-start'
-import { getSession, setSessionCookie, clearSessionCookie } from './session.server'
+import { playbackFields, positiveId, profileInput, publicHttpsUrl, publicNavigationUrl, readVastMedia } from './api-security'
+import { getSession, clearSessionCookie } from './session.server'
 import { all, first, run } from './db'
-import bcrypt from 'bcryptjs'
-import { buildRecommendationPayload } from './recommendations'
-import type { RecommendationCandidate, RecommendationPayload, WatchHistoryEntry } from './recommendations'
+import { buildRecommendationPayload, buildMixedPopular } from './recommendations'
+import { isChildViewer, loadRecommendationCandidates, loadRecommendationSignals } from './recommendations.server'
+import { getActiveViewer } from './viewer.server'
+import { loadViewingHistory, viewingQuery } from './viewing-history.server'
+import { subscriptionPlaybackAccess, entitlementDatabase } from './entitlement.server'
+import { resolveEntitlement, subscriptionDashboard } from './entitlement-core'
+import { requiresSubscription, subscriptionFields } from './subscriptionPolicy'
+import { loadPersonalities, loadTitlePeople, loadTitleLocations, loadPersonalityDetail } from './people.server'
+import type { RecommendationPayload } from './recommendations'
 
 export type { RecommendationPayload } from './recommendations'
 
@@ -24,14 +34,17 @@ export interface Content {
   language: string | null
   movie_access?: string | null
   content_rating: string | null
+  hero_design?: HeroDesign
 }
 
 // ---------- content queries ----------
 
 const CONTENT_COLS =
-  'id, name, slug, description, type, poster_url, thumbnail_url, release_date, IMDb_rating, duration, language, movie_access, content_rating, trailer_url, bunny_video_url, bunny_trailer_url, video_url_input, video_upload_type'
+  'id, name, slug, description, type, poster_url, thumbnail_url, release_date, IMDb_rating, duration, language, movie_access, content_rating, trailer_url, bunny_trailer_url, video_upload_type'
 
-const DETAIL_COLS = `${CONTENT_COLS}, enable_quality, enable_subtitle, subtitle_file, subtitle_language, price, purchase_type, access_duration, available_for, meta_title, meta_description`
+const HERO_COLS = `${CONTENT_COLS}, CASE WHEN movie_access = 'free' THEN video_url_input ELSE NULL END AS video_url_input, (SELECT GROUP_CONCAT(g.name) FROM genres g JOIN entertainment_gener_mapping m ON m.genre_id = g.id WHERE m.entertainment_id = entertainments.id AND g.status = 1 AND g.deleted_at IS NULL) AS genre_names`
+
+const DETAIL_COLS = `${CONTENT_COLS}, bunny_video_url, video_url_input, enable_quality, enable_subtitle, subtitle_file, subtitle_language, plan_id, price, purchase_type, access_duration, available_for, meta_title, meta_description`
 
 async function getBunnyLibraryId(): Promise<string | null> {
   const row = await first<any>(`SELECT val FROM settings WHERE name = 'bunny_library_id'`).catch(() => null)
@@ -49,11 +62,11 @@ async function getPlaybackAds(contentType: string, contentId: number) {
   const vast = vastAllFilter(vastAll, contentType, contentId)
   const custom = await all<any>(
     `SELECT id, name, type, url_type, placement, media, redirect_url, duration, skip_enabled, skip_after
-     FROM custom_ads_setting WHERE is_enable = '1' AND status = '1'
+     FROM custom_ads_setting WHERE is_enable = '1' AND status = '1' AND deleted_at IS NULL
        AND (start_date IS NULL OR start_date <= ?) AND (end_date IS NULL OR end_date >= ?)`,
     today, today,
   ).catch(() => [])
-  return { vast, custom }
+  return { vast, custom: custom.map(ad => ({ ...ad, redirect_url: publicNavigationUrl(ad.redirect_url) })) }
 }
 
 function vastAllFilter(rows: any[], contentType: string, contentId: number) {
@@ -72,10 +85,14 @@ function vastAllFilter(rows: any[], contentType: string, contentId: number) {
 
 async function getInWatchlist(uid: number | null, entertainmentId: number): Promise<boolean> {
   if (!uid) return false
+  const viewer = await getActiveViewer()
+  if (viewer?.userId !== uid || !viewer.profileId) return false
   const row = await first<any>(
-    `SELECT id FROM watchlists WHERE user_id = ? AND entertainment_id = ? AND deleted_at IS NULL`,
-    uid, entertainmentId,
-  ).catch(() => null)
+    `SELECT w.id FROM watchlists w JOIN entertainments e ON e.id = w.entertainment_id
+     WHERE w.user_id = ? AND w.profile_id = ? AND w.entertainment_id = ?
+     AND (w.type IS NULL OR w.type = e.type) AND w.deleted_at IS NULL`,
+    uid, viewer.profileId, entertainmentId,
+  )
   return !!row
 }
 
@@ -87,40 +104,16 @@ interface RecommendationContext {
 }
 
 async function loadRecommendations(context: RecommendationContext): Promise<RecommendationPayload> {
-  const historyRequest = context.userId == null
-    ? Promise.resolve<WatchHistoryEntry[] | null>([])
-    : all<WatchHistoryEntry>(
-        `SELECT c.entertainment_id, COALESCE(c.entertainment_type, e.type) AS entertainment_type,
-                c.watched_time, c.total_watched_time, c.created_at, c.updated_at,
-                GROUP_CONCAT(DISTINCT g.name) AS genre_names
-         FROM continue_watch c
-         LEFT JOIN entertainments e ON e.id = c.entertainment_id
-         LEFT JOIN entertainment_gener_mapping m ON m.entertainment_id = c.entertainment_id
-         LEFT JOIN genres g ON g.id = m.genre_id AND g.status = 1 AND g.deleted_at IS NULL
-         WHERE c.user_id = ? AND c.deleted_at IS NULL
-         GROUP BY c.id
-         ORDER BY COALESCE(c.updated_at, c.created_at) DESC, c.id DESC
-         LIMIT 40`,
-        context.userId,
-      ).catch(() => null)
-
-  const candidateRequest = all<RecommendationCandidate>(
-    `SELECT e.id, e.name, e.slug, e.description, e.type, e.poster_url, e.thumbnail_url,
-            e.release_date, e.IMDb_rating, e.duration, e.language, e.movie_access,
-            e.content_rating, e.trailer_url, e.total_views, e.created_at, e.updated_at,
-            GROUP_CONCAT(DISTINCT g.name) AS genre_names
-     FROM entertainments e
-     LEFT JOIN entertainment_gener_mapping m ON m.entertainment_id = e.id
-     LEFT JOIN genres g ON g.id = m.genre_id AND g.status = 1 AND g.deleted_at IS NULL
-     WHERE e.status = 1 AND e.deleted_at IS NULL
-     GROUP BY e.id`,
-  ).catch(() => [])
-
-  const [history, candidates] = await Promise.all([historyRequest, candidateRequest])
+  const active = context.userId == null ? null : await getActiveViewer()
+  const viewer = active?.userId === context.userId && active?.profileId ? active : null
+  const child = await isChildViewer(viewer)
+  const [{ history, saved }, candidates] = await Promise.all([
+    loadRecommendationSignals(viewer, child),
+    loadRecommendationCandidates(child),
+  ])
   return buildRecommendationPayload({
-    candidates,
-    // A failed history read is an honest non-personalized fallback, never fake history.
-    history: history ?? [],
+    candidates, history, saved,
+    seed: viewer ? `${viewer.userId}:${viewer.profileId}` : 'guest',
     currentId: context.currentId,
     currentType: context.currentType,
     currentGenres: context.currentGenres,
@@ -133,61 +126,72 @@ export const getRecommendations = createServerFn({ method: 'GET' }).handler(asyn
 })
 
 export const getDashboard = createServerFn({ method: 'GET' }).handler(async () => {
+  const viewer = await getActiveViewer()
+  const child = await isChildViewer(viewer)
+  const visible = child ? ' AND COALESCE(is_restricted, 0) = 0' : ''
   const [top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon,
-    payPerView, languages, cast, mostWatched] =
+    payPerView, languages, cast, heroes, candidates, signals] =
     await Promise.all([
       all<Content>(
-        `SELECT ${CONTENT_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL ORDER BY total_views DESC LIMIT 10`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL${visible} ORDER BY total_views DESC LIMIT 10`,
       ).catch(() =>
         all<Content>(
-          `SELECT ${CONTENT_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 10`,
+          `SELECT ${HERO_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL${visible} ORDER BY id DESC LIMIT 10`,
         ),
       ),
       all<Content>(
-        `SELECT ${CONTENT_COLS} FROM entertainments WHERE type = 'movie' AND status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE type = 'movie' AND status = 1 AND deleted_at IS NULL${visible} ORDER BY id DESC LIMIT 12`,
       ),
       all<Content>(
-        `SELECT ${CONTENT_COLS} FROM entertainments WHERE type = 'tvshow' AND status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE type = 'tvshow' AND status = 1 AND deleted_at IS NULL${visible} ORDER BY id DESC LIMIT 12`,
       ),
       all<Content>(
-        `SELECT ${CONTENT_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL AND (release_date IS NULL OR release_date <= date('now')) ORDER BY release_date DESC LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE status = 1 AND deleted_at IS NULL${visible} AND (release_date IS NULL OR release_date <= date('now')) ORDER BY release_date DESC LIMIT 12`,
       ),
       all<Content>(
-        `SELECT ${CONTENT_COLS} FROM entertainments WHERE movie_access = 'free' AND status = 1 AND deleted_at IS NULL LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE movie_access = 'free' AND status = 1 AND deleted_at IS NULL${visible} LIMIT 12`,
       ),
-      all(`SELECT id, name, slug FROM genres WHERE status = 1 AND deleted_at IS NULL ORDER BY name`),
+      all(`SELECT id, name, slug, file_url FROM genres WHERE status = 1 AND deleted_at IS NULL ORDER BY name`),
       all(
         `SELECT id, name, poster_url FROM live_tv_channel WHERE status = 1 AND deleted_at IS NULL LIMIT 12`,
       ).catch(() => []),
       all<Content>(
-        `SELECT ${CONTENT_COLS} FROM entertainments WHERE release_date > date('now') AND status = 1 AND deleted_at IS NULL ORDER BY release_date LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE release_date > date('now') AND status = 1 AND deleted_at IS NULL${visible} ORDER BY release_date LIMIT 12`,
       ),
       all<Content>(
-        `SELECT ${CONTENT_COLS} FROM entertainments WHERE movie_access = 'paid' AND status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 12`,
+        `SELECT ${HERO_COLS} FROM entertainments WHERE movie_access = 'paid' AND status = 1 AND deleted_at IS NULL${visible} ORDER BY id DESC LIMIT 12`,
       ),
       all(
         `SELECT language AS name, COUNT(*) AS titles FROM entertainments
          WHERE language IS NOT NULL AND language != '' AND status = 1 AND deleted_at IS NULL
          GROUP BY language ORDER BY titles DESC LIMIT 10`,
       ).catch(() => []),
-      all(
-        `SELECT id, name, file_url, designation FROM cast_crew WHERE status = 1 AND deleted_at IS NULL ORDER BY id LIMIT 12`,
-      ).catch(() => []),
-      all<Content>(
-        `SELECT id, name, slug, description, poster_url, thumbnail_url, release_date, IMDb_rating, duration, 'video' AS type
-         FROM videos WHERE status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 12`,
-      ).catch(() => []),
+      loadPersonalities(12),
+      loadConfiguredHeroes('home', child),
+      loadRecommendationCandidates(child),
+      loadRecommendationSignals(viewer, child),
     ])
-  const [session, bunnyLibraryId] = await Promise.all([getSession(), getBunnyLibraryId()])
-  const recommendations = await loadRecommendations({ userId: session?.uid ?? null })
-  return { top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon, payPerView, languages, cast, mostWatched, recommendations, bunnyLibraryId }
+  const bunnyLibraryId = await getBunnyLibraryId()
+  const recommendations = buildRecommendationPayload({ candidates, ...signals, seed: viewer?.profileId ? `${viewer.userId}:${viewer.profileId}` : 'guest' })
+  const popular = buildMixedPopular(candidates)
+  const mostWatched = buildMixedPopular(candidates.filter(item => item.type === 'video'))
+  const collections = (['movie', 'teaching', 'tvshow', 'video'] as const).flatMap(type => {
+    const titles = candidates.filter(item => item.type === type)
+    return titles.length ? [{ type, count: titles.length, artwork: titles.find(item => item.thumbnail_url)?.thumbnail_url || titles.find(item => item.poster_url)?.poster_url || null }] : []
+  })
+  return { popular, collections, top10, popularMovies, popularTvShows, latest, free, genres, channels, comingSoon, payPerView, languages, cast, mostWatched, recommendations, bunnyLibraryId, heroes }
 })
 
-export const getMovies = createServerFn({ method: 'GET' }).handler(async () =>
-  all<Content>(
-    `SELECT ${CONTENT_COLS} FROM entertainments WHERE type = 'movie' AND status = 1 AND deleted_at IS NULL ORDER BY name`,
-  ),
-)
+export const getMovies = createServerFn({ method: 'GET' }).handler(async () => {
+  const movies = await all<Content & { categories_json: string }>(
+    `SELECT ${HERO_COLS},
+      (SELECT json_group_array(json_object('id',g.id,'name',g.name))
+       FROM genres g JOIN entertainment_gener_mapping m ON m.genre_id = g.id
+       WHERE m.entertainment_id = entertainments.id AND g.status = 1 AND g.deleted_at IS NULL) AS categories_json
+     FROM entertainments WHERE type = 'movie' AND status = 1 AND deleted_at IS NULL ORDER BY name`,
+  )
+  return movies.map(({ categories_json, ...movie }) => ({ ...movie, categories: JSON.parse(categories_json || '[]') as { id: number; name: string }[] }))
+})
 
 export const getTvShows = createServerFn({ method: 'GET' }).handler(async () =>
   all<Content>(
@@ -264,7 +268,7 @@ export const getMovie = createServerFn({ method: 'GET' })
   .validator((id: number) => id)
   .handler(async ({ data: id }) => {
     const movie = await first<Content>(
-      `SELECT ${DETAIL_COLS} FROM entertainments WHERE id = ? AND deleted_at IS NULL`,
+      `SELECT ${DETAIL_COLS} FROM entertainments WHERE id = ? AND status = 1 AND deleted_at IS NULL`,
       id,
     )
     if (!movie) return null
@@ -273,10 +277,7 @@ export const getMovie = createServerFn({ method: 'GET' })
       `SELECT g.id, g.name FROM genres g JOIN entertainment_gener_mapping m ON m.genre_id = g.id WHERE m.entertainment_id = ?`,
       id,
     ).catch(() => [])
-    const cast = await all(
-      `SELECT c.id, c.name, c.type, c.file_url FROM cast_crew c JOIN entertainment_talent_mapping m ON m.talent_id = c.id WHERE m.entertainment_id = ? LIMIT 12`,
-      id,
-    ).catch(() => [])
+    const [cast, locations] = await Promise.all([loadTitlePeople(id), loadTitleLocations('entertainment', id)])
     const similar = await all<Content>(
       `SELECT ${CONTENT_COLS} FROM entertainments WHERE type = ? AND id != ? AND status = 1 AND deleted_at IS NULL ORDER BY RANDOM() LIMIT 8`,
       movie.type,
@@ -288,7 +289,7 @@ export const getMovie = createServerFn({ method: 'GET' })
     ).catch(() => ({ n: 0, avg: 0 }))
     const reviews = await all(
       `SELECT r.id, r.rating, r.review, r.created_at,
-              COALESCE(NULLIF(TRIM(u.first_name || ' ' || IFNULL(u.last_name,'')), ''), u.email) AS author
+              COALESCE(NULLIF(TRIM(u.first_name || ' ' || IFNULL(u.last_name,'')), ''), 'Halobox viewer') AS author
        FROM reviews r LEFT JOIN users u ON u.id = r.user_id
        WHERE r.entertainment_id = ? AND r.deleted_at IS NULL ORDER BY r.id DESC LIMIT 10`,
       id,
@@ -317,14 +318,16 @@ export const getMovie = createServerFn({ method: 'GET' })
         currentGenres: genres.map((genre) => String(genre.name)),
       }),
     ])
-    return { movie, genres, cast, similar, reviewStats, reviews, clips, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, recommendations, viewerId: session?.uid ?? null }
+    const sub = session && requiresSubscription(movie) ? await resolveEntitlement(entitlementDatabase(), session.uid) : null
+    const allowed = !!sub && await subscriptionPlaybackAccess()
+    return { movie: subscriptionFields(playbackFields(movie, !!myPurchase), sub, allowed), genres, cast, locations, similar, reviewStats, reviews, clips, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, recommendations, viewerId: session?.uid ?? null }
   })
 
 export const getTvShow = createServerFn({ method: 'GET' })
   .validator((id: number) => id)
   .handler(async ({ data: id }) => {
     const show = await first<Content>(
-      `SELECT ${DETAIL_COLS} FROM entertainments WHERE id = ? AND deleted_at IS NULL`,
+      `SELECT ${DETAIL_COLS} FROM entertainments WHERE id = ? AND status = 1 AND deleted_at IS NULL`,
       id,
     )
     if (!show) return null
@@ -334,20 +337,27 @@ export const getTvShow = createServerFn({ method: 'GET' })
       id,
     )
     const episodes = await all(
-      `SELECT id, name, season_id, poster_url, duration, IMDb_rating, release_date FROM episodes WHERE entertainment_id = ? AND deleted_at IS NULL ORDER BY id`,
+      `SELECT id, name, season_id, poster_url, thumbnail_url, duration, release_date, episode_number, description, short_desc, bunny_video_url, trailer_url, video_url_input, access, plan_id, price FROM episodes WHERE entertainment_id = ? AND status = 1 AND deleted_at IS NULL ORDER BY id`,
       id,
     )
+    await Promise.all(episodes.map(async (episode) => { episode.locations = await loadTitleLocations('episode', Number(episode.id)) }))
+    // Each paid episode has its own entitlement; a show rental is not an episode purchase.
+    if (session?.uid) {
+      const purchases = await all<{ movie_id: number }>(
+        `SELECT movie_id FROM pay_per_views WHERE user_id = ? AND type = 'episode' AND (view_expiry_date IS NULL OR view_expiry_date >= datetime('now'))`,
+        session.uid,
+      ).catch(() => [])
+      const owned = new Set(purchases.map((purchase) => Number(purchase.movie_id)))
+      for (const episode of episodes) episode.myPurchase = owned.has(Number(episode.id))
+    }
     const genres = await all(
       `SELECT g.id, g.name FROM genres g JOIN entertainment_gener_mapping m ON m.genre_id = g.id WHERE m.entertainment_id = ?`,
       id,
     ).catch(() => [])
-    const cast = await all(
-      `SELECT c.id, c.name, c.type, c.file_url FROM cast_crew c JOIN entertainment_talent_mapping m ON m.talent_id = c.id WHERE m.entertainment_id = ? LIMIT 12`,
-      id,
-    ).catch(() => [])
+    const [cast, locations] = await Promise.all([loadTitlePeople(id), loadTitleLocations('entertainment', id)])
     const reviews = await all(
       `SELECT r.id, r.rating, r.review, r.created_at,
-              COALESCE(NULLIF(TRIM(u.first_name || ' ' || IFNULL(u.last_name,'')), ''), u.email) AS author
+              COALESCE(NULLIF(TRIM(u.first_name || ' ' || IFNULL(u.last_name,'')), ''), 'Halobox viewer') AS author
        FROM reviews r LEFT JOIN users u ON u.id = r.user_id
        WHERE r.entertainment_id = ? AND r.deleted_at IS NULL ORDER BY r.id DESC LIMIT 10`,
       id,
@@ -381,24 +391,29 @@ export const getTvShow = createServerFn({ method: 'GET' })
         currentGenres: genres.map((genre) => String(genre.name)),
       }),
     ])
-    return { show, seasons, episodes, genres, cast, reviews, clips, similar, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, recommendations, viewerId: session?.uid ?? null }
+    const sub = session && [show,...episodes].some(requiresSubscription) ? await resolveEntitlement(entitlementDatabase(), session.uid) : null
+    const allowed = !!sub && await subscriptionPlaybackAccess()
+    const safeShow = subscriptionFields(playbackFields(show, !!myPurchase), sub, allowed)
+    const parentDenied = (show.movie_access === 'paid' && !myPurchase) || safeShow.hasSubscriptionAccess === false
+    return { show: safeShow, seasons, episodes: episodes.map(episode => subscriptionFields(playbackFields(episode, !!episode.myPurchase, parentDenied), sub, allowed)), genres, cast, locations, reviews, clips, similar, bunnyLibraryId, ads, inWatchlist, myReview, myPurchase, recommendations, viewerId: session?.uid ?? null }
   })
 
 export const getVideo = createServerFn({ method: 'GET' })
   .validator((id: number) => id)
   .handler(async ({ data: id }) => {
     const video = await first<Content>(
-      `SELECT * FROM videos WHERE id = ? AND deleted_at IS NULL`,
+      `SELECT * FROM videos WHERE id = ? AND status = 1 AND deleted_at IS NULL`,
       id,
     )
     if (!video) return null
+    const locations = await loadTitleLocations('video', id)
     const similar = await all<Content>(
       `SELECT id, name, slug, poster_url, duration, IMDb_rating FROM videos WHERE id != ? AND status = 1 AND deleted_at IS NULL ORDER BY RANDOM() LIMIT 8`,
       id,
     )
     const reviews = await all(
       `SELECT r.id, r.rating, r.review, r.created_at,
-              COALESCE(NULLIF(TRIM(u.first_name || ' ' || IFNULL(u.last_name,'')), ''), u.email) AS author
+              COALESCE(NULLIF(TRIM(u.first_name || ' ' || IFNULL(u.last_name,'')), ''), 'Halobox viewer') AS author
        FROM reviews r LEFT JOIN users u ON u.id = r.user_id
        WHERE r.entertainment_id = ? AND r.deleted_at IS NULL ORDER BY r.id DESC LIMIT 10`,
       id,
@@ -416,14 +431,17 @@ export const getVideo = createServerFn({ method: 'GET' })
         : null,
       loadRecommendations({ userId: session?.uid ?? null, currentId: id, currentType: 'video' }),
     ])
-    return { video, similar, reviews, clips, bunnyLibraryId, ads, myReview, recommendations, viewerId: session?.uid ?? null }
+    const myPurchase = session && (video as any).access === 'paid' ? await first<any>(`SELECT id FROM pay_per_views WHERE user_id = ? AND movie_id = ? AND type = 'video' AND (view_expiry_date IS NULL OR view_expiry_date >= datetime('now'))`, session.uid, id).catch(() => null) : null
+    const sub = session && requiresSubscription(video) ? await resolveEntitlement(entitlementDatabase(), session.uid) : null
+    const allowed = !!sub && await subscriptionPlaybackAccess()
+    return { video: subscriptionFields(playbackFields(video, !!myPurchase), sub, allowed), myPurchase, locations, similar, reviews, clips, bunnyLibraryId, ads, myReview, recommendations, viewerId: session?.uid ?? null }
   })
 
 export const getChannel = createServerFn({ method: 'GET' })
   .validator((id: number) => id)
   .handler(async ({ data: id }) => {
     const channel = await first(
-      `SELECT c.*, cat.name AS category FROM live_tv_channel c LEFT JOIN live_tv_category cat ON cat.id = c.category_id WHERE c.id = ?`,
+      `SELECT c.id, c.name, c.slug, c.poster_url, c.description, c.access, c.plan_id, c.category_id, cat.name AS category FROM live_tv_channel c LEFT JOIN live_tv_category cat ON cat.id = c.category_id WHERE c.id = ? AND c.status = 1 AND c.deleted_at IS NULL`,
       id,
     )
     if (!channel) return null
@@ -440,13 +458,17 @@ export const getGenres = createServerFn({ method: 'GET' }).handler(async () =>
 )
 
 export const getGenreContent = createServerFn({ method: 'GET' })
-  .validator((id: number) => id)
+  .validator((id: number) => positiveId(id))
   .handler(async ({ data: id }) => {
-    const genre = await first(`SELECT id, name, description FROM genres WHERE id = ?`, id)
+    const genre = await first(`SELECT id, name, description FROM genres WHERE id = ? AND status = 1 AND deleted_at IS NULL`, id)
+    if (!genre) return { genre: null, items: [] as Content[] }
+    const child = await isChildViewer(await getActiveViewer())
     const items = await all<Content>(
-      `SELECT ${CONTENT_COLS} FROM entertainments e JOIN entertainment_gener_mapping m ON m.entertainment_id = e.id WHERE m.genre_id = ? AND e.status = 1 AND e.deleted_at IS NULL`,
-      id,
-    ).catch(() => [])
+      `SELECT DISTINCT ${CONTENT_COLS.split(',').map((column) => `e.${column.trim()}`).join(', ')} FROM entertainments e JOIN entertainment_gener_mapping m ON m.entertainment_id = e.id
+       WHERE m.genre_id = ? AND m.deleted_at IS NULL AND e.status = 1 AND e.deleted_at IS NULL
+         AND TRIM(COALESCE(e.name, '')) != '' AND (? = 0 OR COALESCE(e.is_restricted, 0) = 0) ORDER BY e.name`,
+      id, child ? 1 : 0,
+    )
     return { genre, items }
   })
 
@@ -454,26 +476,10 @@ export const getGenreContent = createServerFn({ method: 'GET' })
 
 export const login = createServerFn({ method: 'POST' })
   .validator((d: { email: string; password: string }) => d)
-  .handler(async ({ data }) => {
-    const user = await first<any>(
-      `SELECT id, email, first_name, last_name, password, user_type, status, is_banned FROM users WHERE email = ? AND deleted_at IS NULL`,
-      data.email.trim().toLowerCase(),
-    )
-    if (!user) return { ok: false, error: 'No account found for that email.' }
-    if (user.is_banned === 1 || user.status === 0) return { ok: false, error: 'This account is disabled.' }
-    const hash = String(user.password || '').replace(/^\$2y\$/, '$2b$')
-    const valid = bcrypt.compareSync(data.password, hash)
-    if (!valid) return { ok: false, error: 'Incorrect password.' }
-    const profiles = await all(
-      `SELECT id, name, avatar, is_child_profile FROM user_multi_profiles WHERE user_id = ? AND deleted_at IS NULL`,
-      user.id,
-    )
-    await setSessionCookie({ uid: user.id, email: user.email, name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() })
-    return { ok: true, user: { id: user.id, email: user.email, name: user.first_name }, profiles }
-  })
+  .handler(async ({ data }) => (await import('./auth.server')).passwordLogin(data))
 
 export const logout = createServerFn({ method: 'POST' }).handler(async () => {
-  clearSessionCookie()
+  await clearSessionCookie()
   return { ok: true }
 })
 
@@ -481,7 +487,7 @@ export const getSessionUser = createServerFn({ method: 'GET' }).handler(async ()
   const session = await getSession()
   if (!session) return null
   const user = await first<any>(
-    `SELECT id, email, first_name, last_name, mobile, is_subscribe, user_type FROM users WHERE id = ?`,
+    `SELECT id, email, first_name, last_name, mobile, is_subscribe, user_type FROM users WHERE id = ? AND status = 1 AND COALESCE(is_banned, 0) = 0 AND deleted_at IS NULL`,
     session.uid,
   )
   const profiles = await all(
@@ -494,50 +500,47 @@ export const getSessionUser = createServerFn({ method: 'GET' }).handler(async ()
 // ---------- watchlist & continue watching ----------
 
 export const getWatchlist = createServerFn({ method: 'GET' }).handler(async () => {
-  const session = await getSession()
-  if (!session) return { needsAuth: true as const, items: [] }
+  const viewer = await getActiveViewer()
+  if (!viewer) return { needsAuth: true, needsProfile: false, items: [] }
+  if (!viewer.profileId) return { needsAuth: false, needsProfile: true, items: [] }
   const items = await all(
     `SELECT w.id AS watch_id, e.id, e.name, e.type, e.poster_url, e.IMDb_rating
      FROM watchlists w JOIN entertainments e ON e.id = w.entertainment_id
-     WHERE w.user_id = ? AND w.deleted_at IS NULL`,
-    session.uid,
-  ).catch(() => [])
-  return { needsAuth: false as const, items }
+       AND (w.type IS NULL OR w.type = e.type) AND e.status = 1 AND e.deleted_at IS NULL
+     WHERE w.user_id = ? AND w.profile_id = ? AND w.deleted_at IS NULL ORDER BY w.id DESC`,
+    viewer.userId, viewer.profileId,
+  )
+  return { needsAuth: false, needsProfile: false, items }
 })
 
 export const toggleWatchlist = createServerFn({ method: 'POST' })
-  .validator((d: { entertainmentId: number }) => d)
+  .validator((d: { entertainmentId: number }) => {
+    if (!d || !Number.isSafeInteger(d.entertainmentId) || d.entertainmentId <= 0) throw new Error('Invalid title.')
+    return d
+  })
   .handler(async ({ data }) => {
-    const session = await getSession()
-    if (!session) return { ok: false, needsAuth: true }
+    const viewer = await getActiveViewer()
+    if (!viewer) return { ok: false, needsAuth: true }
+    if (!viewer.profileId) return { ok: false, needsProfile: true }
+    const content = await first<any>('SELECT id, type FROM entertainments WHERE id = ? AND status = 1 AND deleted_at IS NULL', data.entertainmentId)
+    if (!content) return { ok: false }
     const existing = await first<any>(
-      `SELECT id FROM watchlists WHERE user_id = ? AND entertainment_id = ? AND deleted_at IS NULL`,
-      session.uid,
-      data.entertainmentId,
+      `SELECT id FROM watchlists WHERE user_id = ? AND profile_id = ? AND entertainment_id = ?
+       AND (type IS NULL OR type = ?) AND deleted_at IS NULL`,
+      viewer.userId, viewer.profileId, content.id, content.type,
     )
     if (existing) {
-      await run(`UPDATE watchlists SET deleted_at = datetime('now') WHERE id = ?`, existing.id)
+      await run(`UPDATE watchlists SET deleted_at = datetime('now') WHERE user_id = ? AND profile_id = ? AND entertainment_id = ? AND (type IS NULL OR type = ?) AND deleted_at IS NULL`, viewer.userId, viewer.profileId, content.id, content.type)
       return { ok: true, added: false }
     }
     await run(
-      `INSERT INTO watchlists (user_id, entertainment_id, created_at, updated_at) VALUES (?, ?, datetime('now'), datetime('now'))`,
-      session.uid,
-      data.entertainmentId,
+      `INSERT INTO watchlists (user_id, profile_id, entertainment_id, type, created_at, updated_at) VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      viewer.userId, viewer.profileId, content.id, content.type,
     )
     return { ok: true, added: true }
   })
 
-export const getContinueWatching = createServerFn({ method: 'GET' }).handler(async () => {
-  const session = await getSession()
-  if (!session) return { needsAuth: true as const, items: [] }
-  const items = await all(
-    `SELECT c.id AS cw_id, c.watched_time, c.total_watched_time, e.id, e.name, e.type, e.poster_url
-     FROM continue_watch c JOIN entertainments e ON e.id = c.entertainment_id
-     WHERE c.user_id = ? AND c.deleted_at IS NULL`,
-    session.uid,
-  ).catch(() => [])
-  return { needsAuth: false as const, items }
-})
+export const getContinueWatching = createServerFn({ method: 'GET' }).handler(() => loadViewingHistory(viewingQuery()))
 
 // ---------- footer ----------
 
@@ -553,27 +556,7 @@ export const getFooterData = createServerFn({ method: 'GET' }).handler(async () 
 
 export const register = createServerFn({ method: 'POST' })
   .validator((d: { firstName: string; lastName: string; email: string; mobile?: string; password: string }) => d)
-  .handler(async ({ data }) => {
-    const email = data.email.trim().toLowerCase()
-    if (!data.firstName.trim()) return { ok: false, error: 'First name is required.' }
-    if (!email || !email.includes('@')) return { ok: false, error: 'A valid email is required.' }
-    if (!data.password || data.password.length < 8) return { ok: false, error: 'Password must be at least 8 characters.' }
-    const existing = await first<any>(`SELECT id FROM users WHERE email = ?`, email)
-    if (existing) return { ok: false, error: 'An account with this email already exists.' }
-    const hash = bcrypt.hashSync(data.password, 10)
-    const res = await run(
-      `INSERT INTO users (first_name, last_name, email, mobile, password, user_type, status, is_banned, is_subscribe, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,1,0,0,datetime('now'),datetime('now'))`,
-      data.firstName.trim(), data.lastName.trim(), email, data.mobile ?? null, hash, 'user',
-    )
-    const uid = (res as any)?.meta?.last_row_id
-    await run(
-      `INSERT INTO user_multi_profiles (user_id, name, is_child_profile, created_at, updated_at) VALUES (?,?,0,datetime('now'),datetime('now'))`,
-      uid, `${data.firstName.trim()} ${data.lastName.trim()}`.trim(),
-    ).catch(() => null)
-    await setSessionCookie({ uid, email, name: data.firstName.trim() })
-    return { ok: true, user: { id: uid, email, name: data.firstName.trim() } }
-  })
+  .handler(async ({ data }) => (await import('./auth.server')).registerAccount(data))
 
 // ---------- subscription plans (public) ----------
 
@@ -588,14 +571,8 @@ export const getPlansPage = createServerFn({ method: 'GET' }).handler(async () =
      FROM planlimitation_mapping m JOIN planlimitation l ON l.id = m.planlimitation_id
      WHERE m.deleted_at IS NULL`,
   ).catch(() => [])
-  let activeSub: any = null
-  if (session) {
-    activeSub = await first<any>(
-      `SELECT s.id, s.name, s.end_date, s.status FROM subscriptions s
-       WHERE s.user_id = ? AND s.status = 'active' AND s.deleted_at IS NULL ORDER BY s.id DESC LIMIT 1`,
-      session.uid,
-    ).catch(() => null)
-  }
+  const entitlement = session ? await resolveEntitlement(entitlementDatabase(), session.uid) : null
+  const activeSub = entitlement ? { name: entitlement.name, end_date: entitlement.end_date, status: 'active', role: entitlement.owner_user_id === session?.uid ? 'owner' : 'member' } : null
   return { plans, limits, activeSub }
 })
 
@@ -609,38 +586,23 @@ export const getGenresPage = createServerFn({ method: 'GET' }).handler(async () 
   ),
 )
 
-export const getCastCrewList = createServerFn({ method: 'GET' }).handler(async () =>
-  all(
-    `SELECT id, name, file_url, designation, type FROM cast_crew WHERE status = 1 AND deleted_at IS NULL ORDER BY id`,
-  ),
-)
+export const getCastCrewList = createServerFn({ method: 'GET' }).handler(() => loadPersonalities())
 
 export const getCastDetail = createServerFn({ method: 'GET' })
-  .validator((id: number) => id)
-  .handler(async ({ data: id }) => {
-    const person = await first<any>(
-      `SELECT id, name, file_url, type, bio, place_of_birth, dob, designation FROM cast_crew WHERE id = ?`,
-      id,
-    )
-    if (!person) return null
-    const works = await all(
-      `SELECT e.id, e.name, e.type, e.poster_url, e.IMDb_rating
-       FROM entertainment_talent_mapping m JOIN entertainments e ON e.id = m.entertainment_id
-       WHERE m.talent_id = ? AND e.status = 1 AND e.deleted_at IS NULL LIMIT 24`,
-      id,
-    ).catch(() => [])
-    return { person, works }
-  })
+  .validator((id: number) => positiveId(id))
+  .handler(({ data: id }) => loadPersonalityDetail(id))
 
-export const getFaqs = createServerFn({ method: 'GET' }).handler(async () =>
-  all(`SELECT id, question, answer FROM faqs WHERE status = 1 AND deleted_at IS NULL ORDER BY id`),
-)
+export const getFaqs = createServerFn({ method: 'GET' }).handler(async () => {
+  const rows = await all<any>(`SELECT id, question, answer FROM faqs WHERE status = 1 AND deleted_at IS NULL ORDER BY id`)
+  return rows.map(row => ({ ...row, answer: sanitizePublicContentHtml(row.answer) }))
+})
 
 export const getPage = createServerFn({ method: 'GET' })
   .validator((slug: string) => slug)
-  .handler(async ({ data: slug }) =>
-    first<any>(`SELECT id, name, description FROM pages WHERE slug = ? AND status = 1 AND deleted_at IS NULL`, slug),
-  )
+  .handler(async ({ data: slug }) => {
+    const page = await first<any>(`SELECT id, name, description FROM pages WHERE slug = ? AND status = 1 AND deleted_at IS NULL`, slug)
+    return page ? { ...page, description: sanitizePublicContentHtml(page.description) } : null
+  })
 
 // ---------- trending / channels / ppv ----------
 
@@ -677,7 +639,7 @@ export const getPayPerView = createServerFn({ method: 'GET' }).handler(async () 
     `SELECT id, name, slug, poster_url, IMDb_rating, price FROM videos WHERE access = 'paid' AND status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 24`,
   ).catch(() => [])
   const episodes = await all(
-    `SELECT id, name, slug, poster_url, IMDb_rating, price, entertainment_id FROM episodes WHERE access = 'paid' AND status = 1 AND deleted_at IS NULL ORDER BY id DESC LIMIT 24`,
+    `SELECT ep.id, ep.name, ep.slug, ep.poster_url, ep.IMDb_rating, ep.price, ep.entertainment_id, e.name AS show_name, e.slug AS show_slug FROM episodes ep JOIN entertainments e ON e.id=ep.entertainment_id AND e.status=1 AND e.deleted_at IS NULL WHERE ep.access = 'paid' AND ep.status = 1 AND ep.deleted_at IS NULL ORDER BY ep.id DESC LIMIT 24`,
   ).catch(() => [])
   return { movies, videos, episodes }
 })
@@ -689,7 +651,7 @@ export const getReviews = createServerFn({ method: 'GET' })
   .handler(async ({ data: id }) =>
     all(
       `SELECT r.id, r.rating, r.review, r.created_at,
-              COALESCE(NULLIF(TRIM(u.first_name || ' ' || IFNULL(u.last_name,'')), ''), u.email) AS author
+              COALESCE(NULLIF(TRIM(u.first_name || ' ' || IFNULL(u.last_name,'')), ''), 'Halobox viewer') AS author
        FROM reviews r LEFT JOIN users u ON u.id = r.user_id
        WHERE r.entertainment_id = ? AND r.deleted_at IS NULL ORDER BY r.id DESC LIMIT 10`,
       id,
@@ -705,16 +667,8 @@ export const getAccountData = createServerFn({ method: 'GET' }).handler(async ()
     `SELECT id, first_name, last_name, email, mobile, user_type, is_subscribe, created_at FROM users WHERE id = ?`,
     session.uid,
   )
-  const subscription = await first<any>(
-    `SELECT s.id, s.name, s.start_date, s.end_date, s.amount, s.status
-     FROM subscriptions s WHERE s.user_id = ? AND s.deleted_at IS NULL ORDER BY s.id DESC LIMIT 1`,
-    session.uid,
-  ).catch(() => null)
-  const devices = await all(
-    `SELECT id, device_name, platform, last_activity FROM devices WHERE user_id = ? AND deleted_at IS NULL`,
-    session.uid,
-  ).catch(() => [])
-  return { user, subscription, devices }
+  const sharing = await subscriptionDashboard(entitlementDatabase(), session)
+  return { user, subscription: sharing.entitlement, devices: sharing.devices, sharing }
 })
 
 export const getPaymentHistory = createServerFn({ method: 'GET' }).handler(async () => {
@@ -764,22 +718,16 @@ export const getNotificationsFeed = createServerFn({ method: 'GET' }).handler(as
 
 export const changePassword = createServerFn({ method: 'POST' })
   .validator((d: { current: string; next: string }) => d)
-  .handler(async ({ data }) => {
-    const session = await getSession()
-    if (!session) return { ok: false, error: 'Sign in required.' }
-    const user = await first<any>(`SELECT id, password FROM users WHERE id = ?`, session.uid)
-    if (!user) return { ok: false, error: 'Account not found.' }
-    const hash = String(user.password || '').replace(/^\$2y\$/, '$2b$')
-    if (!bcrypt.compareSync(data.current, hash)) return { ok: false, error: 'Current password is incorrect.' }
-    if (!data.next || data.next.length < 8) return { ok: false, error: 'New password must be at least 8 characters.' }
-    await run(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`, bcrypt.hashSync(data.next, 10), session.uid)
-    return { ok: true }
-  })
+  .handler(async ({ data }) => (await import('./auth.server')).changeAccountPassword(data))
 
 // ---------- reviews (write) ----------
 
 export const submitReview = createServerFn({ method: 'POST' })
-  .validator((d: { entertainmentId: number; rating: number; review: string }) => d)
+  .validator((d: { entertainmentId: number; rating: number; review: string }) => {
+    positiveId(d?.entertainmentId)
+    if (!Number.isInteger(d.rating) || d.rating < 1 || d.rating > 5 || typeof d.review !== 'string' || !d.review.trim() || d.review.length > 5000) throw new Error('Choose a rating from 1–5 and write a review of up to 5,000 characters.')
+    return d
+  })
   .handler(async ({ data }) => {
     const session = await getSession()
     if (!session) return { ok: false, needsAuth: true, error: 'Sign in to write a review.' }
@@ -807,7 +755,7 @@ export const submitReview = createServerFn({ method: 'POST' })
 // ---------- profiles (write) ----------
 
 export const addProfile = createServerFn({ method: 'POST' })
-  .validator((d: { name: string; isChild?: boolean }) => d)
+  .validator((d: { name: string; isChild?: boolean }) => profileInput(d))
   .handler(async ({ data }) => {
     const session = await getSession()
     if (!session) return { ok: false, needsAuth: true, error: 'Sign in required.' }
@@ -818,7 +766,7 @@ export const addProfile = createServerFn({ method: 'POST' })
       session.uid,
     )
     if (Number(count?.n ?? 0) >= 5) return { ok: false, error: 'You can have at most 5 profiles.' }
-    const avatar = `/avatars/avatar-${1 + Math.floor(Math.random() * 5)}.png`
+    const avatar = `/images/avatars/icon${1 + Math.floor(Math.random() * 5)}.avif`
     await run(
       `INSERT INTO user_multi_profiles (user_id, name, avatar, is_child_profile, created_at, updated_at) VALUES (?,?,?,?,datetime('now'),datetime('now'))`,
       session.uid, name, avatar, data.isChild ? 1 : 0,
@@ -827,7 +775,7 @@ export const addProfile = createServerFn({ method: 'POST' })
   })
 
 export const updateProfile = createServerFn({ method: 'POST' })
-  .validator((d: { id: number; name: string; isChild?: boolean }) => d)
+  .validator((d: { id: number; name: string; isChild?: boolean }) => ({ ...profileInput(d), id: positiveId(d.id) }))
   .handler(async ({ data }) => {
     const session = await getSession()
     if (!session) return { ok: false, needsAuth: true, error: 'Sign in required.' }
@@ -841,7 +789,7 @@ export const updateProfile = createServerFn({ method: 'POST' })
   })
 
 export const deleteProfile = createServerFn({ method: 'POST' })
-  .validator((d: { id: number }) => d)
+  .validator((d: { id: number }) => ({ id: positiveId(d?.id) }))
   .handler(async ({ data }) => {
     const session = await getSession()
     if (!session) return { ok: false, needsAuth: true, error: 'Sign in required.' }
@@ -859,314 +807,115 @@ export const deleteProfile = createServerFn({ method: 'POST' })
 
 // ---------- checkout / payments ----------
 
-async function settingVal(name: string): Promise<string | null> {
-  const row = await first<any>(`SELECT val FROM settings WHERE name = ?`, name).catch(() => null)
-  return row?.val != null && row.val !== '' ? String(row.val) : null
-}
-
-export const getCheckoutInfo = createServerFn({ method: 'GET' }).handler(async () => {
-  const gateways: { id: string; label: string }[] = []
-  if (await settingVal('cash_payment_method') === '1') gateways.push({ id: 'cash', label: 'Cash / Manual (instant activation)' })
-  if ((await settingVal('str_payment_method')) === '1' && (await settingVal('stripe_secretkey')))
-    gateways.push({ id: 'stripe', label: 'Card (Stripe)' })
-  return { gateways }
-})
-
-export const validateCoupon = createServerFn({ method: 'GET' })
-  .validator((d: { code: string; amount: number }) => d)
+export const getCheckoutInfo = createServerFn({ method: 'GET' })
+  .validator((d: { planId: number }) => d)
   .handler(async ({ data }) => {
-    const code = data.code?.trim()
-    if (!code) return { ok: false, error: 'Enter a coupon code.' }
-    const c = await first<any>(
-      `SELECT id, code, discount_type, discount, start_date, expire_date FROM coupons WHERE code = ? AND status = 1 AND deleted_at IS NULL`,
-      code,
-    ).catch(() => null)
-    if (!c) return { ok: false, error: 'Invalid coupon code.' }
-    const today = new Date().toISOString().slice(0, 10)
-    if (c.start_date && c.start_date > today) return { ok: false, error: 'This coupon is not active yet.' }
-    if (c.expire_date && c.expire_date < today) return { ok: false, error: 'This coupon has expired.' }
-    const amount = Number(data.amount) || 0
-    const off = c.discount_type === 'percent' || c.discount_type === 'percentage'
-      ? (amount * Number(c.discount)) / 100
-      : Number(c.discount)
-    const discount = Math.min(amount, Math.max(0, off))
-    return { ok: true, discount, finalAmount: Math.max(0, amount - discount), description: `${c.discount}${c.discount_type === 'percent' || c.discount_type === 'percentage' ? '%' : ' USD'} off` }
+    const checkout = await import('./subscriptionCheckout.server')
+    try { return await checkout.getSubscriptionCheckoutInfo(data.planId) }
+    catch (error) { return { gateways: [], quote: null, error: checkout.checkoutError(error) } }
   })
 
-function planEndDate(duration: string | null, durationValue: number | null): string {
-  const d = new Date()
-  const v = Number(durationValue) || 1
-  if (duration === 'year') d.setFullYear(d.getFullYear() + v)
-  else if (duration === 'week') d.setDate(d.getDate() + 7 * v)
-  else if (duration === 'day') d.setDate(d.getDate() + v)
-  else d.setMonth(d.getMonth() + v)
-  return d.toISOString().slice(0, 10)
-}
-
-async function createSubscriptionRecord(opts: {
-  uid: number; plan: any; gateway: string; transactionId: string; couponCode?: string | null; discount?: number
-}) {
-  const { uid, plan, gateway, transactionId, couponCode, discount } = opts
-  const start = new Date().toISOString().slice(0, 10)
-  const end = planEndDate(plan.duration, plan.duration_value)
-  const amount = Number(plan.price) || 0
-  const disc = Math.min(amount, Math.max(0, Number(discount) || 0))
-  const total = Math.max(0, amount - disc)
-  await run(
-    `UPDATE subscriptions SET status = 'inactive', updated_at = datetime('now') WHERE user_id = ? AND status = 'active' AND deleted_at IS NULL`,
-    uid,
-  ).catch(() => null)
-  const res = await run(
-    `INSERT INTO subscriptions (plan_id, user_id, start_date, end_date, status, is_manual, amount, discount_percentage, tax_amount, coupon_discount, total_amount, name, identifier, type, duration, level, plan_type, payment_id, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-    plan.id, uid, start, end, 'active', gateway === 'cash' ? 1 : 0,
-    amount, plan.discount_percentage ?? 0, disc, total,
-    plan.name, plan.identifier ?? plan.name, 'subscription', plan.duration ?? 'month', plan.level ?? 0,
-    gateway, transactionId,
-  )
-  const subId = (res as any)?.meta?.last_row_id
-  await run(
-    `INSERT INTO subscriptions_transactions (subscriptions_id, user_id, amount, payment_type, payment_status, transaction_id, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-    subId, uid, total, gateway, 'paid', transactionId,
-  )
-  await run(`UPDATE users SET is_subscribe = 1, updated_at = datetime('now') WHERE id = ?`, uid)
-  return { subId, total, end }
-}
+export const validateCoupon = createServerFn({ method: 'GET' })
+  .validator((d: { code: string; planId: number }) => d)
+  .handler(async ({ data }) => {
+    const checkout = await import('./subscriptionCheckout.server')
+    try {
+      const { db } = await checkout.stripeConfiguration()
+      const { quote } = await checkout.readSubscriptionQuote(db, data.planId, data.code)
+      return { ok: true as const, quote }
+    } catch (error) { return { ok: false as const, error: checkout.checkoutError(error) } }
+  })
 
 export const subscribePlan = createServerFn({ method: 'POST' })
-  .validator((d: { planId: number; gateway: string; couponCode?: string; origin?: string }) => d)
+  .validator((d: { planId: number; gateway: string; couponCode?: string; requestKey: string; expectedTotalCents: number }) => d)
   .handler(async ({ data }) => {
-    const session = await getSession()
-    if (!session) return { ok: false, needsAuth: true, error: 'Sign in to subscribe.' }
-    const plan = await first<any>(`SELECT * FROM plan WHERE id = ? AND status = 1 AND deleted_at IS NULL`, data.planId)
-    if (!plan) return { ok: false, error: 'Plan not found.' }
-    let discount = 0
-    if (data.couponCode?.trim()) {
-      const c = await first<any>(
-        `SELECT * FROM coupons WHERE code = ? AND status = 1 AND deleted_at IS NULL`,
-        data.couponCode.trim(),
-      ).catch(() => null)
-      if (c) {
-        const today = new Date().toISOString().slice(0, 10)
-        if ((!c.start_date || c.start_date <= today) && (!c.expire_date || c.expire_date >= today)) {
-          const amount = Number(plan.price) || 0
-          discount = c.discount_type === 'percent' || c.discount_type === 'percentage'
-            ? Math.min(amount, (amount * Number(c.discount)) / 100)
-            : Math.min(amount, Number(c.discount))
-        }
-      }
-    }
-    if (data.gateway === 'cash') {
-      if (await settingVal('cash_payment_method') !== '1') return { ok: false, error: 'Cash payment is disabled.' }
-      const txn = `CASH-${Date.now()}`
-      const { total, end } = await createSubscriptionRecord({
-        uid: session.uid, plan, gateway: 'cash', transactionId: txn, couponCode: data.couponCode, discount,
-      })
-      return { ok: true, activated: true, total, end, transactionId: txn }
-    }
-    if (data.gateway === 'stripe') {
-      const secret = await settingVal('stripe_secretkey')
-      if (!secret) return { ok: false, error: 'Stripe is not configured.' }
-      const origin = data.origin || 'https://gndott.theangelorgapps.workers.dev'
-      const total = Math.max(0, (Number(plan.price) || 0) - discount)
-      const body = new URLSearchParams({
-        mode: 'payment',
-        'line_items[0][price_data][currency]': 'usd',
-        'line_items[0][price_data][product_data][name]': `${plan.name} subscription`,
-        'line_items[0][price_data][unit_amount]': String(Math.round(total * 100)),
-        'line_items[0][quantity]': '1',
-        success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/subscription-plan?cancelled=1`,
-        'metadata[plan_id]': String(plan.id),
-        'metadata[user_id]': String(session.uid),
-        'metadata[coupon_code]': data.couponCode?.trim() ?? '',
-        'metadata[discount]': String(discount),
-        customer_email: session.email,
-      })
-      const resp = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-      })
-      const json: any = await resp.json()
-      if (!resp.ok || !json.url) {
-        return { ok: false, error: `Stripe: ${json?.error?.message ?? 'could not create checkout session'}` }
-      }
-      return { ok: true, checkoutUrl: json.url }
-    }
-    return { ok: false, error: 'Choose a payment method.' }
+    const checkout = await import('./subscriptionCheckout.server')
+    try {
+      const origin = checkout.subscriptionWriteOrigin()
+      const user = await checkout.subscriptionActor()
+      if (!user) return { ok: false as const, needsAuth: true, error: 'Sign in with an active account to subscribe.' }
+      const { db, secret, enabled } = await checkout.stripeConfiguration()
+      if (!enabled || !secret) return { ok: false as const, error: 'Online checkout is temporarily unavailable. Please try again later.' }
+      return await checkout.createSubscriptionCheckout(db, user, data, origin, secret)
+    } catch (error) { return { ok: false as const, error: checkout.checkoutError(error) } }
   })
 
 export const confirmStripeSession = createServerFn({ method: 'POST' })
   .validator((d: { sessionId: string }) => d)
   .handler(async ({ data }) => {
-    const session = await getSession()
-    if (!session) return { ok: false, needsAuth: true, error: 'Sign in required.' }
-    const secret = await settingVal('stripe_secretkey')
-    if (!secret) return { ok: false, error: 'Stripe is not configured.' }
-    const resp = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(data.sessionId)}`, {
-      headers: { Authorization: `Bearer ${secret}` },
-    })
-    const json: any = await resp.json()
-    if (!resp.ok) return { ok: false, error: `Stripe: ${json?.error?.message ?? 'could not verify session'}` }
-    if (json.payment_status !== 'paid') return { ok: false, error: 'Payment not completed.' }
-    if (String(json.metadata?.user_id) !== String(session.uid)) return { ok: false, error: 'Session mismatch.' }
-    const plan = await first<any>(`SELECT * FROM plan WHERE id = ?`, Number(json.metadata?.plan_id))
-    if (!plan) return { ok: false, error: 'Plan not found.' }
-    const existing = await first<any>(
-      `SELECT id FROM subscriptions_transactions WHERE transaction_id = ?`, json.id,
-    ).catch(() => null)
-    if (existing) return { ok: true, already: true }
-    const { total, end } = await createSubscriptionRecord({
-      uid: session.uid, plan, gateway: 'stripe', transactionId: json.id,
-      couponCode: json.metadata?.coupon_code || null, discount: Number(json.metadata?.discount) || 0,
-    })
-    return { ok: true, total, end }
+    const checkout = await import('./subscriptionCheckout.server')
+    try {
+      checkout.subscriptionWriteOrigin()
+      const user = await checkout.subscriptionActor()
+      if (!user) return { ok: false as const, needsAuth: true, error: 'Sign in to the account used at checkout to verify your payment.' }
+      return await checkout.confirmSubscriptionCheckout(data.sessionId, user.id)
+    } catch (error) { return { ok: false as const, error: checkout.checkoutError(error) } }
   })
 
 // ---------- pay per view ----------
 
 export const purchasePayPerView = createServerFn({ method: 'POST' })
-  .validator((d: { type: 'movie' | 'video' | 'episode' | 'teaching'; id: number; gateway: string }) => d)
+  .validator((d: { type: 'movie' | 'video' | 'episode' | 'teaching'; id: number; gateway: string }) => { positiveId(d?.id); if (!['movie', 'video', 'episode', 'teaching'].includes(d.type)) throw new Error('Choose a valid rental.'); return d })
   .handler(async ({ data }) => {
     const session = await getSession()
     if (!session) return { ok: false, needsAuth: true, error: 'Sign in to rent.' }
     const table = data.type === 'movie' || data.type === 'teaching' ? 'entertainments' : data.type === 'video' ? 'videos' : 'episodes'
     const purchaseType = data.type === 'teaching' ? 'movie' : data.type
-    const item = await first<any>(`SELECT id, name, price, access_duration, available_for FROM ${table} WHERE id = ? AND deleted_at IS NULL`, data.id)
+    const item = await first<any>(`SELECT id, name, price, access_duration, available_for FROM ${table} WHERE id = ? AND status = 1 AND deleted_at IS NULL`, data.id)
     if (!item) return { ok: false, error: 'Content not found.' }
     const existing = await first<any>(
       `SELECT id FROM pay_per_views WHERE user_id = ? AND movie_id = ? AND type = ? AND (view_expiry_date IS NULL OR view_expiry_date >= datetime('now'))`,
       session.uid, data.id, purchaseType,
     ).catch(() => null)
     if (existing) return { ok: true, already: true }
-    if (data.gateway !== 'cash') return { ok: false, error: 'Only cash/manual rental is enabled right now.' }
-    if (await settingVal('cash_payment_method') !== '1') return { ok: false, error: 'Cash payment is disabled.' }
-    const days = Number(item.access_duration) || 30
-    const expiry = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
-    await run(
-      `INSERT INTO pay_per_views (user_id, movie_id, type, content_price, price, discount_percentage, first_play_date, view_expiry_date, access_duration, available_for, created_at, updated_at)
-       VALUES (?,?,?,?,?,0,NULL,?,?,?,datetime('now'),datetime('now'))`,
-      session.uid, data.id, purchaseType, item.price ?? 0, item.price ?? 0, expiry, days, item.available_for ?? null,
-    )
-    return { ok: true, expiry, price: item.price ?? 0 }
+    // A client-selected manual gateway is not proof of payment. Entitlements
+    // are fulfilled only by a trusted payment/admin workflow.
+    return { ok: false, error: 'Online rentals are unavailable. Contact support to arrange your rental.' }
   })
 
 // ---------- OTP login ----------
 
+// Retain endpoint contracts for older clients, but never return a login secret to its requester.
+// A verified delivery provider is required before one-time code login can be enabled.
 export const requestOtp = createServerFn({ method: 'POST' })
   .validator((d: { contact: string }) => d)
-  .handler(async ({ data }) => {
-    const contact = data.contact?.trim()
-    if (!contact) return { ok: false, error: 'Enter your email or mobile number.' }
-    const user = await first<any>(
-      `SELECT id, email, mobile, user_type, status, is_banned FROM users WHERE (email = ? OR mobile = ?) AND deleted_at IS NULL`,
-      contact.toLowerCase(), contact,
-    )
-    if (!user) return { ok: false, error: 'No account found for that email/mobile.' }
-    if (user.is_banned === 1 || user.status === 0) return { ok: false, error: 'This account is disabled.' }
-    const code = String(Math.floor(100000 + Math.random() * 900000))
-    await run(
-      `CREATE TABLE IF NOT EXISTS otp_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, contact TEXT, code TEXT, expires_at TEXT, used INTEGER DEFAULT 0, created_at TEXT)`,
-    ).catch(() => null)
-    await run(`DELETE FROM otp_codes WHERE contact = ?`, contact).catch(() => null)
-    await run(
-      `INSERT INTO otp_codes (contact, code, expires_at, used, created_at) VALUES (?,?,datetime('now','+10 minutes'),0,datetime('now'))`,
-      contact, code,
-    )
-    // No SMS provider is configured on this deployment; surface the code so the flow stays usable.
-    return { ok: true, devCode: code, message: 'OTP generated (no SMS provider configured — code shown for demo).' }
-  })
-
+  .handler(async ({ data }) => (await import('./auth.server')).requestEmailOtp(data.contact))
 export const verifyOtp = createServerFn({ method: 'POST' })
   .validator((d: { contact: string; code: string }) => d)
-  .handler(async ({ data }) => {
-    const contact = data.contact?.trim()
-    const code = data.code?.trim()
-    if (!contact || !code) return { ok: false, error: 'Enter the 6-digit code.' }
-    const row = await first<any>(
-      `SELECT id FROM otp_codes WHERE contact = ? AND code = ? AND used = 0 AND expires_at >= datetime('now')`,
-      contact, code,
-    ).catch(() => null)
-    if (!row) return { ok: false, error: 'Invalid or expired code.' }
-    await run(`UPDATE otp_codes SET used = 1 WHERE id = ?`, row.id)
-    const user = await first<any>(
-      `SELECT id, email, first_name, last_name FROM users WHERE (email = ? OR mobile = ?) AND deleted_at IS NULL`,
-      contact.toLowerCase(), contact,
-    )
-    if (!user) return { ok: false, error: 'Account not found.' }
-    await setSessionCookie({ uid: user.id, email: user.email, name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() })
-    return { ok: true, user: { id: user.id, email: user.email, name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() } }
-  })
+  .handler(async ({ data }) => (await import('./auth.server')).verifyEmailOtp(data.contact, data.code))
 
 // ---------- ads ----------
 
 export const fetchVastMedia = createServerFn({ method: 'GET' })
-  .validator((url: string) => url)
+  .validator((url: string) => { if (typeof url !== 'string' || url.length > 2048) throw new Error('Invalid media URL.'); return url })
   .handler(async ({ data: url }) => {
     try {
-      const resp = await fetch(url, { headers: { 'User-Agent': 'Streamit-VAST/1.0' } })
-      const xml = await resp.text()
-      const mediaMatch = xml.match(/<MediaFile[^>]*type="video\/(?:mp4|webm)"[^>]*>\s*(?:<!\[CDATA\[)?(https?:\/\/[^<\]]+)/i)
-        ?? xml.match(/<MediaFile[^>]*>\s*(?:<!\[CDATA\[)?(https?:\/\/[^<\]]+\.mp4[^<\]]*)/i)
-      const durMatch = xml.match(/<Duration>([^<]+)<\/Duration>/)
-      if (!mediaMatch) return { ok: false, error: 'No playable media in VAST tag.' }
-      return { ok: true, mediaUrl: mediaMatch[1].trim(), duration: durMatch?.[1] ?? null }
-    } catch (e: any) {
-      return { ok: false, error: `VAST fetch failed: ${e?.message ?? e}` }
-    }
+      publicHttpsUrl(url)
+      const today = new Date().toISOString().slice(0, 10)
+      const configured = await first(`SELECT id FROM vast_ads_setting WHERE url = ? AND is_enable = '1' AND status = '1' AND deleted_at IS NULL AND (start_date IS NULL OR start_date <= ?) AND (end_date IS NULL OR end_date >= ?) LIMIT 1`, url, today, today)
+      if (!configured) return { ok: false, error: 'Ad unavailable.' }
+      return await readVastMedia(url)
+    } catch { return { ok: false, error: 'Ad unavailable.' } }
   })
 
 export const getHomeAds = createServerFn({ method: 'GET' }).handler(async () => {
   const today = new Date().toISOString().slice(0, 10)
   return all<any>(
     `SELECT id, name, type, url_type, placement, media, redirect_url, duration
-     FROM custom_ads_setting WHERE is_enable = '1' AND status = '1' AND placement = 'home_page'
+     FROM custom_ads_setting WHERE is_enable = '1' AND status = '1' AND deleted_at IS NULL AND placement = 'home_page'
        AND (start_date IS NULL OR start_date <= ?) AND (end_date IS NULL OR end_date >= ?)`,
     today, today,
-  ).catch(() => [])
+  ).then(rows => rows.map(ad => ({ ...ad, redirect_url: publicNavigationUrl(ad.redirect_url) }))).catch(() => [])
 })
 
 // ---------- social login ----------
 
 export const getSocialConfig = createServerFn({ method: 'GET' }).handler(async () => {
-  const googleClientId = await settingVal('google_client_id')
-  return { googleClientId }
+  const config = (await import('./better-auth.server')).authProviderConfig()
+  return { googleEnabled: config.googleEnabled, appleEnabled: config.appleEnabled }
 })
 
+/** Old GIS responses have no server challenge; they must restart the bound authorization flow. */
 export const googleSignIn = createServerFn({ method: 'POST' })
   .validator((d: { credential: string }) => d)
-  .handler(async ({ data }) => {
-    const clientId = await settingVal('google_client_id')
-    if (!clientId) return { ok: false, error: 'Google sign-in is not configured.' }
-    const resp = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(data.credential)}`)
-    const tok: any = await resp.json()
-    if (!resp.ok || !tok.email || tok.aud !== clientId) return { ok: false, error: 'Google token verification failed.' }
-    const email = String(tok.email).toLowerCase()
-    let user = await first<any>(`SELECT id, email, first_name, last_name, status, is_banned FROM users WHERE email = ?`, email)
-    if (!user) {
-      const names = String(tok.name ?? email.split('@')[0]).split(' ')
-      const res = await run(
-        `INSERT INTO users (first_name, last_name, email, password, user_type, status, is_banned, is_subscribe, login_type, created_at, updated_at)
-         VALUES (?,?,?,?,?,1,0,0,'google',datetime('now'),datetime('now'))`,
-        names[0] ?? 'Google', names.slice(1).join(' ') || 'User', email, '', 'user',
-      ).catch(async () => {
-        // login_type column may not exist — retry without it
-        return run(
-          `INSERT INTO users (first_name, last_name, email, password, user_type, status, is_banned, is_subscribe, created_at, updated_at)
-           VALUES (?,?,?,?,?,1,0,0,datetime('now'),datetime('now'))`,
-          names[0] ?? 'Google', names.slice(1).join(' ') || 'User', email, '', 'user',
-        )
-      })
-      const uid = (res as any)?.meta?.last_row_id
-      user = { id: uid, email, first_name: names[0], last_name: names.slice(1).join(' ') }
-      await run(
-        `INSERT INTO user_multi_profiles (user_id, name, is_child_profile, created_at, updated_at) VALUES (?,?,0,datetime('now'),datetime('now'))`,
-        uid, `${names[0] ?? ''} ${names.slice(1).join(' ')}`.trim() || 'User',
-      ).catch(() => null)
-    }
-    if (user.is_banned === 1 || user.status === 0) return { ok: false, error: 'This account is disabled.' }
-    await setSessionCookie({ uid: user.id, email: user.email, name: `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() })
-    return { ok: true }
-  })
+  .handler(async () => ({ ok: false, error: 'Please use Continue with Google to start a new sign-in.' }))

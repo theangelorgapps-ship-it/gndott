@@ -1,0 +1,84 @@
+/* End-of-playback content uses real titles and links; the player remains mounted. */
+.tv-immersive-player.ending-open .tv-player-bottom { opacity: 0; pointer-events: none; }
+.tv-end-screen { position: absolute; inset: 0; z-index: 6; overflow: auto; overscroll-behavior: contain; padding: clamp(76px, 9vh, 108px) clamp(20px, 6vw, 100px) 40px; background: radial-gradient(ellipse at 80% 90%, #18364e 0, transparent 65%), radial-gradient(ellipse at 25% 25%, #21192e 0, transparent 65%), #08090e; scrollbar-width: thin; }
+.tv-end-dismiss { position: absolute; right: 20px; top: 68px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; color: #fff; background: #ffffff0e; }
+.tv-end-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.65fr); gap: clamp(24px, 4vw, 64px); max-width: 1400px; margin: 0 auto; }
+.tv-end-screen h2 { margin: 0 0 18px; color: #fff; font-size: clamp(21px, 2.2vw, 30px); letter-spacing: -.025em; }
+.tv-end-next-content { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(140px, .8fr); align-items: start; gap: 22px; }
+.tv-end-card { display: flex; flex-direction: column; width: 100%; padding: 0; border: 0; background: none; color: #eeeef3; text-align: center; gap: 8px; cursor: pointer; }
+.tv-end-art { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; margin-bottom: 6px; overflow: hidden; border-radius: 14px; background: #26262e; }
+.tv-end-art img { width: 100%; height: 100%; object-fit: cover; }
+.tv-end-art > span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; color: #fff; background: #15151d96; backdrop-filter: blur(10px); }
+.tv-end-card strong { font-size: clamp(16px, 1.6vw, 23px); line-height: 1.35; }
+.tv-end-card small { font-size: 14px; color: #c1c1cc; line-height: 1.4; }
+.tv-end-next-content > p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; margin: 0; color: #d0cedb; font-size: clamp(14px, 1.4vw, 19px); line-height: 1.55; }
+.tv-end-countdown { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-top: 18px; }
+.tv-end-countdown p { margin: 0; color: #aeb4c4; font-size: 13px; }
+.tv-end-countdown button { padding: 10px 15px; min-height: 44px; border: 1px solid #ffffff36; border-radius: 999px; color: #fff; background: #ffffff0a; font-size: 13px; }
+.tv-end-finished p { color: #b8b6c6; }
+.tv-end-recommendations { max-width: 1400px; margin: clamp(30px, 5vh, 56px) auto 0; }
+.tv-end-rail { display: grid; grid-auto-flow: column; grid-auto-columns: clamp(160px, 18vw, 260px); gap: 20px; overflow-x: auto; overscroll-behavior-x: contain; padding: 3px 3px 15px; }
+.tv-end-recommendation { display: flex; flex-direction: column; gap: 8px; color: #e9e7ef; text-decoration: none; }
+.tv-end-recommendation img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; background: #20222c; }
+.tv-end-recommendation strong { font-size: 14px; line-height: 1.4; }
+.tv-end-recommendation small { color: #c6bfd7; font-size: 12px; }
+.tv-end-screen :is(a, button):focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+@media (max-width: 759px) {
+  .tv-end-screen { padding: 94px 18px 24px; }
+  .tv-end-dismiss { top: 52px; right: 12px; }
+  .tv-end-pair { gap: 24px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .tv-end-next-content { display: block; }
+  .tv-end-next-content > p { display: none; }
+  .tv-end-screen h2 { font-size: 19px; margin-bottom: 12px; }
+  .tv-end-art { border-radius: 9px; }
+  .tv-end-art > span { width: 44px; height: 44px; }
+  .tv-end-card strong { font-size: 14px; }
+  .tv-end-card small { font-size: 12px; }
+  .tv-end-countdown { margin-top: 12px; }
+}
+/* The same preview engine powers the featured carousel and title detail hero. */
+.tv-hero > .tv-title-preview { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.tv-hero > .tv-title-preview :is(video, iframe) { width: 100%; height: 100%; object-fit: cover; }
+.tv-hero > .tv-title-preview { opacity: 0; transition: opacity 500ms ease; }
+.tv-hero > .tv-title-preview.is-ready { opacity: 1; }
+.tv-hero > .tv-title-preview-controls { position: absolute; display: flex; align-items: center; gap: 8px; right: 26px; bottom: 32px; z-index: 5; }
+.tv-hero > .tv-title-preview-controls .tv-detail-utility { position: static; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #ffffff20; border-radius: 50%; color: #fff; background: #10101480; backdrop-filter: blur(12px); }
+.tv-hero > .tv-title-preview-controls .tv-detail-utility:disabled { opacity: .5; }
+.tv-hero:has(> .tv-title-preview-controls) .hero-pause { right: auto; left: 26px; }
+@media (max-width: 759px) {
+  .tv-hero > .tv-title-preview-controls { right: 16px; bottom: 33px; }
+  .tv-hero:has(> .tv-title-preview-controls) .hero-pause { left: 16px; }
+}
+
+/* Focus contracts the player before the keyboard animation starts. Waiting for a
+   guessed keyboard height leaves the first typed line under iOS's keyboard. */
+.tv-immersive-player.panel-open[data-typing-active] { position: fixed; left: 0; right: 0; top: var(--typing-viewport-top, 0px); height: var(--typing-viewport-height, 100dvh); min-height: 0; --panel-media-top: 52px; --panel-media-height: clamp(40px, calc(var(--typing-viewport-height) * .14), 64px); }
+.tv-immersive-player.panel-open[data-typing-active] .tv-player-media { top: var(--panel-media-top); width: 100%; height: var(--panel-media-height); bottom: auto; transition: none; }
+.tv-immersive-player.panel-open[data-typing-active] .tv-player-scrim { opacity: 0; }
+.tv-immersive-player.panel-open.controls-visible[data-typing-active] .tv-player-bottom { top: calc(var(--panel-media-top) + var(--panel-media-height) + 2px); left: 0; bottom: 0; display: flex; flex-direction: column; min-height: 0; padding: 0 8px 8px; transition: none; background: #08090c; }
+.tv-immersive-player.panel-open[data-typing-active] .tv-player-bottom::before { display: none; }
+.tv-immersive-player.panel-open[data-typing-active] .tv-player-tabs { flex: none; margin: 0; width: 100%; overflow-x: auto; }
+.tv-immersive-player.panel-open[data-typing-active] .tv-player-tabs button { min-height: 40px; padding-block: 8px; white-space: nowrap; }
+.tv-immersive-player.panel-open[data-typing-active] .tv-player-panel { flex: 1 1 0; min-height: 0; max-height: none; height: auto; padding: 4px 0 0; overflow: hidden; }
+.tv-immersive-player.panel-open[data-typing-active] .tv-player-panel-close { display: none; }
+.tv-immersive-player.panel-open[data-typing-active] .tv-player-panel .notes-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 0; }
+.tv-immersive-player[data-typing-active] .notes-panel :is(.supplement-heading, .notes-label, .notes-import, .notes-actions, .notes-status) { display: none; }
+/* Standalone Notes get the same bounded editor, without the preceding hero. */
+.notes-panel[data-typing-active] { position: fixed; inset: var(--typing-viewport-top, 0px) 0 auto; width: auto; max-width: none; height: var(--typing-viewport-height, 100dvh); max-height: var(--typing-viewport-height, 100dvh); z-index: 10050; display: flex; flex-direction: column; min-height: 0; padding: 10px; margin: 0; background: #090b10; overflow: hidden; }
+.notes-panel[data-typing-active] :is(.supplement-heading, .notes-label, .notes-import, .notes-actions, .notes-status) { display: none; }
+:is(.tv-immersive-player[data-typing-active] .notes-panel, .notes-panel[data-typing-active]) [data-slot="rich-text-editor"] { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; overflow: hidden; }
+:is(.tv-immersive-player[data-typing-active] .notes-panel, .notes-panel[data-typing-active]) [data-slot="rich-text-editor-toolbar"] { flex: none; }
+:is(.tv-immersive-player[data-typing-active] .notes-panel, .notes-panel[data-typing-active]) [data-slot="rich-text-editor-content"],
+:is(.tv-immersive-player[data-typing-active] .notes-panel, .notes-panel[data-typing-active]) [data-slot="rich-text-editor-content"] > div { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; overflow: hidden; }
+:is(.tv-immersive-player[data-typing-active] .notes-panel, .notes-panel[data-typing-active]) [data-slot="rich-text-editor-content"] .tiptap { flex: 1 1 0; min-height: 0; max-height: none; padding: 12px; padding-bottom: 24px; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 16px; font-size: 16px; }
+[data-typing-active] .rte-desktop-tools { display: none; }
+[data-typing-active] .rte-mobile-tools { display: block; width: 100%; }
+[data-typing-active] .rte-mobile-tools .rte-mobile-primary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)) 48px; }
+[data-typing-active] .rte-mobile-tools .rte-done { display: grid; place-items: center; padding: 4px; min-height: 44px; border: 0; background: transparent; color: #c1cfff; font-size: 12px; font-weight: 600; }
+[data-typing-active] .rte-mobile-expanded { max-height: 88px; overflow-y: auto; }
+/* Very short keyboard viewports devote their remaining pixels to the typed line. */
+.tv-immersive-player.panel-open[data-typing-short] { --panel-media-top: 64px; --panel-media-height: 0px; }
+.tv-immersive-player.panel-open[data-typing-short] .tv-player-media { visibility: hidden; }
+.tv-immersive-player.panel-open[data-typing-short] .tv-player-tabs { display: none; }
+
+.notes-title-inline{width:100%;background:transparent;border:0;outline:none;color:#fff;font:inherit;font-size:20px;font-weight:700;padding:14px 20px 2px}.notes-title-inline::placeholder{color:#878791;font-weight:600}.notes-title-inline:disabled{opacity:.6}

@@ -31,21 +31,39 @@ import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
 import { Route as ProfileDetailsRouteImport } from './routes/profile-details'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as SeriesRouteImport } from './routes/series'
+import { Route as SermonsRouteImport } from './routes/sermons'
+import { Route as ShopRouteImport } from './routes/shop'
+import { Route as ShowsRouteImport } from './routes/shows'
+import { Route as SubscriptionInviteRouteImport } from './routes/subscription-invite'
 import { Route as SubscriptionPlanRouteImport } from './routes/subscription-plan'
 import { Route as TeachingsRouteImport } from './routes/teachings'
 import { Route as TrendingRouteImport } from './routes/trending'
 import { Route as TvShowsRouteImport } from './routes/tv-shows'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
+import { Route as AdminLiveTvRouteImport } from './routes/admin.live-tv'
+import { Route as AdminShopRouteImport } from './routes/admin.shop'
+import { Route as ApiHeroesRouteImport } from './routes/api/heroes'
+import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
+import { Route as AuthProviderRouteImport } from './routes/auth.$provider'
 import { Route as CastIdRouteImport } from './routes/cast.$id'
 import { Route as ChannelIdRouteImport } from './routes/channel.$id'
 import { Route as MediaSplatRouteImport } from './routes/media/$'
 import { Route as MovieIdRouteImport } from './routes/movie.$id'
 import { Route as PageSlugRouteImport } from './routes/page.$slug'
+import { Route as SermonIdRouteImport } from './routes/sermon.$id'
+import { Route as ShopIndexRouteImport } from './routes/shop.index'
+import { Route as ShopSlugRouteImport } from './routes/shop.$slug'
+import { Route as ShopCheckoutRouteImport } from './routes/shop.checkout'
+import { Route as ShowsIdRouteImport } from './routes/shows_.$id'
 import { Route as TeachingIdRouteImport } from './routes/teaching.$id'
+import { Route as TeachingsIdRouteImport } from './routes/teachings_.$id'
 import { Route as TvShowIdRouteImport } from './routes/tv-show.$id'
 import { Route as VideoIdRouteImport } from './routes/video.$id'
-import { Route as ApiMobileSplatRouteImport } from './routes/api/mobile/$'
+import { Route as VideosIdRouteImport } from './routes/videos_.$id'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AuthProviderCallbackRouteImport } from './routes/auth.$provider.callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -157,6 +175,31 @@ const SearchRoute = SearchRouteImport.update({
   path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SeriesRoute = SeriesRouteImport.update({
+  id: '/series',
+  path: '/series',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SermonsRoute = SermonsRouteImport.update({
+  id: '/sermons',
+  path: '/sermons',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShopRoute = ShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShowsRoute = ShowsRouteImport.update({
+  id: '/shows',
+  path: '/shows',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SubscriptionInviteRoute = SubscriptionInviteRouteImport.update({
+  id: '/subscription-invite',
+  path: '/subscription-invite',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SubscriptionPlanRoute = SubscriptionPlanRouteImport.update({
   id: '/subscription-plan',
   path: '/subscription-plan',
@@ -187,6 +230,31 @@ const WatchlistRoute = WatchlistRouteImport.update({
   path: '/watchlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminLiveTvRoute = AdminLiveTvRouteImport.update({
+  id: '/admin/live-tv',
+  path: '/admin/live-tv',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminShopRoute = AdminShopRouteImport.update({
+  id: '/admin/shop',
+  path: '/admin/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHeroesRoute = ApiHeroesRouteImport.update({
+  id: '/api/heroes',
+  path: '/api/heroes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
+  id: '/api/stripe-webhook',
+  path: '/api/stripe-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthProviderRoute = AuthProviderRouteImport.update({
+  id: '/auth/$provider',
+  path: '/auth/$provider',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CastIdRoute = CastIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -212,9 +280,39 @@ const PageSlugRoute = PageSlugRouteImport.update({
   path: '/page/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SermonIdRoute = SermonIdRouteImport.update({
+  id: '/sermon/$id',
+  path: '/sermon/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShopIndexRoute = ShopIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopSlugRoute = ShopSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShopCheckoutRoute = ShopCheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => ShopRoute,
+} as any)
+const ShowsIdRoute = ShowsIdRouteImport.update({
+  id: '/shows_/$id',
+  path: '/shows/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TeachingIdRoute = TeachingIdRouteImport.update({
   id: '/teaching/$id',
   path: '/teaching/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeachingsIdRoute = TeachingsIdRouteImport.update({
+  id: '/teachings_/$id',
+  path: '/teachings/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TvShowIdRoute = TvShowIdRouteImport.update({
@@ -227,10 +325,20 @@ const VideoIdRoute = VideoIdRouteImport.update({
   path: '/video/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiMobileSplatRoute = ApiMobileSplatRouteImport.update({
-  id: '/api/mobile/$',
-  path: '/api/mobile/$',
+const VideosIdRoute = VideosIdRouteImport.update({
+  id: '/videos_/$id',
+  path: '/videos/$id',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthProviderCallbackRoute = AuthProviderCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthProviderRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -256,21 +364,39 @@ export interface FileRoutesByFullPath {
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
+  '/series': typeof SeriesRoute
+  '/sermons': typeof SermonsRoute
+  '/shop': typeof ShopRouteWithChildren
+  '/shows': typeof ShowsRoute
+  '/subscription-invite': typeof SubscriptionInviteRoute
   '/subscription-plan': typeof SubscriptionPlanRoute
   '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
   '/tv-shows': typeof TvShowsRoute
   '/videos': typeof VideosRoute
   '/watchlist': typeof WatchlistRoute
+  '/admin/live-tv': typeof AdminLiveTvRoute
+  '/admin/shop': typeof AdminShopRoute
+  '/api/heroes': typeof ApiHeroesRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/auth/$provider': typeof AuthProviderRouteWithChildren
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/sermon/$id': typeof SermonIdRoute
+  '/shop/$slug': typeof ShopSlugRoute
+  '/shop/checkout': typeof ShopCheckoutRoute
+  '/shows/$id': typeof ShowsIdRoute
   '/teaching/$id': typeof TeachingIdRoute
+  '/teachings/$id': typeof TeachingsIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
-  '/api/mobile/$': typeof ApiMobileSplatRoute
+  '/videos/$id': typeof VideosIdRoute
+  '/shop/': typeof ShopIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/auth/$provider/callback': typeof AuthProviderCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -295,21 +421,38 @@ export interface FileRoutesByTo {
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
+  '/series': typeof SeriesRoute
+  '/sermons': typeof SermonsRoute
+  '/shows': typeof ShowsRoute
+  '/subscription-invite': typeof SubscriptionInviteRoute
   '/subscription-plan': typeof SubscriptionPlanRoute
   '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
   '/tv-shows': typeof TvShowsRoute
   '/videos': typeof VideosRoute
   '/watchlist': typeof WatchlistRoute
+  '/admin/live-tv': typeof AdminLiveTvRoute
+  '/admin/shop': typeof AdminShopRoute
+  '/api/heroes': typeof ApiHeroesRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/auth/$provider': typeof AuthProviderRouteWithChildren
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/sermon/$id': typeof SermonIdRoute
+  '/shop/$slug': typeof ShopSlugRoute
+  '/shop/checkout': typeof ShopCheckoutRoute
+  '/shows/$id': typeof ShowsIdRoute
   '/teaching/$id': typeof TeachingIdRoute
+  '/teachings/$id': typeof TeachingsIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
-  '/api/mobile/$': typeof ApiMobileSplatRoute
+  '/videos/$id': typeof VideosIdRoute
+  '/shop': typeof ShopIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/auth/$provider/callback': typeof AuthProviderCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -335,21 +478,39 @@ export interface FileRoutesById {
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
+  '/series': typeof SeriesRoute
+  '/sermons': typeof SermonsRoute
+  '/shop': typeof ShopRouteWithChildren
+  '/shows': typeof ShowsRoute
+  '/subscription-invite': typeof SubscriptionInviteRoute
   '/subscription-plan': typeof SubscriptionPlanRoute
   '/teachings': typeof TeachingsRoute
   '/trending': typeof TrendingRoute
   '/tv-shows': typeof TvShowsRoute
   '/videos': typeof VideosRoute
   '/watchlist': typeof WatchlistRoute
+  '/admin/live-tv': typeof AdminLiveTvRoute
+  '/admin/shop': typeof AdminShopRoute
+  '/api/heroes': typeof ApiHeroesRoute
+  '/api/stripe-webhook': typeof ApiStripeWebhookRoute
+  '/auth/$provider': typeof AuthProviderRouteWithChildren
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/sermon/$id': typeof SermonIdRoute
+  '/shop/$slug': typeof ShopSlugRoute
+  '/shop/checkout': typeof ShopCheckoutRoute
+  '/shows_/$id': typeof ShowsIdRoute
   '/teaching/$id': typeof TeachingIdRoute
+  '/teachings_/$id': typeof TeachingsIdRoute
   '/tv-show/$id': typeof TvShowIdRoute
   '/video/$id': typeof VideoIdRoute
-  '/api/mobile/$': typeof ApiMobileSplatRoute
+  '/videos_/$id': typeof VideosIdRoute
+  '/shop/': typeof ShopIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
+  '/auth/$provider/callback': typeof AuthProviderCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -376,21 +537,39 @@ export interface FileRouteTypes {
     | '/profile-details'
     | '/register'
     | '/search'
+    | '/series'
+    | '/sermons'
+    | '/shop'
+    | '/shows'
+    | '/subscription-invite'
     | '/subscription-plan'
     | '/teachings'
     | '/trending'
     | '/tv-shows'
     | '/videos'
     | '/watchlist'
+    | '/admin/live-tv'
+    | '/admin/shop'
+    | '/api/heroes'
+    | '/api/stripe-webhook'
+    | '/auth/$provider'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/sermon/$id'
+    | '/shop/$slug'
+    | '/shop/checkout'
+    | '/shows/$id'
     | '/teaching/$id'
+    | '/teachings/$id'
     | '/tv-show/$id'
     | '/video/$id'
-    | '/api/mobile/$'
+    | '/videos/$id'
+    | '/shop/'
+    | '/api/auth/$'
+    | '/auth/$provider/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -415,21 +594,38 @@ export interface FileRouteTypes {
     | '/profile-details'
     | '/register'
     | '/search'
+    | '/series'
+    | '/sermons'
+    | '/shows'
+    | '/subscription-invite'
     | '/subscription-plan'
     | '/teachings'
     | '/trending'
     | '/tv-shows'
     | '/videos'
     | '/watchlist'
+    | '/admin/live-tv'
+    | '/admin/shop'
+    | '/api/heroes'
+    | '/api/stripe-webhook'
+    | '/auth/$provider'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/sermon/$id'
+    | '/shop/$slug'
+    | '/shop/checkout'
+    | '/shows/$id'
     | '/teaching/$id'
+    | '/teachings/$id'
     | '/tv-show/$id'
     | '/video/$id'
-    | '/api/mobile/$'
+    | '/videos/$id'
+    | '/shop'
+    | '/api/auth/$'
+    | '/auth/$provider/callback'
   id:
     | '__root__'
     | '/'
@@ -454,21 +650,39 @@ export interface FileRouteTypes {
     | '/profile-details'
     | '/register'
     | '/search'
+    | '/series'
+    | '/sermons'
+    | '/shop'
+    | '/shows'
+    | '/subscription-invite'
     | '/subscription-plan'
     | '/teachings'
     | '/trending'
     | '/tv-shows'
     | '/videos'
     | '/watchlist'
+    | '/admin/live-tv'
+    | '/admin/shop'
+    | '/api/heroes'
+    | '/api/stripe-webhook'
+    | '/auth/$provider'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/sermon/$id'
+    | '/shop/$slug'
+    | '/shop/checkout'
+    | '/shows_/$id'
     | '/teaching/$id'
+    | '/teachings_/$id'
     | '/tv-show/$id'
     | '/video/$id'
-    | '/api/mobile/$'
+    | '/videos_/$id'
+    | '/shop/'
+    | '/api/auth/$'
+    | '/auth/$provider/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -494,20 +708,34 @@ export interface RootRouteChildren {
   ProfileDetailsRoute: typeof ProfileDetailsRoute
   RegisterRoute: typeof RegisterRoute
   SearchRoute: typeof SearchRoute
+  SeriesRoute: typeof SeriesRoute
+  SermonsRoute: typeof SermonsRoute
+  ShopRoute: typeof ShopRouteWithChildren
+  ShowsRoute: typeof ShowsRoute
+  SubscriptionInviteRoute: typeof SubscriptionInviteRoute
   SubscriptionPlanRoute: typeof SubscriptionPlanRoute
   TeachingsRoute: typeof TeachingsRoute
   TrendingRoute: typeof TrendingRoute
   TvShowsRoute: typeof TvShowsRoute
   VideosRoute: typeof VideosRoute
   WatchlistRoute: typeof WatchlistRoute
+  AdminLiveTvRoute: typeof AdminLiveTvRoute
+  AdminShopRoute: typeof AdminShopRoute
+  ApiHeroesRoute: typeof ApiHeroesRoute
+  ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
+  AuthProviderRoute: typeof AuthProviderRouteWithChildren
   ChannelIdRoute: typeof ChannelIdRoute
   MediaSplatRoute: typeof MediaSplatRoute
   MovieIdRoute: typeof MovieIdRoute
   PageSlugRoute: typeof PageSlugRoute
+  SermonIdRoute: typeof SermonIdRoute
+  ShowsIdRoute: typeof ShowsIdRoute
   TeachingIdRoute: typeof TeachingIdRoute
+  TeachingsIdRoute: typeof TeachingsIdRoute
   TvShowIdRoute: typeof TvShowIdRoute
   VideoIdRoute: typeof VideoIdRoute
-  ApiMobileSplatRoute: typeof ApiMobileSplatRoute
+  VideosIdRoute: typeof VideosIdRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -666,6 +894,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/series': {
+      id: '/series'
+      path: '/series'
+      fullPath: '/series'
+      preLoaderRoute: typeof SeriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sermons': {
+      id: '/sermons'
+      path: '/sermons'
+      fullPath: '/sermons'
+      preLoaderRoute: typeof SermonsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shop': {
+      id: '/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof ShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shows': {
+      id: '/shows'
+      path: '/shows'
+      fullPath: '/shows'
+      preLoaderRoute: typeof ShowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subscription-invite': {
+      id: '/subscription-invite'
+      path: '/subscription-invite'
+      fullPath: '/subscription-invite'
+      preLoaderRoute: typeof SubscriptionInviteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/subscription-plan': {
       id: '/subscription-plan'
       path: '/subscription-plan'
@@ -708,6 +971,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WatchlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/live-tv': {
+      id: '/admin/live-tv'
+      path: '/admin/live-tv'
+      fullPath: '/admin/live-tv'
+      preLoaderRoute: typeof AdminLiveTvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/shop': {
+      id: '/admin/shop'
+      path: '/admin/shop'
+      fullPath: '/admin/shop'
+      preLoaderRoute: typeof AdminShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/heroes': {
+      id: '/api/heroes'
+      path: '/api/heroes'
+      fullPath: '/api/heroes'
+      preLoaderRoute: typeof ApiHeroesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stripe-webhook': {
+      id: '/api/stripe-webhook'
+      path: '/api/stripe-webhook'
+      fullPath: '/api/stripe-webhook'
+      preLoaderRoute: typeof ApiStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/$provider': {
+      id: '/auth/$provider'
+      path: '/auth/$provider'
+      fullPath: '/auth/$provider'
+      preLoaderRoute: typeof AuthProviderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cast/$id': {
       id: '/cast/$id'
       path: '/$id'
@@ -743,11 +1041,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PageSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sermon/$id': {
+      id: '/sermon/$id'
+      path: '/sermon/$id'
+      fullPath: '/sermon/$id'
+      preLoaderRoute: typeof SermonIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shop/': {
+      id: '/shop/'
+      path: '/'
+      fullPath: '/shop/'
+      preLoaderRoute: typeof ShopIndexRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/$slug': {
+      id: '/shop/$slug'
+      path: '/$slug'
+      fullPath: '/shop/$slug'
+      preLoaderRoute: typeof ShopSlugRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shop/checkout': {
+      id: '/shop/checkout'
+      path: '/checkout'
+      fullPath: '/shop/checkout'
+      preLoaderRoute: typeof ShopCheckoutRouteImport
+      parentRoute: typeof ShopRoute
+    }
+    '/shows_/$id': {
+      id: '/shows_/$id'
+      path: '/shows/$id'
+      fullPath: '/shows/$id'
+      preLoaderRoute: typeof ShowsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/teaching/$id': {
       id: '/teaching/$id'
       path: '/teaching/$id'
       fullPath: '/teaching/$id'
       preLoaderRoute: typeof TeachingIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/teachings_/$id': {
+      id: '/teachings_/$id'
+      path: '/teachings/$id'
+      fullPath: '/teachings/$id'
+      preLoaderRoute: typeof TeachingsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tv-show/$id': {
@@ -764,12 +1104,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VideoIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/mobile/$': {
-      id: '/api/mobile/$'
-      path: '/api/mobile/$'
-      fullPath: '/api/mobile/$'
-      preLoaderRoute: typeof ApiMobileSplatRouteImport
+    '/videos_/$id': {
+      id: '/videos_/$id'
+      path: '/videos/$id'
+      fullPath: '/videos/$id'
+      preLoaderRoute: typeof VideosIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/$provider/callback': {
+      id: '/auth/$provider/callback'
+      path: '/callback'
+      fullPath: '/auth/$provider/callback'
+      preLoaderRoute: typeof AuthProviderCallbackRouteImport
+      parentRoute: typeof AuthProviderRoute
     }
   }
 }
@@ -783,6 +1137,32 @@ const CastRouteChildren: CastRouteChildren = {
 }
 
 const CastRouteWithChildren = CastRoute._addFileChildren(CastRouteChildren)
+
+interface ShopRouteChildren {
+  ShopSlugRoute: typeof ShopSlugRoute
+  ShopCheckoutRoute: typeof ShopCheckoutRoute
+  ShopIndexRoute: typeof ShopIndexRoute
+}
+
+const ShopRouteChildren: ShopRouteChildren = {
+  ShopSlugRoute: ShopSlugRoute,
+  ShopCheckoutRoute: ShopCheckoutRoute,
+  ShopIndexRoute: ShopIndexRoute,
+}
+
+const ShopRouteWithChildren = ShopRoute._addFileChildren(ShopRouteChildren)
+
+interface AuthProviderRouteChildren {
+  AuthProviderCallbackRoute: typeof AuthProviderCallbackRoute
+}
+
+const AuthProviderRouteChildren: AuthProviderRouteChildren = {
+  AuthProviderCallbackRoute: AuthProviderCallbackRoute,
+}
+
+const AuthProviderRouteWithChildren = AuthProviderRoute._addFileChildren(
+  AuthProviderRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -807,30 +1187,45 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileDetailsRoute: ProfileDetailsRoute,
   RegisterRoute: RegisterRoute,
   SearchRoute: SearchRoute,
+  SeriesRoute: SeriesRoute,
+  SermonsRoute: SermonsRoute,
+  ShopRoute: ShopRouteWithChildren,
+  ShowsRoute: ShowsRoute,
+  SubscriptionInviteRoute: SubscriptionInviteRoute,
   SubscriptionPlanRoute: SubscriptionPlanRoute,
   TeachingsRoute: TeachingsRoute,
   TrendingRoute: TrendingRoute,
   TvShowsRoute: TvShowsRoute,
   VideosRoute: VideosRoute,
   WatchlistRoute: WatchlistRoute,
+  AdminLiveTvRoute: AdminLiveTvRoute,
+  AdminShopRoute: AdminShopRoute,
+  ApiHeroesRoute: ApiHeroesRoute,
+  ApiStripeWebhookRoute: ApiStripeWebhookRoute,
+  AuthProviderRoute: AuthProviderRouteWithChildren,
   ChannelIdRoute: ChannelIdRoute,
   MediaSplatRoute: MediaSplatRoute,
   MovieIdRoute: MovieIdRoute,
   PageSlugRoute: PageSlugRoute,
+  SermonIdRoute: SermonIdRoute,
+  ShowsIdRoute: ShowsIdRoute,
   TeachingIdRoute: TeachingIdRoute,
+  TeachingsIdRoute: TeachingsIdRoute,
   TvShowIdRoute: TvShowIdRoute,
   VideoIdRoute: VideoIdRoute,
-  ApiMobileSplatRoute: ApiMobileSplatRoute,
+  VideosIdRoute: VideosIdRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

@@ -1,27 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { getTvShows } from '../lib/api'
-import { PosterCard, HeroSlider } from '../components/Poster'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
+/** Keep saved links and filter URLs working after the listing rename. */
 export const Route = createFileRoute('/tv-shows')({
-  loader: async () => await getTvShows(),
-  component: TvShows,
+  beforeLoad: ({ location }) => {
+    throw redirect({ href: '/shows' + location.searchStr + (location.hash ? '#' + location.hash.replace(/^#/, '') : ''), statusCode: 301 })
+  },
 })
-
-function TvShows() {
-  const shows = Route.useLoaderData()
-  const slides = shows.filter((m: any) => m.thumbnail_url || m.poster_url).slice(0, 5)
-  return (
-    <div>
-      <HeroSlider slides={slides} baseFor={() => '/tv-show'} ctaLabel="Watch now" />
-      <section className="section">
-        <div className="section-head">
-          <h2>Shows</h2>
-        </div>
-        <div className="grid" style={{ padding: 0 }}>
-          {shows.map((m: any) => <PosterCard key={m.id} item={m} base="/tv-show" />)}
-        </div>
-        {shows.length === 0 && <div className="empty">No shows available yet.</div>}
-      </section>
-    </div>
-  )
-}

@@ -1,0 +1,995 @@
+// Rich Text Editor from Hirael <https://hirael.com/components/inputs/rich-text-editor>
+// MIT · Mohammad Shehadeh · https://github.com/MohammadShehadeh/hirael
+
+'use client';
+
+import * as React from 'react';
+import { createPortal } from 'react-dom';
+import { Extension } from '@tiptap/core';
+import Highlight from '@tiptap/extension-highlight';
+import Placeholder from '@tiptap/extension-placeholder';
+import TextAlign from '@tiptap/extension-text-align';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { type Editor, EditorContent, useEditor, useEditorState } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  Check,
+  Code,
+  ExternalLink,
+  Heading1,
+  Heading2,
+  Heading3,
+  Highlighter,
+  Italic,
+  Link as LinkIcon,
+  List,
+  ListOrdered,
+  Minus,
+  Ellipsis,
+  Pencil,
+  Pilcrow,
+  Quote,
+  Redo,
+  Strikethrough,
+  Trash2,
+  Underline as UnderlineIcon,
+  Undo,
+  Unlink,
+  X,
+} from 'lucide-react';
+
+import { cn } from '@/lib/utils';
+import { notifyTypingCaret, registerTypingCaret } from '@/hooks/useTypingViewport';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
+import { PlayerLoading } from '@/components/PlayerLoading';
+import { Toggle } from '@/components/ui/toggle';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+const fakeSelectionPluginKey = new PluginKey('rich-text-editor-fake-selection');
+
+interface FakeSelectionRange {
+  from: number;
+  to: number;
+}
+
+type FakeSelectionMeta = FakeSelectionRange | 'clear';
+
+const SelectionHighlight = Extension.create({
+  name: 'richTextEditorSelectionHighlight',
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: fakeSelectionPluginKey,
+        state: {
+          init: () => DecorationSet.empty,
+          apply: (tr, old) => {
+            const meta: FakeSelectionMeta | undefined = tr.getMeta(fakeSelectionPluginKey);
+            if (meta === 'clear') return DecorationSet.empty;
+            if (meta) {
+              const deco = Decoration.inline(meta.from, meta.to, {
+                class: 'fake-selection',
+              });
+
+              return DecorationSet.create(tr.doc, [deco]);
+            }
+
+            return old.map(tr.mapping, tr.doc);
+          },
+        },
+        props: {
+          decorations(state) {
+            return this.getState(state);
+          },
+        },
+      }),
+    ];
+  },
+});
+
+const showFakeSelection = (editor: Editor) => {
+  const { from, to } = editor.state.selection;
+  if (from === to) return;
+  editor.view.dispatch(editor.state.tr.setMeta(fakeSelectionPluginKey, { from, to }));
+};
+
+const clearFakeSelection = (editor: Editor) => {
+  editor.view.dispatch(editor.state.tr.setMeta(fakeSelectionPluginKey, 'clear'));
+};
+
+const DEFAULT_LABELS = {
+  undo: 'Undo',
+  redo: 'Redo',
+  paragraph: 'Paragraph',
+  heading1: 'Heading 1',
+  heading2: 'Heading 2',
+  heading3: 'Heading 3',
+  bold: 'Bold',
+  italic: 'Italic',
+  underline: 'Underline',
+  strikethrough: 'Strikethrough',
+  code: 'Code',
+  highlight: 'Highlight',
+  alignLeft: 'Align left',
+  alignCenter: 'Align center',
+  alignRight: 'Align right',
+  justify: 'Justify',
+  bulletList: 'Bullet list',
+  orderedList: 'Ordered list',
+  blockquote: 'Blockquote',
+  horizontalRule: 'Horizontal rule',
+  link: 'Link',
+  applyLink: 'Apply link',
+  editLink: 'Edit link',
+  removeLink: 'Remove link',
+  cancel: 'Cancel',
+};
+
+export type RichTextEditorLabels = typeof DEFAULT_LABELS;
+
+const RichTextEditorLabelsContext = React.createContext<RichTextEditorLabels>(DEFAULT_LABELS);
+
+const RichTextEditorContext = React.createContext<Editor | null>(null);
+
+const useRichTextEditor = (): Editor => {
+  const editor = React.useContext(RichTextEditorContext);
+  if (!editor) {
+    throw new Error('Rich text editor parts must be rendered inside <RichTextEditor>.');
+  }
+
+  return editor;
+};
+
+const contentClassName = cn(
+  'text-foreground selection:bg-primary/20',
+  '[&_.ProseMirror_h1]:mt-6 [&_.ProseMirror_h1]:mb-3 [&_.ProseMirror_h1]:text-3xl [&_.ProseMirror_h1]:font-bold max-sm:[&_.ProseMirror_h1]:text-2xl',
+  '[&_.ProseMirror_h2]:mt-5 [&_.ProseMirror_h2]:mb-2 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-semibold max-sm:[&_.ProseMirror_h2]:text-xl',
+  '[&_.ProseMirror_h3]:mt-4 [&_.ProseMirror_h3]:mb-2 [&_.ProseMirror_h3]:text-xl [&_.ProseMirror_h3]:font-semibold max-sm:[&_.ProseMirror_h3]:text-lg',
+  '[&_.ProseMirror_p]:my-3 [&_.ProseMirror_p]:text-base [&_.ProseMirror_p]:leading-7 [&_.ProseMirror_p:first-child]:mt-0 [&_.ProseMirror_p:last-child]:mb-0',
+  '[&_.ProseMirror_ul]:my-3 [&_.ProseMirror_ul]:ms-6 [&_.ProseMirror_ul]:list-disc',
+  '[&_.ProseMirror_ol]:my-3 [&_.ProseMirror_ol]:ms-6 [&_.ProseMirror_ol]:list-decimal',
+  '[&_.ProseMirror_li]:my-1 [&_.ProseMirror_li_p]:my-0',
+  '[&_.ProseMirror_code]:rounded [&_.ProseMirror_code]:bg-muted [&_.ProseMirror_code]:px-1.5 [&_.ProseMirror_code]:py-0.5 [&_.ProseMirror_code]:font-mono [&_.ProseMirror_code]:text-sm',
+  '[&_.ProseMirror_pre]:my-3 [&_.ProseMirror_pre]:overflow-x-auto [&_.ProseMirror_pre]:rounded-lg [&_.ProseMirror_pre]:border [&_.ProseMirror_pre]:border-border [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 max-sm:[&_.ProseMirror_pre]:text-xs',
+  '[&_.ProseMirror_pre_code]:bg-transparent [&_.ProseMirror_pre_code]:p-0 [&_.ProseMirror_pre_code]:text-sm [&_.ProseMirror_pre_code]:leading-relaxed',
+  '[&_.ProseMirror_blockquote]:my-3 [&_.ProseMirror_blockquote]:border-s-4 [&_.ProseMirror_blockquote]:border-primary [&_.ProseMirror_blockquote]:ps-4 [&_.ProseMirror_blockquote]:text-muted-foreground [&_.ProseMirror_blockquote]:italic',
+  '[&_.ProseMirror_hr]:my-6 [&_.ProseMirror_hr]:border-t [&_.ProseMirror_hr]:border-border',
+  '[&_.ProseMirror_mark]:rounded-sm [&_.ProseMirror_mark]:bg-primary [&_.ProseMirror_mark]:px-0.5 [&_.ProseMirror_mark]:text-primary-foreground',
+  '[&_.ProseMirror_.fake-selection]:rounded-sm [&_.ProseMirror_.fake-selection]:bg-primary/20',
+  '[&_.ProseMirror_p.is-editor-empty:first-child]:before:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child]:before:float-start [&_.ProseMirror_p.is-editor-empty:first-child]:before:h-0 [&_.ProseMirror_p.is-editor-empty:first-child]:before:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child]:before:content-[attr(data-placeholder)]',
+);
+
+export interface RichTextEditorProps extends Omit<React.ComponentProps<'div'>, 'onChange'> {
+  value?: string;
+  onValueChange?: (value: string) => void;
+  /** @deprecated Use `onValueChange`. */
+  onChange?: (value: string) => void;
+  defaultValue?: string;
+  placeholder?: string;
+  editable?: boolean;
+  disabled?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
+  className?: string;
+  /** Override the toolbar and link text, e.g. for another language. */
+  labels?: Partial<RichTextEditorLabels>;
+  children?: React.ReactNode;
+}
+
+const RichTextEditorContent = ({ className, ...props }: React.ComponentProps<'div'>) => {
+  const editor = useRichTextEditor();
+
+  return (
+    <div data-slot="rich-text-editor-content" className={cn(contentClassName, className)} {...props}>
+      <EditorContent editor={editor} />
+    </div>
+  );
+};
+
+export interface RichTextEditorButtonProps extends Omit<
+  React.ComponentProps<typeof Toggle>,
+  'children' | 'pressed' | 'onPressedChange'
+> {
+  tooltip: string;
+  pressed?: boolean;
+  onPressedChange?: () => void;
+  children: React.ReactNode;
+}
+
+const RichTextEditorButton = ({
+  tooltip,
+  pressed = false,
+  onPressedChange,
+  disabled,
+  className,
+  children,
+  ...props
+}: RichTextEditorButtonProps) => {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Toggle
+          data-slot="rich-text-editor-button"
+          size="sm"
+          pressed={pressed}
+          onPressedChange={onPressedChange}
+          disabled={disabled}
+          aria-label={tooltip}
+          className={className}
+          onPointerDown={(event) => { if (event.pointerType !== 'mouse') event.preventDefault(); }}
+          {...props}
+        >
+          {children}
+        </Toggle>
+      </TooltipTrigger>
+      <TooltipContent side="top">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+};
+
+const RichTextEditorSeparator = ({ className, ...props }: React.ComponentProps<typeof Separator>) => {
+  return (
+    <Separator
+      data-slot="rich-text-editor-separator"
+      orientation="vertical"
+      className={cn('mx-1 h-6', className)}
+      {...props}
+    />
+  );
+};
+
+const SCHEME = /^[a-z][a-z\d+-]*:/i;
+const RELATIVE_HREF = /^[/#?.]/;
+const EMAIL = /^[^\s/@]+@[^\s/@]+\.[^\s/@]+$/;
+
+/**
+ * The href a typed link gets. A bare domain becomes `https://…` and an email `mailto:…`; anything with a scheme, or a
+ * path, anchor or query, stays as typed.
+ */
+export const normalizeLinkHref = (input: string): string => {
+  const href = input.trim();
+  if (SCHEME.test(href) || RELATIVE_HREF.test(href)) return href;
+  if (EMAIL.test(href)) return `mailto:${href}`;
+
+  return `https://${href}`;
+};
+
+const RichTextEditorLinkPopover = () => {
+  const labels = React.useContext(RichTextEditorLabelsContext);
+  const editor = useRichTextEditor();
+  const [open, setOpen] = React.useState(false);
+  const [url, setUrl] = React.useState('');
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const isLink = useEditorState({
+    editor,
+    selector: ({ editor }) => editor.isActive('link'),
+  });
+
+  const handleOpen = (nextOpen: boolean) => {
+    if (nextOpen) {
+      const existing: unknown = editor.getAttributes('link').href;
+      setUrl(typeof existing === 'string' ? existing : '');
+      showFakeSelection(editor);
+    } else {
+      clearFakeSelection(editor);
+    }
+    setOpen(nextOpen);
+  };
+
+  const applyLink = () => {
+    clearFakeSelection(editor);
+    if (url.trim() === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    } else {
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange('link')
+        .setLink({ href: normalizeLinkHref(url) })
+        .run();
+    }
+    setOpen(false);
+  };
+
+  const handleRemoveLink = () => {
+    clearFakeSelection(editor);
+    editor.chain().focus().extendMarkRange('link').unsetLink().run();
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={handleOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Toggle data-slot="rich-text-editor-link-trigger" size="sm" pressed={isLink} aria-label={labels.link}>
+              <LinkIcon />
+            </Toggle>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top">{labels.link}</TooltipContent>
+      </Tooltip>
+
+      <PopoverContent
+        data-slot="rich-text-editor-link-popover"
+        className="w-80 p-3"
+        align="start"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          inputRef.current?.focus();
+        }}
+      >
+        {/* type="url" keeps the URL keyboard; noValidate lets "hirael.com" through to get its https:// instead of a browser error. */}
+        <form
+          noValidate
+          className="flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            applyLink();
+          }}
+        >
+          <Input
+            ref={inputRef}
+            type="url"
+            placeholder="https://hirael.com"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            className="h-8 text-sm"
+          />
+          <Button type="submit" variant="ghost" size="icon-sm" aria-label={labels.applyLink}>
+            <Check />
+          </Button>
+          {isLink && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={labels.removeLink}
+              onClick={handleRemoveLink}
+            >
+              <Trash2 className="text-destructive" />
+            </Button>
+          )}
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+interface LinkTarget {
+  el: HTMLAnchorElement;
+  href: string;
+}
+
+const linkFromNode = (node: Node | null | undefined): HTMLAnchorElement | null => {
+  const el = node instanceof HTMLElement ? node : node?.parentElement;
+
+  return el?.closest('a') ?? null;
+};
+
+const RichTextEditorLinkBubble = () => {
+  const labels = React.useContext(RichTextEditorLabelsContext);
+  const editor = useRichTextEditor();
+  const [target, setTarget] = React.useState<LinkTarget | null>(null);
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState('');
+  const editingRef = React.useRef(false);
+  const hideTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const rafRef = React.useRef(0);
+  const [, reposition] = React.useReducer((n: number) => n + 1, 0);
+
+  React.useEffect(() => {
+    editingRef.current = editing;
+  }, [editing]);
+
+  const clearHide = () => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  };
+
+  React.useEffect(
+    () => () => {
+      cancelAnimationFrame(rafRef.current);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    },
+    [],
+  );
+
+  const linkAtSelection = (): HTMLAnchorElement | null => {
+    if (!editor.isEditable || !editor.isActive('link')) return null;
+
+    return linkFromNode(editor.view.domAtPos(editor.state.selection.from).node);
+  };
+
+  const show = (el: HTMLAnchorElement) => {
+    const href = el.getAttribute('href') ?? '';
+    setTarget((prev) => (prev && prev.el === el && prev.href === href ? prev : { el, href }));
+  };
+
+  const scheduleHide = () => {
+    clearHide();
+    hideTimer.current = setTimeout(() => {
+      if (editingRef.current) return;
+      const el = linkAtSelection();
+      if (el) show(el);
+      else setTarget(null);
+    }, 200);
+  };
+
+  const onSelectionUpdate = React.useEffectEvent(() => {
+    if (editingRef.current) return;
+    const el = linkAtSelection();
+    if (el) {
+      clearHide();
+      show(el);
+    } else {
+      scheduleHide();
+    }
+  });
+
+  const onLinkOver = React.useEffectEvent((e: Event) => {
+    if (!editor.isEditable) return;
+    const el = linkFromNode(e.target instanceof Node ? e.target : null);
+    if (el) {
+      clearHide();
+      show(el);
+    }
+  });
+
+  const onLinkOut = React.useEffectEvent(() => scheduleHide());
+
+  React.useEffect(() => {
+    const onSelect = () => onSelectionUpdate();
+    editor.on('selectionUpdate', onSelect);
+
+    return () => {
+      editor.off('selectionUpdate', onSelect);
+    };
+  }, [editor]);
+
+  React.useEffect(() => {
+    const dom = editor.view.dom;
+    const onOver = (e: Event) => onLinkOver(e);
+    const onOut = () => onLinkOut();
+    dom.addEventListener('mouseover', onOver);
+    dom.addEventListener('mouseout', onOut);
+
+    return () => {
+      dom.removeEventListener('mouseover', onOver);
+      dom.removeEventListener('mouseout', onOut);
+    };
+  }, [editor]);
+
+  React.useEffect(() => {
+    if (!target) return;
+    let raf = 0;
+    const scheduleReposition = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(reposition);
+    };
+    window.addEventListener('scroll', scheduleReposition, true);
+    window.addEventListener('resize', scheduleReposition);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', scheduleReposition, true);
+      window.removeEventListener('resize', scheduleReposition);
+    };
+  }, [target]);
+
+  React.useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  if (typeof document === 'undefined' || !target || !target.el.isConnected) {
+    return null;
+  }
+
+  const rect = target.el.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return null;
+  const below = rect.top < 64;
+
+  const selectLink = () => {
+    const from = editor.view.posAtDOM(target.el, 0);
+    const to = from + (target.el.textContent?.length ?? 0);
+
+    return editor.chain().focus().setTextSelection({ from, to }).extendMarkRange('link');
+  };
+
+  const applyEdit = () => {
+    const href = draft.trim();
+    setEditing(false);
+    if (href === '') {
+      selectLink().unsetLink().run();
+      setTarget(null);
+
+      return;
+    }
+    selectLink().setLink({ href }).run();
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      const el = linkAtSelection();
+      if (el) show(el);
+      else setTarget(null);
+    });
+  };
+
+  const removeLink = () => {
+    selectLink().unsetLink().run();
+    setEditing(false);
+    setTarget(null);
+  };
+
+  const closeBubble = () => {
+    setEditing(false);
+    setTarget(null);
+    editor.commands.focus();
+  };
+
+  return createPortal(
+    <div
+      data-slot="rich-text-editor-link-bubble"
+      role="dialog"
+      aria-label={labels.link}
+      onMouseEnter={clearHide}
+      onMouseLeave={scheduleHide}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          closeBubble();
+        }
+      }}
+      style={{
+        position: 'fixed',
+        top: below ? rect.bottom + 8 : rect.top - 8,
+        left: Math.max(8, rect.left),
+        transform: below ? undefined : 'translateY(-100%)',
+      }}
+      className="z-50 flex max-w-[min(22rem,calc(100vw-1rem))] items-center gap-1 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+    >
+      {editing ? (
+        <form
+          className="flex items-center gap-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            applyEdit();
+          }}
+        >
+          <Input
+            ref={inputRef}
+            type="url"
+            dir="ltr"
+            placeholder="https://hirael.com"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            className="h-8 w-56 text-sm"
+          />
+          <Button type="submit" variant="ghost" size="icon-sm" aria-label={labels.applyLink}>
+            <Check />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={labels.cancel}
+            onClick={() => setEditing(false)}
+          >
+            <X />
+          </Button>
+        </form>
+      ) : (
+        <>
+          <a
+            href={target.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            dir="ltr"
+            className="flex min-w-0 items-center gap-1.5 px-2 text-sm text-primary underline-offset-2 hover:underline"
+          >
+            <ExternalLink className="size-3.5 shrink-0" />
+            <span className="truncate">{target.href}</span>
+          </a>
+          <RichTextEditorSeparator className="h-5" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={labels.editLink}
+            onClick={() => {
+              setDraft(target.href);
+              setEditing(true);
+            }}
+          >
+            <Pencil className="size-4" />
+          </Button>
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={labels.removeLink} onClick={removeLink}>
+            <Unlink className="size-4" />
+          </Button>
+        </>
+      )}
+    </div>,
+    document.fullscreenElement || editor.view.dom.closest('dialog[open]') || document.body,
+  );
+};
+
+const DefaultToolbar = () => {
+  const labels = React.useContext(RichTextEditorLabelsContext);
+  const editor = useRichTextEditor();
+  const state = useEditorState({
+    editor,
+    selector: ({ editor }) => ({
+      canUndo: editor.can().undo(),
+      canRedo: editor.can().redo(),
+      isParagraph: editor.isActive('paragraph'),
+      isHeading1: editor.isActive('heading', { level: 1 }),
+      isHeading2: editor.isActive('heading', { level: 2 }),
+      isHeading3: editor.isActive('heading', { level: 3 }),
+      isBold: editor.isActive('bold'),
+      isItalic: editor.isActive('italic'),
+      isUnderline: editor.isActive('underline'),
+      isStrike: editor.isActive('strike'),
+      isCode: editor.isActive('code'),
+      isHighlight: editor.isActive('highlight'),
+      isAlignLeft: editor.isActive({ textAlign: 'left' }),
+      isAlignCenter: editor.isActive({ textAlign: 'center' }),
+      isAlignRight: editor.isActive({ textAlign: 'right' }),
+      isAlignJustify: editor.isActive({ textAlign: 'justify' }),
+      isBulletList: editor.isActive('bulletList'),
+      isOrderedList: editor.isActive('orderedList'),
+      isBlockquote: editor.isActive('blockquote'),
+    }),
+  });
+
+  return (
+    <>
+      <RichTextEditorButton
+        tooltip={labels.undo}
+        onPressedChange={() => editor.chain().focus().undo().run()}
+        disabled={!state.canUndo}
+      >
+        <Undo className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.redo}
+        onPressedChange={() => editor.chain().focus().redo().run()}
+        disabled={!state.canRedo}
+      >
+        <Redo className="size-4" />
+      </RichTextEditorButton>
+
+      <RichTextEditorSeparator />
+
+      <RichTextEditorButton
+        tooltip={labels.paragraph}
+        pressed={state.isParagraph}
+        onPressedChange={() => editor.chain().focus().setParagraph().run()}
+      >
+        <Pilcrow className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.heading1}
+        pressed={state.isHeading1}
+        onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+      >
+        <Heading1 className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.heading2}
+        pressed={state.isHeading2}
+        onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+      >
+        <Heading2 className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.heading3}
+        pressed={state.isHeading3}
+        onPressedChange={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+      >
+        <Heading3 className="size-4" />
+      </RichTextEditorButton>
+
+      <RichTextEditorSeparator />
+
+      <RichTextEditorButton
+        tooltip={labels.bold}
+        pressed={state.isBold}
+        onPressedChange={() => editor.chain().focus().toggleBold().run()}
+      >
+        <Bold className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.italic}
+        pressed={state.isItalic}
+        onPressedChange={() => editor.chain().focus().toggleItalic().run()}
+      >
+        <Italic className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.underline}
+        pressed={state.isUnderline}
+        onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
+      >
+        <UnderlineIcon className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.strikethrough}
+        pressed={state.isStrike}
+        onPressedChange={() => editor.chain().focus().toggleStrike().run()}
+      >
+        <Strikethrough className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.code}
+        pressed={state.isCode}
+        onPressedChange={() => editor.chain().focus().toggleCode().run()}
+      >
+        <Code className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.highlight}
+        pressed={state.isHighlight}
+        onPressedChange={() => editor.chain().focus().toggleHighlight().run()}
+      >
+        <Highlighter className="size-4" />
+      </RichTextEditorButton>
+
+      <RichTextEditorSeparator />
+
+      <RichTextEditorLinkPopover />
+
+      <RichTextEditorSeparator />
+
+      <RichTextEditorButton
+        tooltip={labels.alignLeft}
+        pressed={state.isAlignLeft}
+        onPressedChange={() => editor.chain().focus().setTextAlign('left').run()}
+      >
+        <AlignLeft className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.alignCenter}
+        pressed={state.isAlignCenter}
+        onPressedChange={() => editor.chain().focus().setTextAlign('center').run()}
+      >
+        <AlignCenter className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.alignRight}
+        pressed={state.isAlignRight}
+        onPressedChange={() => editor.chain().focus().setTextAlign('right').run()}
+      >
+        <AlignRight className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.justify}
+        pressed={state.isAlignJustify}
+        onPressedChange={() => editor.chain().focus().setTextAlign('justify').run()}
+      >
+        <AlignJustify className="size-4" />
+      </RichTextEditorButton>
+
+      <RichTextEditorSeparator />
+
+      <RichTextEditorButton
+        tooltip={labels.bulletList}
+        pressed={state.isBulletList}
+        onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
+      >
+        <List className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.orderedList}
+        pressed={state.isOrderedList}
+        onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
+      >
+        <ListOrdered className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.blockquote}
+        pressed={state.isBlockquote}
+        onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
+      >
+        <Quote className="size-4" />
+      </RichTextEditorButton>
+      <RichTextEditorButton
+        tooltip={labels.horizontalRule}
+        onPressedChange={() => editor.chain().focus().setHorizontalRule().run()}
+      >
+        <Minus className="size-4" />
+      </RichTextEditorButton>
+    </>
+  );
+};
+
+const MobileToolbar = () => {
+  const editor = useRichTextEditor();
+  const [expanded, setExpanded] = React.useState(false);
+  const moreId = React.useId();
+  const state = useEditorState({ editor, selector: ({ editor }) => ({
+    bold: editor.isActive('bold'), italic: editor.isActive('italic'),
+    highlight: editor.isActive('highlight'), list: editor.isActive('bulletList'),
+  }) });
+  return <div className="rte-mobile-tools">
+    <div className="rte-mobile-primary" role="group" aria-label="Text formatting">
+      <RichTextEditorButton tooltip="Bold" pressed={state.bold} onPressedChange={() => editor.chain().focus().toggleBold().run()}><Bold size={18} /></RichTextEditorButton>
+      <RichTextEditorButton tooltip="Italic" pressed={state.italic} onPressedChange={() => editor.chain().focus().toggleItalic().run()}><Italic size={18} /></RichTextEditorButton>
+      <RichTextEditorButton tooltip="Highlight" pressed={state.highlight} onPressedChange={() => editor.chain().focus().toggleHighlight().run()}><Highlighter size={18} /></RichTextEditorButton>
+      <RichTextEditorButton tooltip="Bullet list" pressed={state.list} onPressedChange={() => editor.chain().focus().toggleBulletList().run()}><List size={18} /></RichTextEditorButton>
+      <RichTextEditorLinkPopover />
+      <button type="button" className="rte-more" aria-label={expanded ? 'Fewer formatting options' : 'More formatting options'} aria-expanded={expanded} aria-controls={moreId} onPointerDown={(event) => event.preventDefault()} onClick={() => { setExpanded(value => !value); notifyTypingCaret(editor.view.dom); }}><Ellipsis size={21} /></button>
+      <button type="button" className="rte-done" aria-label="Finish editing and dismiss keyboard" onClick={() => { editor.commands.blur(); setExpanded(false); }}>Done</button>
+    </div>
+    {expanded && <div id={moreId} className="rte-mobile-expanded" role="group" aria-label="All formatting options"><DefaultToolbar /></div>}
+  </div>;
+};
+
+const RichTextEditorToolbar = ({ className, children, ...props }: React.ComponentProps<'div'>) => {
+  return (
+    <TooltipProvider>
+      <div
+        data-slot="rich-text-editor-toolbar"
+        className={cn('flex flex-wrap items-center gap-0.5 border-b border-border p-1', className)}
+        {...props}
+      >
+        {children ?? <><div className="rte-desktop-tools"><DefaultToolbar /></div><MobileToolbar /></>}
+      </div>
+    </TooltipProvider>
+  );
+};
+
+const RichTextEditor = ({
+  value,
+  onValueChange,
+  onChange,
+  defaultValue = '',
+  placeholder = 'Write something…',
+  editable = true,
+  disabled = false,
+  onFocus,
+  onBlur,
+  className,
+  labels,
+  children,
+  ...props
+}: RichTextEditorProps) => {
+  const resolvedLabels = { ...DEFAULT_LABELS, ...labels };
+  const isEditable = editable && !disabled;
+
+  const onChangeRef = React.useRef(onValueChange ?? onChange);
+  const onFocusRef = React.useRef(onFocus);
+  const onBlurRef = React.useRef(onBlur);
+  React.useLayoutEffect(() => {
+    onChangeRef.current = onValueChange ?? onChange;
+    onFocusRef.current = onFocus;
+    onBlurRef.current = onBlur;
+  });
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+        bulletList: { keepMarks: true, keepAttributes: false },
+        orderedList: { keepMarks: true, keepAttributes: false },
+        link: {
+          openOnClick: false,
+          HTMLAttributes: {
+            class: 'text-primary underline underline-offset-2 hover:text-primary/80',
+            rel: 'noopener noreferrer',
+            target: '_blank',
+          },
+        },
+      }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Highlight.configure({ multicolor: false }),
+      Placeholder.configure({
+        placeholder,
+        emptyEditorClass: 'is-editor-empty',
+      }),
+      SelectionHighlight,
+    ],
+    content: value ?? defaultValue,
+    editable: isEditable,
+    immediatelyRender: false,
+    onUpdate: ({ editor: e }) => { onChangeRef.current?.(e.getHTML()); notifyTypingCaret(e.view.dom); },
+    onSelectionUpdate: ({ editor: e }) => notifyTypingCaret(e.view.dom),
+    onFocus: () => onFocusRef.current?.(),
+    onBlur: () => onBlurRef.current?.(),
+    editorProps: {
+      handleScrollToSelection: (view) => {
+        if (!view.dom.closest('[data-typing-active]')) return false;
+        notifyTypingCaret(view.dom);
+        return true;
+      },
+      attributes: {
+        role: 'textbox', 'aria-label': 'Your note', 'aria-multiline': 'true',
+        class: 'focus:outline-none min-h-[150px] px-3 py-2 text-base md:text-sm',
+      },
+    },
+  });
+
+  React.useEffect(() => {
+    if (!editor) return;
+    return registerTypingCaret(editor.view.dom, () => editor.view.coordsAtPos(editor.state.selection.head));
+  }, [editor]);
+
+  React.useEffect(() => {
+    if (!editor) return;
+    if (value !== undefined && value !== editor.getHTML()) {
+      // A parent-driven value is not a user edit: don't echo it through onValueChange.
+      const { from, to } = editor.state.selection;
+      editor.commands.setContent(value, { emitUpdate: false });
+      const end = editor.state.doc.content.size;
+      editor.commands.setTextSelection({ from: Math.min(from, end), to: Math.min(to, end) });
+    }
+  }, [value, editor]);
+
+  React.useEffect(() => {
+    if (editor && editor.isEditable !== isEditable) {
+      editor.setEditable(isEditable);
+    }
+  }, [isEditable, editor]);
+
+  // The editor is created once, so a new placeholder is written into the live extension and redrawn.
+  React.useEffect(() => {
+    const extension = editor?.extensionManager.extensions.find((e) => e.name === Placeholder.name);
+    if (!editor || !extension || extension.options.placeholder === placeholder) return;
+    extension.options.placeholder = placeholder;
+    editor.view.dispatch(editor.state.tr);
+  }, [placeholder, editor]);
+
+  if (!editor) {
+    return <PlayerLoading label="Opening editor…" />;
+  }
+
+  return (
+    <RichTextEditorContext.Provider value={editor}>
+      <RichTextEditorLabelsContext.Provider value={resolvedLabels}>
+        <div
+          data-slot="rich-text-editor"
+          aria-disabled={disabled || undefined}
+          className={cn(
+            'rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40',
+            disabled && 'cursor-not-allowed opacity-50',
+            className,
+          )}
+          {...props}
+        >
+          {children ?? (
+            <>
+              {isEditable && <RichTextEditorToolbar />}
+              <RichTextEditorContent />
+              {isEditable && <RichTextEditorLinkBubble />}
+            </>
+          )}
+        </div>
+      </RichTextEditorLabelsContext.Provider>
+    </RichTextEditorContext.Provider>
+  );
+};
+
+export {
+  RichTextEditor,
+  RichTextEditorToolbar,
+  RichTextEditorButton,
+  RichTextEditorSeparator,
+  RichTextEditorContent,
+  RichTextEditorLinkPopover,
+  RichTextEditorLinkBubble,
+  useRichTextEditor,
+};
+
+export default RichTextEditor;

@@ -1,0 +1,20 @@
+.halobox-auth.tv-auth{background:#000;padding-block:110px 56px;isolation:isolate}
+.halobox-auth .halobox-sign-in{width:min(100%,460px);padding:32px;border:1px solid #ffffff21;border-radius:30px;background:linear-gradient(135deg,#ffffff0e,#ffffff03 50%,#3659a00a);box-shadow:inset 0 1px 0 #ffffff16,0 28px 80px #0007;backdrop-filter:blur(16px)}
+.halobox-auth .tv-auth-brand{display:flex;align-items:center;justify-content:center;gap:12px;letter-spacing:normal;margin-bottom:30px}
+.halobox-auth .tv-auth-brand img{object-fit:contain;flex:none}
+.halobox-auth .tv-auth-brand span{text-align:left;display:flex;flex-direction:column}
+.halobox-auth .tv-auth-brand small{font-size:14px;font-weight:500}
+.halobox-auth .tv-auth-brand strong{font-size:25px;line-height:1.1;letter-spacing:-.04em}
+.halobox-auth .halobox-sign-in h1{font-size:clamp(28px,5vw,38px)}
+.halobox-auth .tv-auth-description{font-size:15px;margin-bottom:28px}
+.halobox-auth .field input{background:#ffffff0c;border:1px solid #ffffff13;border-radius:15px;min-height:50px;font-size:16px}
+.halobox-auth .field input:focus{border-color:#96adff;outline:2px solid #5578ef55;outline-offset:2px}
+.halobox-auth .auth-btn{background:linear-gradient(150deg,#5278f2,#3557cf);color:#fff;box-shadow:inset 0 1px 0 #ffffff40,0 5px 18px #2047bd30}
+.social-sign-in{display:grid;gap:12px;width:100%}
+.social-sign-in-button{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:50px;padding:12px 16px;border-radius:999px;background:linear-gradient(#27292c,#1c1e21);border:1px solid #ffffff24;color:#fff;font-family:inherit;font-size:14px;font-weight:600;line-height:1.2;text-decoration:none;box-shadow:inset 0 1px 0 #ffffff16}
+.social-sign-in-button svg{flex:none}.social-sign-in-button small{font-size:10px;font-weight:400;color:#c2c8d6}
+.social-sign-in-button:hover{background:#34373e}.social-sign-in-button:disabled{opacity:.52;cursor:not-allowed}
+.halobox-auth .auth-or{margin:26px 0 20px}.halobox-auth .auth-alt{margin-bottom:0;line-height:1.6}
+.halobox-auth .auth-alt a,.halobox-auth .auth-row a{color:#a5b9ff}
+.halobox-auth .auth-row{justify-content:space-between;flex-wrap:wrap;gap:12px 20px}
+@media(max-width:480px){.halobox-auth.tv-auth{padding:94px 16px 32px}.halobox-auth .halobox-sign-in{padding:26px 20px;border-radius:26px}.halobox-auth .tv-auth-back{top:22px;font-size:13px}.halobox-auth .tv-auth-brand{margin-bottom:26px}.halobox-auth .field{margin-bottom:16px}}

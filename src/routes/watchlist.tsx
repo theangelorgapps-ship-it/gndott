@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { getWatchlist } from '../lib/api'
 import { PosterCard } from '../components/Poster'
 import { AccountShell, NeedsAuth } from '../components/Account'
@@ -13,8 +13,8 @@ function Watchlist() {
   if (data.needsAuth) return <NeedsAuth />
   return (
     <AccountShell title="My Watchlist">
-      {data.items.length === 0 ? (
-        <div className="empty">Nothing saved yet. Browse movies and tap the bookmark to add them here.</div>
+      {data.needsProfile ? <div className="empty"><p>Choose a profile to see your saved titles.</p><Link to="/manage-profile" className="btn btn-primary">Choose profile</Link></div> : data.items.length === 0 ? (
+        <div className="empty">Nothing saved yet. Browse titles and tap the plus button to save them here.</div>
       ) : (
         <div className="grid" style={{ padding: 0 }}>
           {data.items.map((m: any) => (

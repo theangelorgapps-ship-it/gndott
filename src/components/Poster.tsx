@@ -1,31 +1,19 @@
-import { Link } from '@tanstack/react-router'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ScrollRail } from './ScrollRail'
+import { contentPath } from '@/lib/contentRoutes'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import manifest from '../lib/img-manifest.json'
+import { createPreviewPlayback } from './previewPlayback'
+import { TitlePreview } from './TitlePreview'
+import { HeroArtwork, heroCopyStyle } from './HeroArtwork'
+import '../queued-player.css'
+import { img, DEFAULT_IMG } from '../lib/imageUrls'
+import { getWatchlist, toggleWatchlist } from '../lib/api'
+import { Check, Info, Volume2, VolumeX, X } from 'lucide-react'
 
-export const DEFAULT_IMG = '/default-image.jpg'
-const PREVIEW_DELAY_MS = 3000
+export { img, DEFAULT_IMG }
 const ADVANCE_DELAY_MS = 8000
-const HERO_START_SECONDS = 80
 const VIEWPORT_GUTTER = 12
-
-const MANIFEST = manifest as Record<string, string>
-
-export function img(url: string | null | undefined): string {
-  if (!url) return DEFAULT_IMG
-  if (url.startsWith('/images/') || url.startsWith('/media/')) return url
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    if (/^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(url)) {
-      const base = url.split('/').pop() ?? url
-      const stem = base.replace(/\.(png|jpe?g|webp)$/i, '')
-      return MANIFEST[base] ?? MANIFEST[stem] ?? DEFAULT_IMG
-    }
-    return url
-  }
-  const base = url.split('/').pop() ?? url
-  const stem = base.replace(/\.(png|jpe?g|webp)$/i, '')
-  return MANIFEST[base] ?? MANIFEST[stem] ?? DEFAULT_IMG
-}
 
 export function contentBase(type: unknown) {
   return type === 'teaching' ? '/teaching'
@@ -41,17 +29,8 @@ export function IconPlay({ size = 15 }: { size?: number }) {
 export function IconPlus({ size = 16 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M12 5v14M5 12h14" strokeLinecap="round" /></svg>
 }
-export function IconShare({ size = 16 }: { size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" strokeLinecap="round" /></svg>
-}
 export function IconSearch({ size = 17 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.35-4.35" strokeLinecap="round" /></svg>
-}
-export function IconCalendar({ size = 14 }: { size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" /></svg>
-}
-export function IconClock({ size = 14 }: { size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" strokeLinecap="round" /></svg>
 }
 export function IconChevronLeft({ size = 26 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden><path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -74,55 +53,32 @@ export function plainText(value: unknown): string {
 }
 
 function trailerFor(item: any): string | null {
-  const value = [item?.trailer_url, item?.trailerUrl, item?.bunny_trailer_url, item?.video_url_input]
-    .find((candidate) => typeof candidate === 'string' && candidate.trim())
+  const fullAccess = item?.hasSubscriptionAccess !== false && ((item?.movie_access !== 'paid' && item?.access !== 'paid') || item?.myPurchase)
+  const value = [item?.trailer_url, item?.trailerUrl, item?.bunny_trailer_url, fullAccess ? item?.video_url_input : null]
+    .find((candidate) => typeof candidate === 'string' && /^https?:\/\//i.test(candidate.trim()))
   return typeof value === 'string' ? value.trim() : null
 }
 
-function youtubeId(url: string | null | undefined): string | null {
-  if (!url) return null
-  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/)
-  return match?.[1] ?? null
-}
 
-type HeroMedia = { kind: 'video' | 'youtube' | 'bunny'; url: string }
-
-function heroMediaFor(hero: any, muted: boolean, bunnyLibraryId?: string | null): HeroMedia | null {
-  const direct = trailerFor(hero)
-  const videoId = typeof hero?.bunny_video_url === 'string' ? hero.bunny_video_url.trim() : ''
-  const libraryId = typeof bunnyLibraryId === 'string' ? bunnyLibraryId.trim() : ''
-  const hasBunnyFallback = !!(videoId && libraryId && direct && /\.m3u8(?:$|[?#])/i.test(direct))
-  if (direct && !hasBunnyFallback) {
-    const yt = youtubeId(direct)
-    return yt
-      ? { kind: 'youtube', url: `https://www.youtube.com/embed/${yt}?autoplay=1&mute=${muted ? 1 : 0}&start=${HERO_START_SECONDS}&controls=0&playsinline=1&loop=1&playlist=${yt}&rel=0` }
-      : { kind: 'video', url: direct }
-  }
-  if (videoId && libraryId) {
-    return {
-      kind: 'bunny',
-      url: `https://iframe.mediadelivery.net/embed/${encodeURIComponent(libraryId)}/${encodeURIComponent(videoId)}?autoplay=true&muted=${muted}&t=${HERO_START_SECONDS}&playsinline=true&loop=true&controls=false`,
-    }
-  }
-  return null
-}
-
-export function PosterCard({ item, base }: { item: any; base: string }) {
+export function PosterCard({ item, base, landscape = false, badge }: { item: any; base: string; landscape?: boolean; badge?: string }) {
   const paid = item.movie_access === 'paid' || item.access === 'paid'
   return (
-    <Link to={`${base}/${item.id}` as any} className="p-card" params={undefined as never}>
-      <span className="p-poster" style={{ backgroundImage: `url(${img(item.poster_url)})` }}>
+    <article className={`p-card${landscape ? ' p-card-landscape' : ''}`}>
+      <Link to={contentPath(item,base) as any} hash="watch" className="p-card-link" aria-keyshortcuts="ArrowDown" params={undefined as never}>
+      <span className="p-poster"><img src={img(landscape ? item.thumbnail_url || item.poster_url : item.poster_url)} alt="" width={landscape ? 480 : 200} height={landscape ? 270 : 300} loading="lazy" decoding="async" />
         {paid && <span className="p-crown" title="Premium"><IconCrown size={11} /></span>}
+        {badge && <span className="p-upload-badge">{badge}</span>}
       </span>
       <span className="p-name">{item.name}</span>
+      </Link>
       <HoverPreview item={item} base={base} />
-    </Link>
+    </article>
   )
 }
 
 function previewPosition(host: HTMLElement, height = 270) {
   const rect = host.getBoundingClientRect()
-  const width = Math.min(300, window.innerWidth - VIEWPORT_GUTTER * 2)
+  const width = Math.min(420, window.innerWidth - VIEWPORT_GUTTER * 2)
   const left = Math.max(
     VIEWPORT_GUTTER,
     Math.min(window.innerWidth - width - VIEWPORT_GUTTER, rect.left + rect.width / 2 - width / 2),
@@ -136,177 +92,181 @@ function previewPosition(host: HTMLElement, height = 270) {
   return { top, left, width }
 }
 
-/** Delayed, viewport-clamped preview. The portal avoids clipping by rails and grids. */
+/** Inline touch previews and desktop portals share one media lifetime. */
 function HoverPreview({ item, base }: { item: any; base: string }) {
+  const [mounted, setMounted] = useState(false)
   const [open, setOpen] = useState(false)
-  const [videoReady, setVideoReady] = useState(false)
-  const [position, setPosition] = useState({ top: VIEWPORT_GUTTER, left: VIEWPORT_GUTTER, width: 300 })
+  const [inline, setInline] = useState(false)
+  const [ready, setReady] = useState(false)
+  const [muted, setMuted] = useState(true)
+  const [failed, setFailed] = useState(false)
+  const [position, setPosition] = useState({ top: 12, left: 12, width: 420 })
   const marker = useRef<HTMLSpanElement>(null)
-  const popup = useRef<HTMLAnchorElement>(null)
-  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const popup = useRef<HTMLDivElement>(null)
+  const video = useRef<HTMLVideoElement>(null)
+  const playback = useRef<ReturnType<typeof createPreviewPlayback> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const videoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hideRef = useRef<(immediate?: boolean) => void>(() => {})
+  const fullAccess = item?.hasSubscriptionAccess !== false && ((item?.movie_access !== 'paid' && item?.access !== 'paid') || item?.myPurchase)
   const trailer = trailerFor(item)
-
-  const clearTimers = () => {
-    if (openTimer.current) clearTimeout(openTimer.current)
-    if (closeTimer.current) clearTimeout(closeTimer.current)
-    if (videoTimer.current) clearTimeout(videoTimer.current)
-    openTimer.current = null
-    closeTimer.current = null
-    videoTimer.current = null
-  }
-  const hide = () => {
-    clearTimers()
-    setOpen(false)
-    setVideoReady(false)
-  }
+  // Prefer an actual media URL over an embedded provider page. Locked full
+  // sources never become previews; public dedicated trailers remain available.
+  const direct = [trailer, fullAccess ? item.video_url_input : null]
+    .find(value => typeof value === 'string' && /^https?:\/\/.*\.(mp4|webm|m4v|m3u8)(?:[?#]|$)/i.test(value)) as string | undefined
 
   useEffect(() => {
     const host = marker.current?.closest('.p-card') as HTMLElement | null
-    if (!host) return
+    const link = host?.querySelector('.p-card-link')
+    const thumbnail = link?.querySelector('.p-poster')
+    if (!host || !link) return
+    let removal: ReturnType<typeof setTimeout> | undefined
+    let present = false
+    let inlineMode = false
+    let gesture: { x: number; y: number; moved: boolean } | null = null
+    let suppressClick = false
+    let resetClick: ReturnType<typeof setTimeout> | undefined
+    const clearClose = () => { if (closeTimer.current) clearTimeout(closeTimer.current) }
+    const hide = (immediate = false) => {
+      clearClose()
+      if (!present) return
+      present = false
+      clearTimeout(removal)
+      playback.current?.destroy(); playback.current = null
+      setOpen(false)
+      if (immediate || inlineMode) { setMounted(false); setReady(false) }
+      else removal = setTimeout(() => { setMounted(false); setReady(false) }, 160)
+    }
+    hideRef.current = hide
+    const show = (touch: boolean) => {
+      if (document.hidden || document.querySelector('.tv-playback-dialog[open]')) return
+      clearClose()
+      if (present && inlineMode === touch) return
+      clearTimeout(removal)
+      present = true; inlineMode = touch
+      window.dispatchEvent(new CustomEvent('halo-preview', { detail: host }))
+      window.dispatchEvent(new CustomEvent('gndott:preview-active', { detail: host }))
+      setPosition(previewPosition(host, 300))
+      setInline(touch); setMounted(true); setReady(false); setMuted(true); setFailed(false); setOpen(true)
+    }
     const enter = () => {
-      if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
-      clearTimers()
-      setVideoReady(false)
-      openTimer.current = setTimeout(() => {
-        setPosition(previewPosition(host, popup.current?.offsetHeight ?? 270))
-        setOpen(true)
-      }, 450)
-      videoTimer.current = setTimeout(() => {
-        if (trailer) setVideoReady(true)
-      }, 3000)
+      if (window.matchMedia('(min-width: 861px) and (hover: hover) and (pointer: fine)').matches) show(false)
     }
-    const leave = () => {
-      if (closeTimer.current) clearTimeout(closeTimer.current)
-      closeTimer.current = setTimeout(hide, 140)
+    const leave = (event?: MouseEvent) => {
+      if (inlineMode || event?.relatedTarget instanceof Node && popup.current?.contains(event.relatedTarget)) return
+      clearClose(); closeTimer.current = setTimeout(() => hide(), 180)
     }
-    const hideOnScroll = (event: Event) => {
-      if (event.target instanceof Node && popup.current?.contains(event.target)) return
-      hide()
+    const dismiss = () => hide(true)
+    const scroll = () => { if (!inlineMode) hide(true) }
+    const other = (event: Event) => { if ((event as CustomEvent).detail !== host) hide(true) }
+    const key = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowDown' && present && !inlineMode && document.activeElement === link) { event.preventDefault(); popup.current?.querySelector<HTMLElement>('.halo-preview-sound:not(:disabled), .halo-preview-play')?.focus() }
+      if (event.key === 'Escape' && present) { const restore = popup.current?.contains(document.activeElement); hide(true); if (restore) (link as HTMLElement).focus() }
     }
-    host.addEventListener('mouseenter', enter)
-    host.addEventListener('mouseleave', leave)
-    window.addEventListener('scroll', hideOnScroll, true)
-    window.addEventListener('resize', hide)
+    const blur = (event: FocusEvent) => { if (!host.contains(event.relatedTarget as Node) && !popup.current?.contains(event.relatedTarget as Node)) hide() }
+    const down = (event: PointerEvent) => {
+      if (!thumbnail?.contains(event.target as Node) || event.pointerType === 'mouse') return
+      gesture = {x: event.clientX, y: event.clientY, moved: false}; suppressClick = false; clearTimeout(resetClick)
+    }
+    const move = (event: PointerEvent) => {
+      if (gesture && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 10) gesture.moved = true
+    }
+    const finish = (event: PointerEvent) => {
+      if (!gesture) return
+      suppressClick = gesture.moved || event.type === 'pointercancel'
+      gesture = null
+      // Native scrolling usually suppresses click; guard synthetic follow-up
+      // clicks too, without preventing pointer movement or rail scrolling.
+      clearTimeout(resetClick); resetClick = setTimeout(() => { suppressClick = false }, 700)
+    }
+    const click = (event: MouseEvent) => {
+      if (!thumbnail?.contains(event.target as Node) || !event.detail || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      if (!window.matchMedia('(hover: none), (pointer: coarse)').matches) return
+      event.preventDefault(); event.stopPropagation()
+      if (!suppressClick) show(true)
+    }
+    const outside = (event: PointerEvent) => { if (inlineMode && !host.contains(event.target as Node)) hide(true) }
+    host.addEventListener('focusout', blur)
+    host.addEventListener('mouseenter', enter); host.addEventListener('focusin', enter); host.addEventListener('mouseleave', leave)
+    host.addEventListener('pointerdown', down, { passive: true }); host.addEventListener('pointermove', move, { passive: true })
+    host.addEventListener('pointerup', finish); host.addEventListener('pointercancel', finish); host.addEventListener('click', click, true)
+    document.addEventListener('pointerdown', outside, { passive: true })
+    window.addEventListener('scroll', scroll, true); window.addEventListener('resize', dismiss)
+    window.addEventListener('halo-preview', other); window.addEventListener('gndott:preview-active', other)
+    window.addEventListener('gndott:playback-open', dismiss); window.addEventListener('keydown', key)
+    document.addEventListener('visibilitychange', dismiss)
     return () => {
-      host.removeEventListener('mouseenter', enter)
-      host.removeEventListener('mouseleave', leave)
-      window.removeEventListener('scroll', hideOnScroll, true)
-      window.removeEventListener('resize', hide)
-      clearTimers()
+      clearTimeout(removal); clearTimeout(resetClick); clearClose()
+      playback.current?.destroy(); playback.current = null
+      host.removeEventListener('focusout', blur)
+      host.removeEventListener('mouseenter', enter); host.removeEventListener('mouseleave', leave); host.removeEventListener('focusin', enter)
+      host.removeEventListener('pointerdown', down); host.removeEventListener('pointermove', move)
+      host.removeEventListener('pointerup', finish); host.removeEventListener('pointercancel', finish); host.removeEventListener('click', click, true)
+      document.removeEventListener('pointerdown', outside)
+      window.removeEventListener('scroll', scroll, true); window.removeEventListener('resize', dismiss)
+      window.removeEventListener('gndott:preview-active', other); window.removeEventListener('gndott:playback-open', dismiss)
+      window.removeEventListener('halo-preview', other); window.removeEventListener('keydown', key)
+      document.removeEventListener('visibilitychange', dismiss)
     }
-  }, [trailer])
+  }, [item.id])
 
-  useLayoutEffect(() => {
-    if (!open) return
-    const host = marker.current?.closest('.p-card') as HTMLElement | null
-    if (host) setPosition(previewPosition(host, popup.current?.offsetHeight ?? 270))
-  }, [open])
+  useEffect(() => {
+    // A phone tap is explicit intent even when the viewer prefers reduced motion.
+    if (!open || !direct || !video.current || (!inline && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return
+    setReady(false); setMuted(true)
+    const controller = createPreviewPlayback(video.current, direct, {
+      ready: () => setReady(true), muted: setMuted, failure: () => setFailed(true),
+    }, undefined, { start: 30, sound: false, volume: .3 })
+    playback.current = controller
+    return () => { controller.destroy(); if (playback.current === controller) playback.current = null }
+  }, [open, inline, direct])
 
-  useEffect(() => () => {
-    const media = popup.current?.querySelector('video')
-    media?.pause()
-  }, [])
-
-  if (!open || typeof document === 'undefined') return <span ref={marker} className="pv-marker" aria-hidden="true" />
-  const yt = youtubeId(trailer)
   const year = item.release_date ? String(item.release_date).slice(0, 4) : null
-  const preview = (
-    <Link
-      ref={popup}
-      to={`${base}/${item.id}` as any}
-      className="pv-card open"
-      style={position}
-      aria-label={`Open ${item.name}`}
-      data-preview-video={videoReady ? 'playing' : 'thumbnail'}
-      onClick={hide}
+  const media = direct && <video ref={video} className={ready && !failed ? 'is-ready' : ''} muted playsInline preload="none" aria-hidden="true" />
+  const sound = direct && !failed && <button className="halo-preview-sound" type="button" aria-label={muted ? 'Enable preview sound' : 'Mute preview sound'} aria-pressed={!muted} disabled={!ready} onClick={() => void playback.current?.sound(muted)}>{muted ? <VolumeX size={19} /> : <Volume2 size={19} />}<span>{muted ? 'Sound on' : 'Mute'}</span></button>
+  const actions = <div className="pv-actions">
+    <Link className="halo-preview-play" to={contentPath(item,base) as any} hash="watch" onClick={() => hideRef.current(true)}><IconPlay size={18} /><span>{inline ? 'Watch' : 'Watch now'}</span></Link>
+    <Link className="halo-preview-info" to={contentPath(item,base) as any} aria-label={`Details for ${item.name}`} onClick={() => hideRef.current(true)}>{inline ? 'Details' : <Info size={22} />}</Link>
+  </div>
+  return <><span ref={marker} className="pv-marker" aria-hidden="true" />{mounted && (inline ?
+    <><div ref={popup} className="p-inline-preview" role="region" aria-label={`${item.name} preview`} data-preview-state={failed || !direct ? 'unavailable' : ready ? 'playing' : 'loading'}>
+      {media}{sound}<button className="p-inline-close" type="button" aria-label={`Close ${item.name} preview`} onClick={() => hideRef.current(true)}><X size={18}/></button>
+      {(failed || !direct) && <span className="p-inline-status">Preview unavailable</span>}
+    </div><div className="p-inline-action-row">{actions}</div></> : createPortal(
+    <div ref={popup} className={`pv-card halo-preview${open ? ' open' : ''}`} style={position} onClick={(event) => event.stopPropagation()} role="region" aria-label={`${item.name} preview`}
       onMouseEnter={() => { if (closeTimer.current) clearTimeout(closeTimer.current) }}
-      onMouseLeave={hide}
-    >
-      <span className="pv-thumb" style={{ backgroundImage: `url(${img(item.thumbnail_url || item.poster_url)})` }}>
-        {videoReady && trailer && (yt ? (
-          <iframe
-            src={`https://www.youtube.com/embed/${yt}?autoplay=1&mute=1&controls=0&playsinline=1&rel=0`}
-            title=""
-            tabIndex={-1}
-            allow="autoplay; encrypted-media"
-          />
-        ) : (
-          <video src={trailer} autoPlay muted loop playsInline preload="none" onError={() => setVideoReady(false)} />
-        ))}
-      </span>
-      <span className="pv-body">
-        <span className="pv-actions">
-          <span className="pv-play" title="Open and play"><IconPlay size={14} /></span>
-          <span className="pv-icon" title="Open details"><IconPlus size={14} /></span>
-        </span>
-        <span className="pv-name">{item.name}</span>
-        <span className="pv-meta">
-          {year && <span>{year}</span>}
-          {item.duration && <span>{item.duration}</span>}
-        </span>
-      </span>
-    </Link>
-  )
-  return <><span ref={marker} className="pv-marker" aria-hidden="true" />{createPortal(preview, document.body)}</>
+      onMouseLeave={() => { closeTimer.current = setTimeout(() => hideRef.current(), 180) }}
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) hideRef.current() }}>
+      <img className="halo-preview-art" src={img(item.thumbnail_url || item.poster_url)} alt="" />
+      {media}{sound}
+      <div className="halo-preview-gradient">
+        <strong className="pv-name">{item.name}</strong>
+        <span className="pv-meta">{year && <span>{year}</span>}{item.duration && <span>{item.duration}</span>}</span>
+        {actions}
+      </div>
+    </div>, document.body))}</>
 }
 
 export function LiveChannelCard({ channel }: { channel: any }) {
   return (
-    <Link to={`/channel/${channel.id}` as any} className="p-card live-card">
+    <Link to={contentPath(channel,'/channel') as any} hash="watch" className="p-card live-card">
       <span className="p-poster" style={{ backgroundImage: `url(${img(channel.poster_url)})` }}><span className="live-badge">LIVE</span></span>
       <span className="p-name">{channel.name}</span>
     </Link>
   )
 }
 
-function HeroPreview({ hero, preview, media, mediaRef, muted }: {
-  hero: any
-  preview: boolean
-  media: HeroMedia | null
-  mediaRef: React.RefObject<HTMLVideoElement | null>
-  muted: boolean
-}) {
-  if (!preview || !media) return null
-  return (
-    <div className="hero-preview" aria-hidden="true">
-      {media.kind === 'video' ? (
-        <video
-          key={`${hero.id}-${media.url}`}
-          ref={mediaRef}
-          src={media.url}
-          poster={img(hero.thumbnail_url || hero.poster_url)}
-          autoPlay
-          muted={muted}
-          loop
-          playsInline
-          preload="none"
-          onLoadedMetadata={(event) => {
-            event.currentTarget.currentTime = HERO_START_SECONDS
-          }}
-        />
-      ) : (
-        <iframe
-          key={`${hero.id}-${media.kind}-${media.url}`}
-          src={media.url}
-          title=""
-          tabIndex={-1}
-          allow="autoplay; encrypted-media"
-        />
-      )}
-    </div>
-  )
+function heroGenres(item: any): string[] {
+  const raw = item.genre_names ?? item.genres
+  const values = Array.isArray(raw) ? raw.map((genre: any) => typeof genre === 'string' ? genre : genre.name) : typeof raw === 'string' ? raw.split(',') : []
+  return [...new Set(values.filter(Boolean).map((value: string) => value.trim()))] as string[]
 }
 
-export function HeroSlider({
-  slides,
-  baseFor,
-  ctaLabel = 'Play Now',
-  genres,
-  bunnyLibraryId,
-  live = false,
-}: {
+function contentKind(item: any, live: boolean): string {
+  if (live) return 'Live TV'
+  return ({ movie: 'Sermon', tvshow: 'TV Show', show: 'TV Show', teaching: 'Teaching', video: 'Video' } as Record<string, string>)[item.type] ?? 'Sermon'
+}
+
+export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId, live = false }: {
   slides: any[]
   baseFor: (item: any) => string
   ctaLabel?: string
@@ -314,152 +274,118 @@ export function HeroSlider({
   bunnyLibraryId?: string | null
   live?: boolean
 }) {
+  const navigate = useNavigate()
   const [slide, setSlide] = useState(0)
-  const [cycle, setCycle] = useState(0)
-  const [preview, setPreview] = useState(false)
-  const [muted, setMuted] = useState(true)
-  const [reducedMotion, setReducedMotion] = useState(false)
+  const [paused, setPaused] = useState(false)
+  const [interacting, setInteracting] = useState(false)
+  const [reducedMotion, setReducedMotion] = useState(true)
   const [pageVisible, setPageVisible] = useState(true)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const [saved, setSaved] = useState<number[]>([])
+  const [libraryReady, setLibraryReady] = useState(false)
+  const [libraryFailed, setLibraryFailed] = useState(false)
+  const [saving, setSaving] = useState<number | null>(null)
+  const [saveStatus, setSaveStatus] = useState('')
+  const touchStart = useRef<{ x: number; y: number } | null>(null)
   const idx = Math.min(slide, Math.max(slides.length - 1, 0))
   const hero = slides[idx]
-  const media = heroMediaFor(hero, muted, bunnyLibraryId)
-  const mediaIdentity = media ? `${media.kind}:${media.kind === 'video' ? media.url : hero.id}` : null
 
   useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
-    const updateMotion = () => setReducedMotion(query.matches)
-    const updateVisibility = () => {
-      const visible = !document.hidden
-      setPageVisible(visible)
-      if (!visible) setPreview(false)
-    }
-    updateMotion()
-    updateVisibility()
-    query.addEventListener('change', updateMotion)
-    document.addEventListener('visibilitychange', updateVisibility)
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReducedMotion(motion.matches)
+    const visibility = () => setPageVisible(!document.hidden)
+    update(); visibility()
+    motion.addEventListener('change', update)
+    document.addEventListener('visibilitychange', visibility)
     return () => {
-      query.removeEventListener('change', updateMotion)
-      document.removeEventListener('visibilitychange', updateVisibility)
+      motion.removeEventListener('change', update)
+      document.removeEventListener('visibilitychange', visibility)
     }
   }, [])
 
   useEffect(() => {
-    setPreview(false)
-    setMuted(true)
-    const canAutoplay = !reducedMotion && pageVisible && !document.hidden && !!hero
-    if (!canAutoplay) return
-    let previewTimer: ReturnType<typeof setTimeout> | undefined
-    let advanceTimer: ReturnType<typeof setTimeout> | undefined
-    if (mediaIdentity) previewTimer = setTimeout(() => setPreview(true), PREVIEW_DELAY_MS)
-    advanceTimer = setTimeout(() => {
-      setPreview(false)
+    if (live) return
+    let active = true
+    getWatchlist().then((result) => {
+      if (active) { setSaved(result.items.map((item: any) => Number(item.id))); setLibraryReady(true) }
+    }).catch(() => { if (active) setLibraryFailed(true) })
+    return () => { active = false }
+  }, [live])
+
+  useEffect(() => {
+    if (reducedMotion || paused || interacting || !pageVisible || !hero) return
+    const advanceTimer = slides.length > 1 ? setTimeout(() => {
       setSlide((idx + 1) % slides.length)
-      setCycle((value) => value + 1)
-    }, ADVANCE_DELAY_MS)
-    return () => {
-      clearTimeout(previewTimer)
-      clearTimeout(advanceTimer)
-      const video = videoRef.current
-      video?.pause()
-      video?.removeAttribute('src')
-      video?.load()
-    }
-  }, [cycle, hero, idx, pageVisible, reducedMotion, slides.length, mediaIdentity])
+    }, ADVANCE_DELAY_MS) : undefined
+    return () => clearTimeout(advanceTimer)
+  }, [idx, slides.length, reducedMotion, paused, interacting, pageVisible])
 
   if (!slides.length || !hero) return null
   const selectSlide = (next: number) => {
-    setPreview(false)
-    setMuted(true)
-    setSlide(next)
-    setCycle((value) => value + 1)
+    setPaused(true)
+    setSaveStatus('')
+    setSlide((next + slides.length) % slides.length)
   }
-  const previewState = reducedMotion
-    ? 'reduced-motion'
-    : preview && media ? media.kind
-      : 'poster'
-  const controls = slides.length > 1 && (
-    <>
-      <button className="hero-chevron prev" aria-label="Previous slide" onClick={() => selectSlide((idx - 1 + slides.length) % slides.length)}><IconChevronLeft /></button>
-      <button className="hero-chevron next" aria-label="Next slide" onClick={() => selectSlide((idx + 1) % slides.length)}><IconChevronRight /></button>
-    </>
-  )
-  const dots = slides.length > 1 && (
-    <div className={`hero-dots${live ? ' hero-dots-center' : ''}`}>
-      {slides.map((item: any, i: number) => (
-        <button key={item.id ?? i} className={i === idx ? 'active' : ''} aria-label={`Slide ${i + 1}`} aria-current={i === idx ? 'true' : undefined} onClick={() => selectSlide(i)} />
-      ))}
-    </div>
-  )
-  const soundToggle = preview && media && (
-    <button
-      type="button"
-      className="hero-sound-toggle"
-      aria-label={muted ? 'Unmute hero preview' : 'Mute hero preview'}
-      aria-pressed={!muted}
-      onClick={() => setMuted((value) => !value)}
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-        <path d="M11 5 6 9H3v6h3l5 4V5Z" strokeLinecap="round" strokeLinejoin="round" />
-        {muted ? (
-          <path d="m17 9 4 4m0-4-4 4" strokeLinecap="round" />
-        ) : (
-          <>
-            <path d="M15 9a4 4 0 0 1 0 6" strokeLinecap="round" />
-            <path d="M18 6a8 8 0 0 1 0 12" strokeLinecap="round" />
-          </>
-        )}
-      </svg>
-      {muted ? 'Unmute' : 'Mute'}
-    </button>
-  )
-
-  if (live) {
-    return (
-      <section className="hero hero-live" data-hero-slide={idx} data-preview-state={previewState}>
-        <div key={hero.id} className="hero-bg" style={{ backgroundImage: `url(${img(hero.thumbnail_url || hero.poster_url)})` }} />
-        <HeroPreview hero={hero} preview={preview} media={media} mediaRef={videoRef} muted={muted} />
-        {soundToggle}
-        <span className="live-badge hero-live-badge">LIVE</span>
-        {controls}
-        <div className="hero-live-content">
-          {hero.category && <div className="hero-live-cat">{hero.category}</div>}
-          <h1 className="hero-live-title">{hero.name}</h1>
-          <Link to={`${baseFor(hero)}/${hero.id}` as any} className="btn btn-play"><IconPlay /> Play Now</Link>
-        </div>
-        {dots}
-      </section>
-    )
+  const addToLibrary = async (item: any) => {
+    if (saving !== null) return
+    setSaving(Number(item.id))
+    setPaused(true)
+    setSaveStatus('')
+    try {
+      const result = await toggleWatchlist({ data: { entertainmentId: Number(item.id) } })
+      if (result.needsAuth) { await navigate({ to: '/login' }); return }
+      if (result.needsProfile) { await navigate({ to: '/manage-profile' }); return }
+      if (result.ok) {
+        setSaved((previous) => result.added ? [...previous.filter((id) => id !== Number(item.id)), Number(item.id)] : previous.filter((id) => id !== Number(item.id)))
+        setSaveStatus(result.added ? 'Added to your library' : 'Removed from your library')
+      } else setSaveStatus('Could not update your library. Please try again.')
+    } catch { setSaveStatus('Could not update your library. Please try again.') }
+    finally { setSaving(null) }
   }
 
-  const share = async () => {
-    if (navigator.share) {
-      await navigator.share({ title: hero.name, url: window.location.href }).catch(() => undefined)
-    } else {
-      await navigator.clipboard?.writeText(window.location.href).catch(() => undefined)
-    }
-  }
   return (
-    <section className="hero" data-hero-slide={idx} data-preview-state={previewState}>
-      <div key={hero.id} className="hero-bg" style={{ backgroundImage: `url(${img(hero.thumbnail_url || hero.poster_url)})` }} />
-      <HeroPreview hero={hero} preview={preview} media={media} mediaRef={videoRef} muted={muted} />
-      {soundToggle}
-      {controls}
-      <div key={`content-${hero.id}`} className="hero-content hero-stagger">
-        {genres && genres.length > 0 && <div className="hero-genres">{genres.slice(0, 3).map((g: any) => <span key={g.id ?? g.name}>{g.name}</span>)}</div>}
-        <h1 className="hero-title">{hero.name}</h1>
-        {hero.description && <p className="hero-desc">{plainText(hero.description)}</p>}
-        <div className="hero-meta">
-          {hero.release_date && <span><IconCalendar /> {String(hero.release_date).slice(0, 4)}</span>}
-          {hero.duration && <span><IconClock /> {hero.duration}</span>}
-        </div>
-        <div className="hero-actions">
-          <Link to={`${baseFor(hero)}/${hero.id}` as any} className="btn btn-dark btn-circle" aria-label={`More about ${hero.name}`}><IconPlus /></Link>
-          <Link to={`${baseFor(hero)}/${hero.id}` as any} className="btn btn-play"><IconPlay /> {ctaLabel}</Link>
-          <button className="btn btn-dark btn-circle" aria-label={`Share ${hero.name}`} onClick={share}><IconShare /></button>
-        </div>
+    <section className={`hero tv-hero${live ? ' hero-live' : ''}`} aria-roledescription="carousel" aria-label={live ? 'Featured live channels' : 'Featured titles'}
+      data-hero-slide={idx}
+      onMouseEnter={() => setInteracting(true)} onMouseLeave={() => setInteracting(false)}
+      onFocusCapture={() => setInteracting(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setInteracting(false) }}
+      onTouchStart={(event) => { if ((event.target as HTMLElement).closest('button, a, .hero-carousel-controls')) { touchStart.current = null; return }; const touch = event.touches[0]; touchStart.current = { x: touch.clientX, y: touch.clientY } }}
+      onTouchEnd={(event) => {
+        const start = touchStart.current; touchStart.current = null
+        if (!start) return
+        const touch = event.changedTouches[0]; const dx = touch.clientX - start.x; const dy = touch.clientY - start.y
+        if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.3) selectSlide(idx + (dx < 0 ? 1 : -1))
+      }}>
+      <div className="hero-artwork" aria-hidden="true">
+        {slides.map((item, index) => <HeroArtwork key={`${item.type}-${item.id}`} item={item} active={index === idx} priority={index === 0} />)}
       </div>
-      {dots}
+      {!live && <TitlePreview key={`${hero.type}:${hero.id}`} title={hero.name} trailerUrl={hero.trailer_url || hero.trailerUrl} bunnyLibraryId={bunnyLibraryId} bunnyTrailerId={hero.bunny_trailer_url} bunnyVideoId={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.bunny_video_url : null} directVideoUrl={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.video_url_input : null} suspended={!pageVisible} startSeconds={80} />}
+      {slides.map((item, index) => {
+        const inLibrary = saved.includes(Number(item.id))
+        const canSave = !live && !libraryFailed && !['/video', '/channel'].includes(baseFor(item))
+        return <div key={`copy-${item.type}-${item.id}`} className={`hero-content tv-hero-content${index === idx ? ' is-active' : ''}`} style={item.hero_design ? heroCopyStyle(item) : undefined} aria-hidden={index !== idx} inert={index !== idx}>
+          {(live || item.movie_access === 'paid' || item.access === 'paid') && <span className="hero-badge">{live ? 'Live' : 'Premium'}</span>}
+          <h1 className="hero-title">{item.name}</h1>
+          <div className="hero-meta">
+            <span>{contentKind(item, live)}</span>
+            {heroGenres(item).slice(0, 2).map((genre) => <span key={genre}>{genre}</span>)}
+            {!heroGenres(item).length && item.release_date && <span>{String(item.release_date).slice(0, 4)}</span>}
+          </div>
+          {item.description && <p className="hero-desc">{plainText(item.description)}</p>}
+          <div className="hero-actions">
+            <Link to={contentPath(item,baseFor(item)) as any} hash="watch" className="btn hero-play"><IconPlay size={21} />{ctaLabel}</Link>
+            {canSave ? <button type="button" className="btn hero-library" disabled={!libraryReady || saving !== null} aria-label={`${inLibrary ? 'Remove' : 'Add'} ${item.name} ${inLibrary ? 'from' : 'to'} library`} aria-pressed={inLibrary} onClick={() => void addToLibrary(item)}>{inLibrary ? <Check size={24} /> : <IconPlus size={25} />}</button>
+              : <Link to={contentPath(item,baseFor(item)) as any} className="btn hero-library" aria-label={`More about ${item.name}`}><Info size={24} /></Link>}
+          </div>
+        </div>
+      })}
+      {slides.length > 1 && <>
+        <button type="button" className="hero-chevron prev" aria-label="Previous featured title" onClick={() => selectSlide(idx - 1)}><IconChevronLeft /></button>
+        <button type="button" className="hero-chevron next" aria-label="Next featured title" onClick={() => selectSlide(idx + 1)}><IconChevronRight /></button>
+        <div className="hero-carousel-controls">
+          <div className="hero-dots">{slides.map((item, index) => <button type="button" key={`${item.type}-${item.id}`} className={index === idx ? 'active' : ''} aria-label={`Show ${item.name}`} aria-current={index === idx ? 'true' : undefined} onClick={() => selectSlide(index)}><span /></button>)}</div>
+          {!reducedMotion && <button type="button" className="hero-rotation-control" aria-label={paused ? 'Resume Slide' : 'Pause Slide'} aria-pressed={paused} onClick={() => { setInteracting(false); setPaused((value) => !value) }}>{paused ? 'Resume Slide' : 'Pause Slide'}</button>}
+        </div>
+      </>}
+      <p className="hero-save-status" role="status">{saveStatus}</p>
     </section>
   )
 }
@@ -467,39 +393,44 @@ export function HeroSlider({
 type RecommendationPayload = {
   forYou?: any[]
   discovery?: any | null
+  discoveries?: any[]
   recent?: any[]
   hasHistory?: boolean
   topGenres?: string[]
 }
 
-export function RecommendationGroups({ recommendations, fallback = [], recentFallback }: {
+export function DiscoveryRail({ recommendations, fallback = [] }: { recommendations?: RecommendationPayload | null; fallback?: any[] }) {
+  const discovery = recommendations ? recommendations.discovery : (fallback[1] ?? fallback[0] ?? null)
+  const discoveries = recommendations?.discoveries ?? (discovery ? [discovery, ...fallback.filter(item => item.id !== discovery.id)].slice(0,8) : [])
+  return <div className="recommendation-discovery"><Rail title="Discover Something Different">
+    {discoveries.length ? discoveries.map(item => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} landscape />) : <p className="rail-empty">A new selection will appear here.</p>}
+  </Rail></div>
+}
+
+export function RecommendationGroups({ recommendations, fallback = [], recentFallback, discoverySlot }: {
   recommendations?: RecommendationPayload | null
   fallback?: any[]
   recentFallback?: any[]
+  discoverySlot?: ReactNode
 }) {
   const forYou = recommendations?.forYou ?? fallback
   const recent = recommendations?.recent ?? recentFallback ?? fallback
-  const discovery = recommendations ? recommendations.discovery : (fallback[1] ?? fallback[0] ?? null)
   const title = recommendations?.hasHistory ? 'Recommended for You' : 'Featured for You'
   return (
     <div className="recommendation-groups">
       <Rail title={title}>
         {forYou.map((item: any) => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} />)}
       </Rail>
-      <div className="recommendation-discovery">
-        <Rail title="Discover Something Different">
-          {discovery ? <PosterCard key={`${discovery.type}-${discovery.id}`} item={discovery} base={contentBase(discovery.type)} /> : <p className="rail-empty">A new selection will appear here.</p>}
-        </Rail>
-      </div>
+      {discoverySlot ?? <DiscoveryRail recommendations={recommendations} fallback={fallback} />}
       <Rail title="Recently Updated">
-        {recent.map((item: any) => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} />)}
+        {recent.map((item: any) => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} badge="Recently Uploaded" />)}
       </Rail>
     </div>
   )
 }
 
 export function Top10Card({ item, rank, base }: { item: any; rank: number; base: string }) {
-  return <Link to={`${base}/${item.id}` as any} className="top10-item"><span className="top10-rank">{rank}</span><span className="p-poster" style={{ backgroundImage: `url(${img(item.poster_url)})` }} /></Link>
+  return <Link to={contentPath(item,base) as any} hash="watch" className="top10-item" aria-label={`${rank}. ${item.name}`}><span className="top10-rank" aria-hidden="true">{rank}</span><span className="p-poster"><img src={img(item.poster_url)} alt="" width={200} height={300} loading="lazy" decoding="async" /></span></Link>
 }
 
 export function CircleCard({ name, image, to }: { name: string; image?: string | null; to?: string }) {
@@ -511,11 +442,7 @@ export function Rail({ title, seeAll, children, wide }: { title: string; seeAll?
   return (
     <section className="section">
       <div className="section-head"><h2>{title}</h2>{seeAll ? <Link to={seeAll as any}>View All</Link> : null}</div>
-      <div className="rail" style={wide ? { gridAutoColumns: '300px' } : undefined}>{children}</div>
+      <ScrollRail label={`${title} titles`} style={wide ? { gridAutoColumns: 'var(--wide-card-size, 300px)' } : undefined}>{children}</ScrollRail>
     </section>
   )
-}
-
-export function ContentCard({ item, base }: { item: any; base: string }) {
-  return <PosterCard item={item} base={base} />
 }

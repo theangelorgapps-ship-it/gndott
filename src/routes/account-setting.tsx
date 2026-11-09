@@ -1,93 +1,52 @@
+import { SubscriptionSharing } from '../components/SubscriptionSharing'
+import { SubscriptionControls } from '../components/SubscriptionControls'
+import { SocialSignIn } from '../components/SocialSignIn'
+import { ProfilePhoto } from '../components/ProfilePhoto'
+import { AccountLibrary } from '../components/AccountLibrary'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { ArrowRight, Bookmark, Clock3, Crown, Mail, Monitor } from 'lucide-react'
 import { getAccountData } from '../lib/api'
-import { AccountShell, NeedsAuth } from '../components/Account'
-import { IconCrown } from '../components/Poster'
+import { AccountShell, FlowLoadError, NeedsAuth } from '../components/Account'
 
 export const Route = createFileRoute('/account-setting')({
-  loader: async () => await getAccountData(),
+  loader: () => getAccountData(),
+  errorComponent: ({ reset }) => <FlowLoadError title="Your account could not load." reset={reset} />,
+  pendingComponent: () => <div className="tv-flow-empty" role="status">Loading your account…</div>,
   component: AccountSetting,
 })
 
 function maskMobile(mobile: string | null | undefined): string {
-  if (!mobile) return 'Not set'
+  if (!mobile) return 'Not added'
   const digits = String(mobile).replace(/\D/g, '')
-  if (digits.length < 4) return mobile!
-  return '*'.repeat(Math.max(digits.length - 3, 0)) + digits.slice(-3)
+  return digits.length >= 4 ? '•'.repeat(digits.length - 3) + digits.slice(-3) : 'Not added'
 }
 
 function AccountSetting() {
-  const data = Route.useLoaderData() as any
-  if (!data) return <NeedsAuth />
-  const { user, subscription, devices } = data
-  const active = subscription && subscription.status === 'active'
-  return (
-    <AccountShell title="Account Setting">
-      <div className="acct-grid">
-        <div className="acct-card">
-          <div className="acct-card-head">
-            <span className="acct-ico gold"><IconCrown size={26} /></span>
-            <div>
-              <h2>{active ? subscription.name : 'No Active Plan'}</h2>
-              <p>{active ? 'Premium streaming experience' : 'You do not have an active subscription.'}</p>
-            </div>
-          </div>
-          {active && subscription.end_date && (
-            <div className="acct-expiry">Expiring on {String(subscription.end_date).slice(0, 10)}</div>
-          )}
-          <div className="acct-actions">
-            <Link to="/subscription-plan" className="btn btn-gold">{active ? 'Upgrade' : 'Subscribe'}</Link>
-            {active && <button className="btn btn-primary">Cancel</button>}
-          </div>
-        </div>
-        <div className="acct-card">
-          <div className="acct-card-head">
-            <span className="acct-ico red">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="6" y="2" width="12" height="20" rx="2" /><path d="M12 18h.01" strokeLinecap="round" /></svg>
-            </span>
-            <div>
-              <h2>Contact Info</h2>
-              <p>Your registered details</p>
-            </div>
-          </div>
-          <div className="acct-info-box">
-            <div><strong>Email:</strong> {user.email}</div>
-            <div><strong>Mobile:</strong> {maskMobile(user.mobile)}</div>
-          </div>
-          <Link to="/profile-details" className="btn btn-primary" style={{ width: '100%' }}>Update Details</Link>
-        </div>
-      </div>
-
-      <div className="acct-card" style={{ marginTop: 22 }}>
-        <div className="acct-card-head">
-          <span className="acct-ico red">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="15" height="11" rx="1.5" /><path d="M6 19h7M18 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-6" strokeLinecap="round" /></svg>
-          </span>
-          <div>
-            <h2>Active Devices</h2>
-            <p>Manage your logged-in devices</p>
-          </div>
-        </div>
-        <div className="device-row">
-          <span className="device-badge">Current Device</span>
-          <div className="device-info">
-            <strong>Web Browser</strong>
-            <span>This session</span>
-          </div>
-        </div>
-        {devices.filter((d: any) => d.device_name || d.platform).length > 0 && (
-          <>
-            <h3 className="acct-sub">Other Devices</h3>
-            {devices.filter((d: any) => d.device_name || d.platform).map((d: any) => (
-              <div className="device-row" key={d.id}>
-                <div className="device-info">
-                  <strong>{d.device_name ?? d.platform ?? 'Device'}</strong>
-                  <span>{d.last_activity ?? ''}</span>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-      </div>
-    </AccountShell>
-  )
+  const data = Route.useLoaderData()
+  if (!data?.user) return <NeedsAuth />
+  const { user, subscription, sharing } = data
+  const active = subscription?.status === 'active'
+  return <AccountShell title="Your account.">
+    <ProfilePhoto/>
+    {user.user_type === 'admin' && <a className="btn btn-secondary" href="/admin/live-tv">Live TV administration</a>}
+    <AccountLibrary />
+    <div className="tv-library-shortcuts">
+      <Link to="/continue-watching"><Clock3 size={23} aria-hidden="true" /><span><strong>Your viewing</strong><small>Continue watching and watch history</small></span><ArrowRight size={20} aria-hidden="true" /></Link>
+      <Link to="/watchlist"><Bookmark size={23} aria-hidden="true" /><span><strong>Saved list</strong><small>Titles saved for later</small></span><ArrowRight size={20} aria-hidden="true" /></Link>
+    </div>
+    <div className="acct-grid">
+      <section className="acct-card" aria-labelledby="account-plan"><div className="acct-card-head"><span className="acct-ico"><Crown size={25} aria-hidden="true" /></span><div><h2 id="account-plan">{active ? subscription.name : 'Find your next great watch.'}</h2><p>{active ? 'Your current subscription' : 'Explore the available streaming plans.'}</p></div></div>
+        {active && subscription.end_date && <p className="acct-expiry">Access until {String(subscription.end_date).slice(0, 10)}</p>}
+        <Link to="/subscription-plan" className="btn btn-primary">{active ? 'View plans' : 'Explore plans'}</Link>
+        {subscription?.role !== 'member' && <SubscriptionControls/>}
+        <Link to="/payment-history" className="tv-account-inline">View payment history<ArrowRight size={15} aria-hidden="true" /></Link>
+      </section>
+      <section className="acct-card" aria-labelledby="account-contact"><div className="acct-card-head"><span className="acct-ico"><Mail size={24} aria-hidden="true" /></span><div><h2 id="account-contact">Personal details</h2><p>Your registered contact information</p></div></div>
+        <dl className="tv-account-details"><div><dt>Email address</dt><dd>{user.email}</dd></div><div><dt>Mobile number</dt><dd>{maskMobile(user.mobile)}</dd></div></dl>
+        <Link to="/profile-details" className="btn btn-dark">Update details</Link>
+      </section>
+    </div>
+    <section className="acct-card" aria-labelledby="account-signin"><h2 id="account-signin">Connected sign-in</h2><p>Connect Google or Apple while signed in to keep your profiles and subscriptions on this account. Use the same email address.</p><SocialSignIn link callbackURL="/account-setting"/></section>
+    <SubscriptionSharing sharing={sharing}/>
+  </AccountShell>
 }

@@ -1,13 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { getTvShow } from '../lib/api'
-import { ShowDetail } from '../components/ShowDetail'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { canonicalContentURL } from '../lib/contentRoutes'
 
+/** Preserve saved URLs, filters and playback anchors. */
 export const Route = createFileRoute('/tv-show/$id')({
-  loader: async ({ params }) => await getTvShow({ data: Number(params.id) }),
-  component: TvShowDetail,
+  beforeLoad: ({ location }) => {
+    throw redirect({ href: canonicalContentURL(location), statusCode: 301 })
+  },
 })
-
-function TvShowDetail() {
-  const data = Route.useLoaderData()
-  return <ShowDetail data={data} kind="tvshow" />
-}

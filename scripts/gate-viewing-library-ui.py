@@ -1,0 +1,66 @@
+import pathlib,sys
+from playwright.sync_api import sync_playwright,expect
+base=sys.argv[1]
+assert base.startswith('http://127.0.0.1:')
+with sync_playwright() as p:
+ browser=p.chromium.launch(headless=True)
+ try:
+  page=browser.new_page(viewport={'width':1440,'height':1000},reduced_motion='reduce')
+  page.route('**/*',lambda route:route.continue_() if route.request.url.startswith(base) else route.abort())
+  page.goto(base)
+  expect(page.get_by_role('tab',name='Notes',exact=True)).to_have_attribute('aria-selected','true')
+  expect(page.get_by_text('Prayer notes',exact=True)).to_be_visible()
+  page.get_by_role('tab',name='Notes',exact=True).focus();page.keyboard.press('ArrowRight')
+  expect(page.get_by_role('tab',name='Highlights',exact=True)).to_be_focused()
+  expect(page.get_by_text('A saved scripture.')).to_be_visible()
+  expect(page.get_by_text('Prayer notes',exact=True)).not_to_be_visible()
+  page.get_by_role('link',name='Watch Later',exact=True).click()
+  expect(page.get_by_role('tab',name='Continue Watching',exact=True)).to_have_attribute('aria-selected','true')
+  expect(page.get_by_role('link',name='Continue Faith series: The return, 6 minutes remaining')).to_be_visible()
+  expect(page.get_by_text('Hope sermon',exact=True)).to_have_count(0)
+  page.get_by_role('tab',name='Watch History',exact=True).click()
+  expect(page.get_by_text('Hope sermon',exact=True)).to_be_visible()
+  expect(page.get_by_text('Completed',exact=True)).to_be_visible()
+  assert page.locator('time').first.get_attribute('datetime')=='2026-11-08T12:00:00.000Z'
+  for category,title in [('Sermons','Hope sermon'),('Teachings','Prayer teaching'),('Shows','Faith series'),('Videos','Grace video')]:
+   page.get_by_role('button',name=category,exact=True).click()
+   expect(page.locator('.resume-card')).to_have_count(1)
+   expect(page.get_by_text(title,exact=True)).to_be_visible()
+  page.get_by_role('button',name='All',exact=True).click()
+  page.get_by_role('searchbox',name='Search your viewing').fill('return')
+  expect(page.locator('.resume-card')).to_have_count(1)
+  assert page.locator('.resume-card').get_attribute('href')=='/tv-show/faith-series-3#watch-episode-32'
+  page.get_by_role('searchbox',name='Search your viewing').fill('missing')
+  expect(page.get_by_text('No titles match your search and category.')).to_be_visible()
+  page.get_by_role('searchbox',name='Search your viewing').fill('')
+  expect(page.locator('.resume-card')).to_have_count(4)
+  page.evaluate('window.fixtureFailure=true');page.get_by_role('button',name='Shows',exact=True).click()
+  expect(page.get_by_role('alert')).to_contain_text('could not load')
+  page.evaluate('window.fixtureFailure=false');page.get_by_role('button',name='Try again',exact=True).click()
+  expect(page.get_by_text('Faith series',exact=True)).to_be_visible()
+  page.evaluate('window.fixturePaging=true');page.get_by_role('button',name='All',exact=True).click()
+  expect(page.locator('.resume-card')).to_have_count(2)
+  page.get_by_role('button',name='Load more',exact=True).click();expect(page.locator('.resume-card')).to_have_count(4)
+  evidence=pathlib.Path('/tmp/halobox-nov09-library/viewing-evidence');evidence.mkdir(exist_ok=True)
+  page.screenshot(path=str(evidence/'desktop.png'),full_page=True)
+  page.set_viewport_size({'width':390,'height':844})
+  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),'Mobile horizontal overflow'
+  page.screenshot(path=str(evidence/'mobile.png'),full_page=True)
+  page.get_by_role('link',name='Saved list',exact=True).click();expect(page.get_by_role('heading',name='Saved titles')).to_be_visible()
+  page.goto(base+'/continue-watching');page.evaluate('window.fixtureGuest=true;window.dispatchEvent(new Event("halobox-profile-updated"))')
+  expect(page.get_by_role('link',name='Sign in',exact=True)).to_be_visible();expect(page.locator('.resume-card')).to_have_count(0)
+  page.evaluate('window.fixtureGuest=false;window.fixtureProfile=true;window.dispatchEvent(new Event("halobox-profile-updated"))')
+  expect(page.get_by_role('link',name='Choose profile',exact=True)).to_be_visible()
+  # The provider SDK is an external boundary; the actual player and history hook run unchanged.
+  page.add_init_script("""window.YT={Player:class {constructor(frame,{events}){this.events=events;this.position=120;this.duration=600;this.state=2;window.providerPlayback=(position,duration,state)=>{this.position=position;this.duration=duration;this.state=state;events.onStateChange({data:state})};queueMicrotask(()=>events.onReady({target:this}))}getDuration(){return this.duration}getCurrentTime(){return this.position}getPlayerState(){return this.state}isMuted(){return false}getVolume(){return 100}playVideo(){this.state=1;this.events.onStateChange({data:1})}pauseVideo(){this.state=2;this.events.onStateChange({data:2})}seekTo(p){this.position=p}setVolume(){}mute(){}unMute(){}destroy(){window.providerDestroyed=true}}}""")
+  page.goto(base+'/player')
+  page.wait_for_function('typeof window.providerPlayback === "function"')
+  assert page.evaluate('(window.fixtureWrites??[]).length')==0,'Provider metadata must not create history'
+  page.evaluate('window.providerPlayback(120,600,1)')
+  page.evaluate('window.providerPlayback(245,600,2)')
+  page.wait_for_function('(window.fixtureWrites??[]).some(x=>x.position===245)')
+  assert page.evaluate('window.fixtureWrites.at(-1).contentId')==17
+  page.evaluate('window.providerPlayback(600,600,0)')
+  page.wait_for_function('window.fixtureWrites.at(-1).position===600')
+  print('VIEWING_LIBRARY_UI_OK: genuine tabs, keyboard, Watch Later entry, history, filters, search, episodes, completion dates, paging, retry, auth/profile states mobile layout and event-bound YouTube progress')
+ finally:browser.close()

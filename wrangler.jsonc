@@ -2,7 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "gndott",
   "compatibility_date": "2026-01-15",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "images": {
+    "binding": "IMAGES"
+  },
   "r2_buckets": [
     {
       "binding": "MEDIA",
@@ -17,7 +22,29 @@
       "database_id": "3bc8aa15-6d59-42be-93df-23397c737c56"
     }
   ],
-  "images": {
-    "binding": "IMAGES"
-  }
+  "routes": [
+    {
+      "pattern": "halobox.tv/*",
+      "zone_name": "halobox.tv"
+    },
+    {
+      "pattern": "www.halobox.tv/*",
+      "zone_name": "halobox.tv"
+    }
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_sender_addresses": [
+        "noreply@halobox.tv"
+      ]
+    }
+  ],
+  "vars": {
+    "BETTER_AUTH_URL": "https://halobox.tv",
+    "AUTH_EMAIL_FROM": "noreply@halobox.tv",
+    "AUTH_EMAIL_ENABLED": "1",
+    "SUBSCRIPTION_CHECKOUT_ORIGIN": "https://halobox.tv"
+  },
+  "workers_dev": true
 }

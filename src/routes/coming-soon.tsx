@@ -1,3 +1,4 @@
+import { contentPath } from '@/lib/contentRoutes'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { getComingSoon } from '../lib/api'
@@ -23,13 +24,13 @@ function ComingSoonCard({ item, base }: { item: any; base: string }) {
   const genres = item.genres ? String(item.genres).split(',').slice(0, 3) : []
   return (
     <div className="cs-card">
-      <Link to={`${base}/${item.id}` as any} className="cs-thumb" style={{ backgroundImage: `url(${img(item.thumbnail_url || item.poster_url)})` }}>
+      <Link to={contentPath(item,base) as any} className="cs-thumb" style={{ backgroundImage: `url(${img(item.thumbnail_url || item.poster_url)})` }}>
         <span className="cs-ribbon">COMING SOON</span>
         {item.release_date && <span className="cs-days">{daysToGo(item.release_date)} days to go</span>}
       </Link>
       <div className="cs-body">
         {item.release_date && <div className="cs-date">{item.release_date}</div>}
-        <Link to={`${base}/${item.id}` as any} className="cs-name">{item.name}</Link>
+        <Link to={contentPath(item,base) as any} className="cs-name">{item.name}</Link>
         {genres.length > 0 && (
           <div className="chips" style={{ marginBottom: 10 }}>
             {genres.map((g: string) => <span key={g} className="chip">{g.trim()}</span>)}
@@ -42,7 +43,7 @@ function ComingSoonCard({ item, base }: { item: any; base: string }) {
               Watch Trailer
             </a>
           ) : (
-            <Link to={`${base}/${item.id}` as any} className="btn btn-primary" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>
+            <Link to={contentPath(item,base) as any} className="btn btn-primary" style={{ height: 36, padding: '0 16px', fontSize: 13 }}>
               Watch Trailer
             </Link>
           )}

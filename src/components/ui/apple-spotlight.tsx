@@ -1,3 +1,4 @@
+import { contentPath } from '@/lib/contentRoutes'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   Bookmark,
@@ -34,9 +35,9 @@ interface SearchResult {
 }
 
 const SITE_SHORTCUTS: Shortcut[] = [
-  { label: 'Sermons', icon: Clapperboard, link: '/movies' },
+  { label: 'Sermons', icon: Clapperboard, link: '/sermons' },
   { label: 'Teachings', icon: BookOpen, link: '/teachings' },
-  { label: 'Shows', icon: MonitorPlay, link: '/tv-shows' },
+  { label: 'Shows', icon: MonitorPlay, link: '/shows' },
   { label: 'Videos', icon: Video, link: '/videos' },
   { label: 'Live TV', icon: Radio, link: '/live-tv' },
   { label: 'Watchlist', icon: Bookmark, link: '/watchlist' },
@@ -58,31 +59,31 @@ const mapSearchResults = (response: any): SearchResult[] => [
     kind: 'sermon' as const,
     label: movie.name,
     description: withYear('Sermon', movie.release_date),
-    link: `/movie/${movie.id}`,
+    link: contentPath(movie,'/movie'),
   })),
   ...(response.tvshows ?? []).slice(0, 4).map((show: any) => ({
     kind: 'show' as const,
     label: show.name,
     description: withYear('Show', show.release_date),
-    link: `/tv-show/${show.id}`,
+    link: contentPath(show,'/tv-show'),
   })),
   ...(response.teachings ?? []).slice(0, 4).map((teaching: any) => ({
     kind: 'teaching' as const,
     label: teaching.name,
     description: withYear('Teaching', teaching.release_date),
-    link: `/teaching/${teaching.id}`,
+    link: contentPath(teaching,'/teaching'),
   })),
   ...(response.videos ?? []).slice(0, 4).map((video: any) => ({
     kind: 'video' as const,
     label: video.name,
     description: withYear('Video', video.release_date),
-    link: `/video/${video.id}`,
+    link: contentPath(video,'/video'),
   })),
   ...(response.channels ?? []).slice(0, 2).map((channel: any) => ({
     kind: 'channel' as const,
     label: channel.name,
     description: 'Live TV channel',
-    link: `/channel/${channel.id}`,
+    link: contentPath(channel,'/channel'),
   })),
 ]
 
@@ -105,10 +106,14 @@ const AppleSpotlight = ({
   const instanceId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const closeRef = useRef(handleClose)
   closeRef.current = handleClose
 
   const [query, setQuery] = useState('')
+  const [composing, setComposing] = useState(false)
+  const [retry, setRetry] = useState(0)
+  const [hoveredShortcut, setHoveredShortcut] = useState<string | null>(null)
   const [results, setResults] = useState<SearchResult[]>([])
   const [status, setStatus] = useState<SearchStatus>('idle')
   const [activeIndex, setActiveIndex] = useState(-1)
@@ -120,12 +125,14 @@ const AppleSpotlight = ({
 
   const go = (link: string) => {
     closeRef.current()
-    navigate({ to: link as any })
+    navigate({ to: link as any, hash: results.some(result => result.link === link) ? 'watch' : undefined })
   }
 
   // Opening always starts a fresh search. Closing releases the page and restores trigger focus.
   useEffect(() => {
     setQuery('')
+    setComposing(false)
+    setHoveredShortcut(null)
     setResults([])
     setStatus('idle')
     setActiveIndex(-1)
@@ -137,6 +144,17 @@ const AppleSpotlight = ({
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    const dialog = dialogRef.current
+    dialog?.showModal()
+    const viewport = window.visualViewport
+    const fitViewport = () => {
+      if (!dialog || !viewport || Math.abs(viewport.scale - 1) > .05) return
+      dialog.style.setProperty('--spotlight-viewport-height', `${viewport.height}px`)
+      dialog.style.setProperty('--spotlight-viewport-top', `${viewport.offsetTop}px`)
+    }
+    fitViewport()
+    viewport?.addEventListener('resize', fitViewport)
+    viewport?.addEventListener('scroll', fitViewport)
 
     const focusFrame = window.requestAnimationFrame(() => {
       inputRef.current?.focus({ preventScroll: true })
@@ -174,6 +192,9 @@ const AppleSpotlight = ({
     return () => {
       window.cancelAnimationFrame(focusFrame)
       document.removeEventListener('keydown', onKeyDown)
+      viewport?.removeEventListener('resize', fitViewport)
+      viewport?.removeEventListener('scroll', fitViewport)
+      dialog?.close()
       document.body.style.overflow = previousOverflow
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
     }
@@ -193,6 +214,7 @@ const AppleSpotlight = ({
     setResults([])
     setStatus('loading')
     setActiveIndex(-1)
+    if (composing) return
 
     const timer = window.setTimeout(async () => {
       try {
@@ -214,7 +236,7 @@ const AppleSpotlight = ({
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [isOpen, query])
+  }, [isOpen, query, composing, retry])
 
   useEffect(() => {
     if (!isOpen || !activeResult) return
@@ -224,6 +246,7 @@ const AppleSpotlight = ({
   }, [activeIndex, activeResult, instanceId, isOpen])
 
   const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing || composing) return
     if (status !== 'ready' || results.length === 0) return
 
     if (event.key === 'ArrowDown') {
@@ -244,158 +267,100 @@ const AppleSpotlight = ({
     }
   }
 
+  const viewAll = () => {
+    closeRef.current()
+    void navigate({ to: '/search', search: { q: query.trim(), type: 'all', genre: undefined } })
+  }
+
   return (
     <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          className="spotlight-backdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: reduceMotion ? 0 : 0.16 }}
-          onClick={(event) => {
-            if (event.target === event.currentTarget) closeRef.current()
-          }}
-        >
-          <motion.div
-            ref={panelRef}
-            id="catalogue-search-dialog"
-            className="spotlight-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            aria-describedby={descriptionId}
-            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -12, scale: 0.985 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.99 }}
-            transition={{ duration: reduceMotion ? 0 : 0.2, ease: 'easeOut' }}
-          >
-            <div className="spotlight-header">
-              <div className="spotlight-heading">
-                <h2 id={titleId}>Search the catalogue</h2>
-                <p id={descriptionId}>
-                  Find Sermons, Shows, Teachings and Videos, or browse Live TV and your Watchlist.
-                </p>
+      {isOpen && <motion.dialog
+        ref={dialogRef}
+        id="catalogue-search-dialog"
+        className="spotlight-backdrop"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.16 }}
+        onCancel={event => { event.preventDefault(); closeRef.current() }}
+        onClick={event => { if (event.target === event.currentTarget) closeRef.current() }}
+      >
+        <motion.div ref={panelRef} className={`spotlight-panel${query.trim() ? ' has-query' : ''}`}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: reduceMotion ? 0 : 0.24, ease: 'easeOut' }}>
+          <div className="spotlight-header">
+            <div className="spotlight-heading">
+              <h2 id={titleId}>Search the catalogue</h2>
+              <p id={descriptionId}>Find Sermons, Shows, Teachings and Videos, or browse Live TV and your Watchlist.</p>
+            </div>
+            <button type="button" className="spotlight-close" aria-label="Close catalogue search" onClick={() => closeRef.current()}>
+              <X size={18} aria-hidden="true" /><span>Close</span>
+            </button>
+          </div>
+          <div className="spotlight-command">
+            <motion.div className="spotlight-search-surface" layout={!reduceMotion} transition={{ duration: 0.24 }}>
+              <div className="spotlight-search-wrap">
+                <Search className="spotlight-search-icon" size={25} strokeWidth={1.6} aria-hidden="true" />
+                <input ref={inputRef} className="spotlight-search-input" type="search" role="combobox"
+                  aria-label="Search Sermons, Shows, Teachings and Videos" aria-autocomplete="list"
+                  aria-expanded={status === 'ready' && results.length > 0}
+                  aria-controls={status === 'ready' && results.length > 0 ? resultsId : undefined}
+                  aria-activedescendant={activeResult ? `${instanceId}-result-${activeIndex}` : undefined}
+                  aria-keyshortcuts="ArrowDown ArrowUp Home End Enter" autoComplete="off" spellCheck={false}
+                  maxLength={200} placeholder={hoveredShortcut ?? 'Search'} value={query}
+                  onChange={event => setQuery(event.target.value)} onKeyDown={onSearchKeyDown}
+                  onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)} />
               </div>
-              <button
-                type="button"
-                className="spotlight-close"
-                aria-label="Close catalogue search"
-                onClick={() => closeRef.current()}
-              >
-                <X size={18} aria-hidden="true" />
-                <span>Close</span>
-              </button>
-            </div>
-
-            <div className="spotlight-search-wrap">
-              <Search className="spotlight-search-icon" size={21} aria-hidden="true" />
-              <input
-                ref={inputRef}
-                className="spotlight-search-input"
-                type="search"
-                role="combobox"
-                aria-label="Search Sermons, Shows, Teachings and Videos"
-                aria-autocomplete="list"
-                aria-expanded={status === 'ready' && results.length > 0}
-                aria-controls={resultsId}
-                aria-activedescendant={activeResult ? `${instanceId}-result-${activeIndex}` : undefined}
-                aria-keyshortcuts="ArrowDown ArrowUp Home End Enter"
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="Search Sermons, Shows, Teachings and Videos…"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={onSearchKeyDown}
-              />
-            </div>
-
-            <div className="spotlight-content">
-              <section className="spotlight-categories" aria-labelledby={`${instanceId}-categories`}>
-                <h3 id={`${instanceId}-categories`}>Browse by category</h3>
-                <div className="spotlight-shortcuts">
-                  {shortcuts.map((shortcut) => {
-                    const ShortcutIcon = shortcut.icon
-                    return (
-                      <button
-                        key={shortcut.link}
-                        type="button"
-                        className="spotlight-shortcut"
-                        onClick={() => go(shortcut.link)}
-                      >
-                        <ShortcutIcon size={20} strokeWidth={1.8} aria-hidden="true" />
-                        <span>{shortcut.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </section>
-
-              {status === 'loading' && (
-                <div className="spotlight-state" role="status">
-                  <LoaderCircle className="spotlight-loading-icon" size={20} aria-hidden="true" />
-                  <span>Searching Sermons, Shows, Teachings and Videos…</span>
-                </div>
-              )}
-
-              {status === 'error' && (
-                <div className="spotlight-state" role="status">
-                  Search is unavailable right now. Please try again in a moment.
-                </div>
-              )}
-
-              {status === 'ready' && results.length === 0 && (
-                <div className="spotlight-state" role="status">
-                  No catalogue titles match “{query.trim()}”. Try another title or choose a category above.
-                </div>
-              )}
-
-              {status === 'ready' && results.length > 0 && (
-                <div className="spotlight-results">
-                  <p className="spotlight-result-count" role="status">
-                    {results.length} catalogue {results.length === 1 ? 'result' : 'results'}
-                  </p>
+              {query.trim() && <div className="spotlight-content" aria-busy={status === 'loading'}>
+                {status === 'loading' && <div className="spotlight-state" role="status">
+                  <LoaderCircle className="spotlight-loading-icon" size={20} aria-hidden="true" /><span>Searching the catalogue…</span>
+                </div>}
+                {status === 'error' && <div className="spotlight-state" role="status">
+                  <span>Search is unavailable right now.</span><button type="button" onClick={() => setRetry(value => value + 1)}>Try again</button>
+                </div>}
+                {status === 'ready' && results.length === 0 && <div className="spotlight-state" role="status">
+                  No catalogue titles match “{query.trim()}”. Try another title or browse the catalogue.
+                </div>}
+                {status === 'ready' && results.length > 0 && <div className="spotlight-results">
+                  <p className="spotlight-result-count" role="status">{results.length} catalogue {results.length === 1 ? 'result' : 'results'}</p>
                   <div id={resultsId} role="listbox" aria-label="Catalogue search results">
                     {results.map((result, index) => {
                       const ResultIcon = RESULT_ICONS[result.kind]
-                      const isActive = activeIndex === index
-                      return (
-                        <button
-                          id={`${instanceId}-result-${index}`}
-                          key={`${result.kind}-${result.link}`}
-                          type="button"
-                          role="option"
-                          aria-selected={isActive}
-                          tabIndex={-1}
-                          className="spotlight-result"
-                          onMouseEnter={() => setActiveIndex(index)}
-                          onClick={() => go(result.link)}
-                        >
-                          <span className="spotlight-result-icon">
-                            <ResultIcon size={20} strokeWidth={1.8} aria-hidden="true" />
-                          </span>
-                          <span className="spotlight-result-copy">
-                            <span className="spotlight-result-title">{result.label}</span>
-                            <span className="spotlight-result-description">{result.description}</span>
-                          </span>
-                          <ChevronRight className="spotlight-result-arrow" size={18} aria-hidden="true" />
-                        </button>
-                      )
+                      return <button id={`${instanceId}-result-${index}`} key={`${result.kind}-${result.link}`} type="button"
+                        role="option" aria-selected={activeIndex === index} tabIndex={-1} className="spotlight-result"
+                        onMouseEnter={() => setActiveIndex(index)} onClick={() => go(result.link)}>
+                        <span className="spotlight-result-icon"><ResultIcon size={22} strokeWidth={1.5} aria-hidden="true" /></span>
+                        <span className="spotlight-result-copy"><span className="spotlight-result-title">{result.label}</span><span className="spotlight-result-description">{result.description}</span></span>
+                        <ChevronRight className="spotlight-result-arrow" size={18} aria-hidden="true" />
+                      </button>
                     })}
                   </div>
-                </div>
-              )}
-            </div>
-
-            <div className="spotlight-footer" aria-hidden="true">
-              <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
-              <span><kbd>Home</kbd><kbd>End</kbd> Jump</span>
-              <span><kbd>Enter</kbd> Open</span>
-              <span><kbd>Esc</kbd> Close</span>
-            </div>
-          </motion.div>
+                </div>}
+              </div>}
+              <div className="spotlight-footer">
+                <button type="button" onClick={viewAll}>{query.trim() ? 'View all results' : 'Browse catalogue'}<ChevronRight size={15} aria-hidden="true" /></button>
+                <span aria-hidden="true"><kbd>↑</kbd><kbd>↓</kbd> Navigate <kbd>↵</kbd> Open</span>
+              </div>
+            </motion.div>
+            {!query.trim() && <section className="spotlight-categories" aria-labelledby={`${instanceId}-categories`}>
+              <h3 id={`${instanceId}-categories`}>Browse by category</h3>
+              <div className="spotlight-shortcuts">
+                {shortcuts.map((shortcut, index) => {
+                  const ShortcutIcon = shortcut.icon
+                  return <motion.button key={shortcut.link} type="button" className="spotlight-shortcut"
+                    initial={reduceMotion ? false : { opacity: 0, scale: 0.85, x: -12 }} animate={{ opacity: 1, scale: 1, x: 0 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.24, delay: reduceMotion ? 0 : index * 0.035 }}
+                    onMouseEnter={() => setHoveredShortcut(shortcut.label)} onMouseLeave={() => setHoveredShortcut(null)}
+                    onFocus={() => setHoveredShortcut(shortcut.label)} onBlur={() => setHoveredShortcut(null)} onClick={() => go(shortcut.link)}>
+                    <ShortcutIcon size={23} strokeWidth={1.5} aria-hidden="true" /><span>{shortcut.label}</span>
+                  </motion.button>
+                })}
+              </div>
+            </section>}
+          </div>
         </motion.div>
-      )}
+      </motion.dialog>}
     </AnimatePresence>
   )
 }

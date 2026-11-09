@@ -1,3 +1,4 @@
+import { ProfilePhoto } from '../components/ProfilePhoto'
 import { createFileRoute } from '@tanstack/react-router'
 import { getAccountData } from '../lib/api'
 import { AccountShell, NeedsAuth } from '../components/Account'
@@ -14,7 +15,7 @@ function ProfileDetails() {
   return (
     <AccountShell title="Profile Details">
       <div className="acct-card" style={{ maxWidth: 620 }}>
-        <div className="profile-rows">
+        <ProfilePhoto/><div className="profile-rows">
           <div className="profile-row"><span>First Name</span><strong>{user.first_name ?? '—'}</strong></div>
           <div className="profile-row"><span>Last Name</span><strong>{user.last_name ?? '—'}</strong></div>
           <div className="profile-row"><span>Email</span><strong>{user.email}</strong></div>

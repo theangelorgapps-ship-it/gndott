@@ -1,91 +1,27 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { useState } from 'react'
-import { AuthShell } from './login'
-import { requestOtp, verifyOtp } from '../lib/api'
-
-export const Route = createFileRoute('/otp-login')({
-  component: OtpLogin,
-})
-
-function OtpLogin() {
-  const [contact, setContact] = useState('')
-  const [code, setCode] = useState('')
-  const [sent, setSent] = useState(false)
-  const [devCode, setDevCode] = useState<string | null>(null)
-  const [msg, setMsg] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const router = useRouter()
-
-  async function onSend(e: React.FormEvent) {
-    e.preventDefault()
-    setBusy(true); setMsg(null)
-    const res: any = await requestOtp({ data: { contact } })
-    setBusy(false)
-    if (res?.ok) { setSent(true); setDevCode(res.devCode ?? null) }
-    else setMsg(res?.error ?? 'Could not send OTP.')
-  }
-
-  async function onVerify(e: React.FormEvent) {
-    e.preventDefault()
-    setBusy(true); setMsg(null)
-    const res: any = await verifyOtp({ data: { contact, code } })
-    setBusy(false)
-    if (res?.ok) { router.navigate({ to: '/' }); router.invalidate() }
-    else setMsg(res?.error ?? 'Invalid code.')
-  }
-
-  return (
-    <AuthShell title="Login With OTP">
-      {sent ? (
-        <>
-          <p style={{ color: 'var(--muted)', fontSize: 14.5, lineHeight: 1.6, textAlign: 'center' }}>
-            Enter the 6-digit code we sent to <strong>{contact}</strong>.
-          </p>
-          {devCode && (
-            <p className="form-msg" style={{ textAlign: 'center' }}>
-              Demo code (no SMS provider configured): <strong style={{ letterSpacing: 3 }}>{devCode}</strong>
-            </p>
-          )}
-          <form onSubmit={onVerify}>
-            <div className="field">
-              <input
-                placeholder="6-digit code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                inputMode="numeric"
-                required
-                autoFocus
-                style={{ textAlign: 'center', letterSpacing: 6, fontSize: 20 }}
-              />
-            </div>
-            {msg && <p className="form-msg">{msg}</p>}
-            <button className="btn btn-primary auth-btn" disabled={busy || code.length !== 6}>
-              {busy ? 'Verifying…' : 'Verify & Sign In'}
-            </button>
-          </form>
-          <div className="auth-alt">
-            <button className="linklike" onClick={() => { setSent(false); setCode(''); setMsg(null) }}>Use a different number/email</button>
-          </div>
-        </>
-      ) : (
-        <>
-          <p style={{ color: 'var(--muted)', fontSize: 14.5, lineHeight: 1.6, textAlign: 'center', marginTop: 0 }}>
-            Enter your registered email or mobile number to receive a one-time passcode.
-          </p>
-          <form onSubmit={onSend}>
-            <div className="field">
-              <input placeholder="Email or mobile number" value={contact} onChange={(e) => setContact(e.target.value)} required autoFocus />
-            </div>
-            {msg && <p className="form-msg">{msg}</p>}
-            <button className="btn btn-primary auth-btn" disabled={busy || !contact.trim()}>
-              {busy ? 'Sending…' : 'Send OTP'}
-            </button>
-          </form>
-          <div className="auth-alt">
-            <Link to="/login">Sign in with email</Link>
-          </div>
-        </>
-      )}
-    </AuthShell>
-  )
+import {createFileRoute,Link} from '@tanstack/react-router'
+import {useState} from 'react'
+import {AuthShell} from './login'
+import {requestOtp,verifyOtp} from '../lib/api'
+export const Route=createFileRoute('/otp-login')({component:OtpLogin})
+function OtpLogin(){
+ const [email,setEmail]=useState(''),[code,setCode]=useState(''),[sent,setSent]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('')
+ async function submit(e:React.FormEvent){
+  e.preventDefault();if(busy)return;setBusy(true);setError('')
+  try{const result=sent?await verifyOtp({data:{contact:email,code}}):await requestOtp({data:{contact:email}})
+   if(!result.ok)setError(result.error)
+   else if(sent)window.location.assign('/manage-profile')
+   else setSent(true)
+  }catch{setError('Could not sign in. Please try again.')}
+  finally{setBusy(false)}
+ }
+ return <AuthShell title={sent?'Check your inbox.':'Sign in with a code.'} description="Use the email from your existing Halobox account. Your profiles and subscriptions stay connected.">
+  <form onSubmit={submit} aria-busy={busy}>
+   <div className="field"><label htmlFor="otp-email">Email address</label><input id="otp-email" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} disabled={busy||sent} required maxLength={254}/></div>
+   {sent&&<div className="field"><label htmlFor="otp-code">6-digit sign-in code</label><input id="otp-code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,''))} required autoFocus disabled={busy}/></div>}
+   {error&&<p className="tv-flow-message" role="alert">{error}</p>}
+   <button className="btn btn-primary auth-btn" disabled={busy}>{busy?'Please wait…':sent?'Sign in':'Send sign-in code'}</button>
+  </form>
+  {sent&&<button type="button" className="btn btn-ghost" onClick={()=>{setSent(false);setCode('')}} disabled={busy}>Use another email or request a new code</button>}
+  <p className="auth-alt"><Link to="/login">Sign in with a password</Link></p>
+ </AuthShell>
 }

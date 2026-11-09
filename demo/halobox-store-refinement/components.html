@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Components — Halobox · Store & Watch</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-family-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+      background: var(--color-background-secondary, var(--template-color-17));
+      color: var(--color-text-primary, var(--template-color-0));
+      line-height: 1.5;
+      padding: var(--spacing-6, 24px);
+    }
+    .nav { display: flex; gap: var(--spacing-4, 16px); margin-bottom: var(--spacing-8, 32px); padding-bottom: var(--spacing-4, 16px); border-bottom: 1px solid var(--color-border, var(--template-color-13)); }
+    .nav a { color: var(--color-primary, var(--template-color-5)); text-decoration: none; font-weight: var(--font-weight-medium, 500); }
+    .nav a:hover { text-decoration: underline; }
+    h1 { font-size: var(--font-size-2xl, 24px); font-weight: var(--font-weight-bold, 700); margin-bottom: var(--spacing-2, 8px); }
+    .subtitle { color: var(--color-text-secondary); font-size: var(--font-size-sm, 14px); margin-bottom: var(--spacing-8, 32px); }
+    section { margin-bottom: var(--spacing-8, 32px); }
+    h2 { font-size: var(--font-size-lg, 18px); font-weight: var(--font-weight-semibold, 600); margin-bottom: var(--spacing-4, 16px); padding-bottom: var(--spacing-2, 8px); border-bottom: 1px solid var(--color-border, var(--template-color-13)); display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .component-row { display: flex; flex-wrap: wrap; gap: var(--spacing-4, 16px); align-items: center; margin-bottom: var(--spacing-4, 16px); }
+    .component-label { width: 100%; font-size: var(--font-size-xs, 12px); color: var(--color-text-secondary, var(--template-color-6)); margin-bottom: var(--spacing-1, 4px); display: flex; align-items: center; gap: 8px; }
+    .source-tag { font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 500; }
+    .source-tag--screenshot { background: var(--template-color-11); color: var(--template-color-1); }
+    .source-tag--inferred { background: var(--template-color-21); color: var(--template-color-7); }
+    .source-tag--mixed { background: var(--template-color-12); color: var(--template-color-4); }
+
+    /* === 基础组件（Agent 按截图调整 token 引用） === */
+    .ds-button { display: inline-flex; align-items: center; justify-content: center; border: none; cursor: pointer; font-family: inherit; font-size: var(--font-size-base, 16px); font-weight: var(--font-weight-medium, 500); padding: var(--button-primary-padding, 12px 24px); border-radius: var(--button-primary-radius, 12px); transition: background 0.15s, opacity 0.15s; }
+    .ds-button--primary { background: var(--button-primary-bg, var(--template-color-5)); color: var(--button-primary-text, var(--template-color-23)); }
+    .ds-button--primary:hover { background: var(--button-primary-bg-hover, var(--template-color-3)); }
+    .ds-button--primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ds-button--secondary { background: transparent; color: var(--color-primary); border: 1px solid var(--color-primary); }
+    .ds-button--ghost { background: transparent; color: var(--color-primary); }
+    .ds-button--icon { width: 40px; height: 40px; padding: 0; border-radius: var(--radius-full, 9999px); background: var(--button-primary-bg); color: var(--button-primary-text); }
+
+    .ds-input, .ds-textarea, .ds-select { display: block; width: 100%; max-width: 320px; padding: var(--input-padding, 12px 16px); font-size: var(--font-size-base); background: var(--input-bg, var(--template-color-23)); border: 1px solid var(--input-border); border-radius: var(--input-radius, 8px); color: var(--color-text-primary); font-family: inherit; }
+    .ds-textarea { min-height: 80px; resize: vertical; }
+    .ds-input:focus, .ds-textarea:focus, .ds-select:focus { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+    .ds-input:disabled, .ds-textarea:disabled { opacity: 0.5; }
+
+    .ds-card { background: var(--card-bg, var(--template-color-23)); border-radius: var(--card-radius, 16px); box-shadow: var(--card-shadow); padding: var(--card-padding, 16px); max-width: 320px; }
+    .ds-card--elevated { box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.12)); }
+    .ds-card__title { font-weight: var(--font-weight-semibold, 600); margin-bottom: 4px; }
+    .ds-card__desc { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+
+    .ds-list-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--card-bg); border-bottom: 1px solid var(--color-border); max-width: 320px; }
+    .ds-list-item__title { font-weight: var(--font-weight-medium); }
+    .ds-list-item__desc { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+
+    .ds-tab { padding: 8px 16px; border: none; background: transparent; color: var(--color-text-secondary); cursor: pointer; font-family: inherit; border-bottom: 2px solid transparent; }
+    .ds-tab--selected { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: var(--font-weight-semibold); }
+
+    .ds-segmented { display: inline-flex; background: var(--color-background-secondary); border-radius: var(--radius-md); padding: 4px; }
+    .ds-segmented__item { padding: 8px 16px; border: none; background: transparent; border-radius: var(--radius-sm); cursor: pointer; font-family: inherit; color: var(--color-text-secondary); }
+    .ds-segmented__item--selected { background: var(--card-bg); color: var(--color-text-primary); box-shadow: var(--shadow-sm); }
+
+    .ds-navbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--color-background); border-bottom: 1px solid var(--color-border); max-width: 390px; font-weight: var(--font-weight-semibold); }
+    .ds-tabbar { display: flex; justify-content: space-around; padding: 8px 0; background: var(--color-background); border-top: 1px solid var(--color-border); max-width: 390px; }
+    .ds-tabbar__item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: var(--font-size-xs); color: var(--color-text-secondary); border: none; background: none; cursor: pointer; font-family: inherit; }
+    .ds-tabbar__item--selected { color: var(--color-primary); }
+
+    .ds-badge { display: inline-block; padding: 2px 8px; font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); background: var(--color-primary); color: var(--template-color-23); border-radius: var(--radius-full); }
+    .ds-badge--dot { width: 8px; height: 8px; padding: 0; background: var(--color-error, var(--template-color-14)); }
+
+    .ds-chip { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; font-size: var(--font-size-sm); background: var(--color-background-secondary); border-radius: var(--radius-full); border: 1px solid var(--color-border); }
+    .ds-chip--selected { background: var(--color-primary); color: var(--template-color-23); border-color: var(--color-primary); }
+
+    .ds-switch { width: 48px; height: 28px; border-radius: 14px; background: var(--color-border); border: none; cursor: pointer; position: relative; }
+    .ds-switch--on { background: var(--color-primary); }
+    .ds-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; border-radius: 50%; background: var(--template-color-23); transition: transform 0.15s; }
+    .ds-switch--on::after { transform: translateX(20px); }
+
+    .ds-checkbox, .ds-radio { width: 20px; height: 20px; accent-color: var(--color-primary); }
+
+    .ds-avatar { display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-full); background: var(--color-background-secondary); color: var(--color-text-secondary); font-weight: var(--font-weight-medium); }
+    .ds-avatar--sm { width: 32px; height: 32px; font-size: 12px; }
+    .ds-avatar--md { width: 40px; height: 40px; font-size: 14px; }
+    .ds-avatar--lg { width: 56px; height: 56px; font-size: 18px; }
+
+    .ds-divider { height: 1px; background: var(--color-border); max-width: 320px; margin: 8px 0; }
+
+    .ds-alert { padding: 12px 16px; border-radius: var(--radius-md); font-size: var(--font-size-sm); max-width: 320px; }
+    .ds-alert--info { background: var(--template-color-15); color: var(--template-color-2); border: 1px solid var(--template-color-10); }
+    .ds-alert--success { background: var(--template-color-16); color: var(--template-color-1); border: 1px solid var(--template-color-9); }
+    .ds-alert--warning { background: var(--template-color-22); color: var(--template-color-7); border: 1px solid var(--template-color-18); }
+    .ds-alert--error { background: var(--template-color-20); color: var(--template-color-8); border: 1px solid var(--template-color-19); }
+
+    .ds-toast { padding: 12px 20px; background: var(--color-text-primary); color: var(--template-color-23); border-radius: var(--radius-md); font-size: var(--font-size-sm); max-width: 280px; }
+
+    .ds-modal, .ds-sheet { background: var(--card-bg); border-radius: var(--card-radius); box-shadow: var(--shadow-lg); padding: var(--card-padding); max-width: 320px; }
+    .ds-sheet { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+
+    .ds-progress { width: 200px; height: 6px; background: var(--color-border); border-radius: 3px; overflow: hidden; }
+    .ds-progress__bar { height: 100%; width: 60%; background: var(--color-primary); border-radius: 3px; }
+
+    .ds-slider { width: 200px; accent-color: var(--color-primary); }
+
+    .ds-tooltip { display: inline-block; padding: 6px 10px; background: var(--color-text-primary); color: var(--template-color-23); font-size: var(--font-size-xs); border-radius: var(--radius-sm); }
+
+body{max-width:1380px;margin:auto}a{color:var(--color-primary)}
+.demo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--spacing-6)}
+section{min-width:0;padding:var(--spacing-5);border:1px solid var(--color-border);border-radius:var(--radius-lg)}
+.ds-button,.ds-input,.ds-select,.ds-segmented__item,.ds-tab,.ds-list-item,.ds-tabbar__item{min-height:44px}
+.ds-button--secondary,.ds-button--ghost{color:var(--color-blue-text)}
+.ds-tab--selected,.ds-tabbar__item--selected,.ds-chip--selected{color:var(--color-blue-text);background:var(--color-elevated)}
+.ds-tabbar,.ds-segmented{background:var(--color-surface);border-radius:var(--radius-full);border:1px solid var(--color-border);box-shadow:inset 0 1px 2px var(--color-muted)}
+.ds-tabbar__item{border-radius:var(--radius-full)}
+.ds-navbar,.ds-modal,.ds-sheet,.ds-list-item{background:var(--color-surface);color:var(--color-text-primary)}
+.ds-sheet{border-radius:var(--radius-lg) var(--radius-lg) 0 0;min-height:140px}
+.ds-input:disabled{opacity:.6}.ds-switch{min-width:48px;min-height:28px}.ds-switch--on{background:var(--color-blue)}
+.ds-alert--info{background:var(--color-surface);color:var(--color-blue-text)}.ds-alert--success{background:var(--color-surface);color:var(--color-green)}.ds-alert--warning{background:var(--color-surface);color:var(--color-amber)}.ds-alert--error{background:var(--color-surface);color:var(--color-red)}
+.placeholder{display:inline-block;width:18px;height:18px;border-radius:4px;background:var(--color-placeholder)}
+.ds-avatar{background:var(--color-placeholder);color:var(--color-black)}
+.ds-spinner{width:32px;height:32px;border:3px solid var(--color-border);border-top-color:var(--color-blue);border-radius:var(--radius-full)}
+.ds-button:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--color-blue-text);outline-offset:3px}
+.source-tag{background:var(--color-elevated)!important;color:var(--color-muted)!important}
+@media(max-width:900px){.demo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.demo-grid{grid-template-columns:1fr}body{padding:var(--spacing-4)}}
+
+
+.ds-toast,.ds-tooltip{background:var(--color-elevated);color:var(--color-white)}
+.ds-tab{border:0;border-radius:var(--radius-full)}
+.ds-variant{width:100%;min-height:80px;padding:var(--spacing-4);border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface);color:var(--color-white);text-align:left;font:inherit}
+.ds-variant small{display:block;margin-top:var(--spacing-2);color:var(--color-muted)}
+.ds-variant[aria-pressed=true]{border:2px solid var(--color-blue);padding:calc(var(--spacing-4) - 1px);background:var(--color-elevated)}
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="style-guide.html">Style Guide</a>
+    <a href="components.html"><strong>Components</strong></a>
+  </nav>
+
+  <h1>Halobox · Store & Watch — Components</h1>
+  <p class="subtitle">24 control families · Details: <a href="components-list.md">components-list.md</a></p>
+
+  <!-- Agent: 必须保留以下全部 24 个 section，按截图优先、推断补全；更新 source-tag 计数 -->
+
+<div class="demo-grid">  <section id="buttons">
+    <h2>Buttons <span class="source-tag source-tag--mixed">reference geometry · inferred states</span></h2>
+    <div class="component-label">Primary <span class="source-tag source-tag--screenshot">screenshot</span></div>
+    <div class="component-row">
+      <button class="ds-button ds-button--primary" type="button">Continue</button>
+      <button class="ds-button ds-button--primary" type="button" disabled>Disabled</button>
+    </div>
+    <div class="component-label">Secondary <span class="source-tag source-tag--inferred">inferred</span></div>
+    <div class="component-row"><button class="ds-button ds-button--secondary" type="button">Cancel</button></div>
+    <div class="component-label">Ghost <span class="source-tag source-tag--inferred">inferred</span></div>
+    <div class="component-row"><button class="ds-button ds-button--ghost" type="button">Learn more</button></div>
+    <div class="component-label">Icon <span class="source-tag source-tag--inferred">inferred</span></div>
+    <div class="component-row"><button class="ds-button ds-button--icon" type="button" aria-label="Icon button"><span class="placeholder"></span></button></div>
+  </section>
+
+  <section id="inputs">
+    <h2>Inputs <span class="source-tag">inferred</span></h2>
+    <div class="component-label">Text <span class="source-tag">inferred</span></div>
+    <div class="component-row"><input class="ds-input" type="text" aria-label="Text input" placeholder="Enter text…"></div>
+    <div class="component-label">Search <span class="source-tag source-tag--inferred">inferred</span></div>
+    <div class="component-row"><input class="ds-input" disabled aria-label="Disabled input" placeholder="Disabled"><input class="ds-input" type="search" aria-label="Search" placeholder="Search…"></div>
+  </section>
+
+  <section id="textarea"><h2>Textarea <span class="source-tag">inferred</span></h2>
+    <div class="component-row"><textarea class="ds-textarea" aria-label="Note" placeholder="Write something…"></textarea></div>
+  </section>
+
+  <section id="select"><h2>Select <span class="source-tag">inferred</span></h2>
+    <div class="component-row"><select aria-label="Choose an option" class="ds-select"><option>Option 1</option><option>Option 2</option></select></div>
+  </section>
+
+  <section id="cards"><h2>Cards <span class="source-tag">screenshot · dark adaptation</span></h2>
+    <div class="component-label">Default <span class="source-tag source-tag--screenshot">screenshot</span></div>
+    <div class="component-row"><div class="ds-card"><div class="ds-card__title">Card Title</div><div class="ds-card__desc">Description</div></div></div>
+    <div class="component-label">Elevated <span class="source-tag source-tag--inferred">inferred</span></div>
+    <div class="component-row"><div class="ds-card ds-card--elevated"><div class="ds-card__title">Elevated</div><div class="ds-card__desc">More shadow</div></div></div>
+  </section>
+
+  <section id="product-variants"><h2>Product variants <span class="source-tag">screenshot · dark adaptation</span></h2><div class="component-row"><button class="ds-variant" type="button" aria-pressed="false">Classic edition<small>Printed book</small></button><button class="ds-variant" type="button" aria-pressed="true">Selected edition<small>Blue outline selection</small></button></div></section>
+<section id="lists"><h2>Lists <span class="source-tag">screenshot · dark adaptation</span></h2>
+    <div class="component-row">
+      <div><div class="ds-list-item"><div><div class="ds-list-item__title">List Item</div><div class="ds-list-item__desc">Subtitle</div></div></div></div>
+    </div>
+  <div class="ds-list-item"><span class="placeholder"></span><span>With icon</span></div><div class="ds-list-item"><span>With action</span><button class="ds-button ds-button--ghost">Open</button></div></section>
+
+  <section id="tabs"><h2>Tabs <span class="source-tag">screenshot · dark adaptation</span></h2>
+    <div class="component-row">
+      <button class="ds-tab ds-tab--selected" type="button">Active</button>
+      <button class="ds-tab" type="button">Tab 2</button>
+      <button class="ds-tab" type="button">Tab 3</button>
+    </div>
+  </section>
+
+  <section id="segmented"><h2>Segmented Control <span class="source-tag">inferred</span></h2>
+    <div class="ds-segmented">
+      <button class="ds-segmented__item ds-segmented__item--selected" type="button">Day</button>
+      <button class="ds-segmented__item" type="button">Week</button>
+      <button class="ds-segmented__item" type="button">Month</button>
+    </div>
+  </section>
+
+  <section id="navbar"><h2>NavBar <span class="source-tag">screenshot · dark adaptation</span></h2>
+    <div class="ds-navbar"><span class="placeholder" aria-hidden="true"></span><span>Title</span><span class="placeholder" aria-hidden="true"></span></div>
+  </section>
+
+  <section id="tabbar"><h2>TabBar <span class="source-tag">screenshot · dark adaptation</span></h2>
+    <div class="ds-tabbar">
+      <button class="ds-tabbar__item ds-tabbar__item--selected" type="button"><span class="placeholder" aria-hidden="true"></span>Home</button>
+      <button class="ds-tabbar__item" type="button"><span class="placeholder" aria-hidden="true"></span>Explore</button>
+      <button class="ds-tabbar__item" type="button"><span class="placeholder" aria-hidden="true"></span>Profile</button>
+    </div>
+  </section>
+
+  <section id="badges"><h2>Badges <span class="source-tag">inferred</span></h2>
+    <div class="component-row"><span class="ds-badge">New</span><span class="ds-badge ds-badge--dot"></span></div>
+  </section>
+
+  <section id="chips"><h2>Chips <span class="source-tag">screenshot · dark adaptation</span></h2>
+    <div class="component-row"><span class="ds-chip">Design</span><span class="ds-chip ds-chip--selected">Selected</span></div>
+  </section>
+
+  <section id="switch"><h2>Switch <span class="source-tag">inferred</span></h2>
+    <div class="component-row"><button aria-label="Switch off" role="switch" aria-checked="false" class="ds-switch" type="button"></button><button aria-label="Switch on" role="switch" aria-checked="true" class="ds-switch ds-switch--on" type="button"></button></div>
+  </section>
+
+  <section id="checkbox"><h2>Checkbox <span class="source-tag">inferred</span></h2>
+    <div class="component-row"><input aria-label="Checkbox" class="ds-checkbox" type="checkbox"><input aria-label="Checkbox" class="ds-checkbox" type="checkbox" checked></div>
+  </section>
+
+  <section id="radio"><h2>Radio <span class="source-tag">screenshot · dark adaptation</span></h2>
+    <div class="component-row"><input aria-label="Radio option" class="ds-radio" type="radio" name="r" checked><input aria-label="Radio option" class="ds-radio" type="radio" name="r"></div>
+  </section>
+
+  <section id="avatar"><h2>Avatar <span class="source-tag">screenshot · dark adaptation</span></h2>
+    <div class="component-row"><span class="ds-avatar ds-avatar--sm">S</span><span class="ds-avatar ds-avatar--md">MD</span><span class="ds-avatar ds-avatar--lg">LG</span></div>
+  </section>
+
+  <section id="divider"><h2>Divider <span class="source-tag">screenshot · dark adaptation</span></h2><div class="ds-divider"></div></section>
+
+  <section id="alert"><h2>Alert <span class="source-tag">inferred</span></h2>
+    <div class="component-row" style="flex-direction:column;align-items:flex-start;">
+      <div class="ds-alert ds-alert--info">Info message</div>
+      <div class="ds-alert ds-alert--success">Success message</div>
+      <div class="ds-alert ds-alert--warning">Warning message</div>
+      <div class="ds-alert ds-alert--error">Error message</div>
+    </div>
+  </section>
+
+  <section id="toast"><h2>Toast <span class="source-tag">inferred</span></h2><div class="ds-toast">Saved successfully</div></section>
+  <section id="modal"><h2>Modal <span class="source-tag">inferred</span></h2><div class="ds-modal"><div class="ds-card__title">Modal Title</div><div class="ds-card__desc">Modal content</div></div></section>
+  <section id="sheet"><h2>Sheet <span class="source-tag">screenshot · dark adaptation</span></h2><div class="ds-sheet"><div class="ds-card__title">Bottom Sheet</div><div class="ds-card__desc">Sheet content</div></div></section>
+
+  <section id="progress"><h2>Progress <span class="source-tag">inferred</span></h2>
+    <div class="component-row"><div class="ds-progress"><div class="ds-progress__bar"></div></div><div class="ds-spinner" aria-label="Loading indicator"></div><progress aria-label="Indeterminate progress"></progress></div>
+  </section>
+
+  <section id="slider"><h2>Slider <span class="source-tag">screenshot · dark adaptation</span></h2><input aria-label="Volume" class="ds-slider" type="range" value="60"></section>
+  <section id="tooltip"><h2>Tooltip <span class="source-tag">inferred</span></h2><span class="ds-tooltip">Tooltip text</span></section>
+</div></body>
+</html>

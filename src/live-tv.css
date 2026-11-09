@@ -1,0 +1,104 @@
+/* Live discussion uses the existing player and glass theme. */
+.live-channel .chips{margin-bottom:16px}.live-access{padding-top:130px}.live-channel-discussion{max-width:1100px;margin-inline:auto}.live-discussion{min-width:0;color:#f5f5f7;font-size:16px}.live-discussion h2{font-size:clamp(22px,2vw,32px);margin:0 44px 18px 0}.live-tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:thin;padding:5px;border-radius:28px;background:linear-gradient(150deg,#ffffff18,#ffffff06);backdrop-filter:blur(14px) saturate(1.6);margin-bottom:16px}.live-tabs button{border:0;background:transparent;border-radius:24px;padding:10px 16px;min-height:44px;white-space:nowrap;color:#d6d6dc;font:inherit;cursor:pointer}.live-tabs button[aria-selected=true]{background:linear-gradient(140deg,#ffffff35,#ffffff16);color:#fff}.live-feed{max-height:420px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:4px 8px 4px 0;scrollbar-gutter:stable}.live-comment{background:#ffffff08;border-radius:18px;padding:16px;margin-bottom:10px;overflow-wrap:anywhere}.live-comment header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:#b9bdc6}.live-comment header strong{color:white}.live-comment time{margin-left:auto;font-size:12px}.live-comment p{margin:12px 0;white-space:pre-wrap;line-height:1.6}.live-comment blockquote{margin:12px 0 0;padding:10px 12px;border-left:2px solid #74caff;background:#ffffff07;border-radius:5px;color:#aeb5c0;font-size:14px}.live-official{color:#6dccff!important}.live-comment-actions{display:flex;gap:4px;flex-wrap:wrap}.live-discussion button:not(.btn):not([role=tab]),.live-access button{background:#ffffff0e;border:0;border-radius:20px;min-height:44px;color:#c9eaff;padding:8px 13px;font:inherit;cursor:pointer}.live-discussion button:disabled{opacity:.45;cursor:default}.live-composer{display:grid;gap:10px;margin-top:16px}.live-composer>div{display:flex;gap:10px;justify-content:space-between;align-items:center}.live-composer>div>span{font-size:12px;color:#a4a9b3}.live-composer label,.live-settings label,.live-channel-select{display:grid;gap:8px}.live-composer textarea,.live-composer select,.live-settings input:not([type=checkbox]),.live-settings select,.live-channel-select select{min-width:0;width:100%;box-sizing:border-box;background:#202126;color:#fff;border:0;border-radius:14px;padding:13px;font:inherit;font-size:16px;min-height:48px}.live-composer textarea{resize:vertical;min-height:80px;max-height:220px}.live-notice{color:#d4cda9}.live-error{color:#ffb4b4}.live-discussion a{color:#8dd7ff}.live-admin{max-width:1800px;padding:32px clamp(16px,4vw,80px) 80px;margin:auto;color:#eee}.live-admin>header{display:flex;justify-content:space-between;gap:20px;padding-bottom:32px}.live-admin h1{font-size:clamp(28px,3vw,50px)}.live-admin p,.live-settings small{color:#b5bac4;line-height:1.5}.live-channel-select{max-width:650px;margin:28px 0}.live-admin-grid{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.2fr);gap:32px;align-items:start}.live-settings{display:grid;gap:20px;background:#ffffff08;padding:24px;border-radius:24px}.live-settings h2{margin:0}.live-settings .live-switch{display:flex;align-items:center;gap:12px;min-height:48px;cursor:pointer}.live-switch input{width:42px;height:26px;accent-color:#339dff}.live-settings .btn{justify-self:start}.tv-go-live{display:flex;align-items:center;gap:9px;padding:10px 16px;margin:8px 0;border:0;border-radius:24px;background:#ffffff18;color:#fff;font-weight:650;min-height:44px;cursor:pointer}.tv-go-live i{width:8px;height:8px;border-radius:50%;background:#ff3b30}.tv-player-panel:has(.live-discussion){padding-top:20px}.tv-player-panel .live-feed{max-height:24dvh}.tv-player-panel .live-composer textarea{min-height:65px}.tv-player-panel .live-discussion h2{font-size:22px}.live-discussion :focus-visible,.live-admin :focus-visible{outline:2px solid #85d8ff;outline-offset:3px}
+@media(max-width:760px){.live-admin-grid{grid-template-columns:1fr}.live-settings{padding:18px}.live-channel-discussion{padding-inline:16px}.live-tabs button{padding:9px 12px;font-size:14px}.live-comment{padding:12px}.live-admin{padding-top:20px}.tv-player-panel .live-feed{max-height:22dvh}.live-composer .btn{padding:10px 20px;min-height:44px}.live-discussion h2{font-size:22px}.live-tabs{max-width:100%}}
+@media(min-width:2400px){.live-channel-discussion{max-width:1600px}.live-discussion{font-size:20px}.live-feed{max-height:650px}}
+
+.tv-immersive-player.is-live .tv-player-tabs button{flex:0 0 auto;white-space:nowrap;min-width:max-content}
+.tv-immersive-player.is-live .tv-player-tabs{overflow-x:auto;max-width:100%;scrollbar-width:none}
+.tv-player-panel:has(.live-discussion){height:min(58dvh,640px);max-height:min(58dvh,640px);overflow:hidden;padding-bottom:0}
+.tv-player-panel .live-discussion{display:flex;flex-direction:column;height:100%;overflow-y:auto}
+.tv-player-panel .live-feed{flex:1 1 140px;min-height:70px;max-height:none}
+.tv-player-panel .live-composer{flex:none;padding-bottom:4px}
+.live-switch input{appearance:none;position:relative;width:46px;height:28px;border-radius:99px;background:#6a6a70;cursor:pointer;flex:none}
+.live-switch input:before{content:"";position:absolute;inset:3px auto 3px 3px;width:22px;background:white;border-radius:50%;transition:transform .18s ease}
+.live-switch input:checked{background:#1688ee}.live-switch input:checked:before{transform:translateX(18px)}
+@media(max-width:480px){.tv-immersive-player.is-live .tv-player-tabs button{padding-inline:10px;font-size:12px}.tv-player-panel .live-discussion h2{margin-bottom:12px}.tv-player-panel .live-composer textarea{min-height:58px}}
+
+/* Shared live destination: artwork gets its own layer so typography and the
+   broadcast image keep their proportions from portrait phones through 4K. */
+.page-enter:has(> .live-channel) { padding-top: 0; }
+.live-channel-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-end;
+  min-height: clamp(550px, 74svh, 1500px);
+  box-sizing: border-box;
+  overflow: hidden;
+  background: #000;
+  margin-top: 0;
+  padding: calc(var(--header-h) + 70px) clamp(28px, 4.2vw, 160px) clamp(48px, 4vw, 150px);
+}
+.live-channel-artwork { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: center 35%; }
+.live-channel-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #000d 0%, #0006 48%, #0000 80%), linear-gradient(0deg, #000 0%, #0004 32%, #0000 70%); }
+.live-channel-hero .detail-inner { width: min(100%, 1750px); max-width: 56%; }
+.live-channel-hero .hero-title { font-size: clamp(36px, 3.35vw, 112px); line-height: 1.07; letter-spacing: -.035em; text-wrap: balance; margin: 0 0 .55em; overflow-wrap: break-word; }
+.live-channel-hero .hero-desc { font-size: clamp(16px, 1.1vw, 32px); line-height: 1.6; color: #d6d6db; max-width: 57ch; -webkit-line-clamp: 3; margin-bottom: 1.5em; }
+.live-channel-hero .hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: clamp(12px, .8vw, 28px); }
+.live-channel-hero .hero-actions .btn { min-height: clamp(48px, 3.5vw, 100px); padding-inline: clamp(24px, 2.1vw, 72px); font-size: clamp(16px, 1.05vw, 30px); border-radius: 999px; }
+.live-channel-hero .hero-actions .btn svg { width: 1em; height: 1em; }
+.live-channel-hero .hero-actions .btn:disabled { opacity: .5; cursor: not-allowed; }
+.live-channel-hero .chips { display: flex; align-items: center; gap: 10px; margin-bottom: clamp(16px, 1.2vw, 38px); }
+.live-channel-hero .chip { font-size: clamp(12px, .75vw, 22px); border: 0; background: #ffffff20; border-radius: 999px; padding: .45em .8em; }
+.live-channel-hero .live-badge { position: static; background: #e42235; color: #fff; border: 0; border-radius: 999px; font-size: clamp(11px, .75vw, 22px); line-height: 1.2; padding: .6em .95em; gap: .5em; }
+.live-channel-hero .live-badge::before { background: #fff; width: .45em; height: .45em; }
+.live-channel-status { font-size: clamp(14px, .95vw, 26px); color: #d6d6db; line-height: 1.6; max-width: 60ch; margin-top: 1.25em; }
+
+/* One compact public feed; extra queues only exist on the admin surface. */
+.live-channel-discussion { width: 100%; max-width: 1500px; box-sizing: border-box; }
+.live-discussion-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.live-discussion .live-discussion-heading h2 { margin: 0; font-weight: 650; letter-spacing: -.025em; }
+.live-discussion-state { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 6px 10px; font-size: 12px; color: #c3c3cb; background: #ffffff0a; border-radius: 999px; }
+.live-comment { position: relative; padding: 14px 14px 8px 58px; background: transparent; margin-bottom: 6px; border-radius: 16px; }
+.live-comment.is-pinned { background: #ffffff08; }
+.live-comment-avatar { position: absolute; top: 14px; left: 6px; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; color: #d9eaff; background: linear-gradient(145deg, #3d526e, #1a2331); font-weight: 650; font-size: 12px; user-select: none; }
+.live-comment:not(:has(.live-comment-avatar)) { padding-left: 16px; }
+.live-comment header { gap: 8px; line-height: 1.4; }
+.live-comment time { color: #8f929b; }
+.live-comment p { margin: 5px 0 4px; line-height: 1.55; }
+.live-comment blockquote { margin: 6px 0; font-size: .88em; padding: 7px 10px; line-height: 1.5; }
+.live-comment .live-comment-actions { gap: 8px; }
+.live-comment-actions button:not(.btn):not([role=tab]) { background: transparent; padding: 5px 2px; color: #a3a5af; min-height: 36px; font-size: 12px; }
+.live-comment-actions button:not(.btn):hover { color: #fff; }
+.live-official { background: #0088ff18; border-radius: 5px; padding: 2px 5px; font-size: 11px; font-weight: 650; }
+.live-sign-in { background: #ffffff07; border-radius: 20px; padding: 18px; color: #c7c7cf; line-height: 1.6; }
+.live-discussion a, .live-access a:not(.btn) { color: #2997ff; font-weight: 600; text-decoration: none; }
+.live-discussion a:hover, .live-access a:not(.btn):hover { color: #71bbff; text-decoration: underline; }
+.live-composer textarea { border-radius: 20px; background: #ffffff0c; }
+.live-composer > div { flex-wrap: wrap; }
+.live-composer .btn-primary { background: #087dff; color: #fff; border: 0; border-radius: 999px; }
+.live-composer label { font-size: 13px; color: #c3c3cc; }
+.live-feed { scroll-behavior: auto; }
+@media (max-width: 1000px) and (min-width: 761px) {
+  .live-channel-hero .detail-inner { max-width: 72%; }
+}
+@media (max-width: 760px) {
+  .live-channel-hero { display: block; min-height: 0; padding: 0 0 28px; }
+  .live-channel-artwork { position: relative; inset: auto; display: block; z-index: -2; width: 100%; height: calc(var(--header-h) + 56.25vw); object-fit: cover; object-position: center; }
+  .live-channel-shade { top: 0; height: calc(var(--header-h) + 56.25vw); bottom: auto; background: linear-gradient(0deg, #000, #0000 48%); }
+  .live-channel-hero .detail-inner { width: 100%; max-width: none; box-sizing: border-box; padding: 0 20px; margin-top: -20px; }
+  .live-channel-hero .hero-title { font-size: clamp(27px, 6.8vw, 44px); line-height: 1.1; text-wrap: pretty; max-width: 26ch; }
+  .live-channel-hero .hero-desc { font-size: 15px; line-height: 1.55; -webkit-line-clamp: 3; }
+  .live-channel-hero .hero-actions { gap: 10px; }
+  .live-channel-hero .hero-actions .btn { min-height: 48px; padding-inline: 25px; font-size: 16px; }
+  .live-channel-hero .chips { margin-bottom: 15px; }
+  .live-channel-discussion { padding-top: 8px; }
+  .live-comment { padding-left: 48px; padding-right: 4px; }
+  .live-comment-avatar { left: 0; width: 34px; height: 34px; }
+  .live-comment time { font-size: 10px; }
+  .live-comment header { font-size: 12px; gap: 5px; }
+  .live-comment-actions button:not(.btn):not([role=tab]) { min-height: 44px; }
+  .live-discussion-state { font-size: 11px; }
+}
+@media (min-width: 2400px) {
+  .live-channel-discussion { max-width: 2200px; padding-block: 60px; }
+  .live-discussion { font-size: 23px; }
+  .live-discussion .live-discussion-heading h2 { font-size: 42px; }
+  .live-discussion-state, .live-comment header, .live-composer label { font-size: 19px; }
+  .live-comment { padding: 22px 20px 14px 82px; margin-bottom: 12px; }
+  .live-comment-avatar { width: 54px; height: 54px; font-size: 18px; top: 22px; }
+  .live-comment-actions button:not(.btn):not([role=tab]) { font-size: 17px; min-height: 48px; }
+  .live-comment time, .live-official { font-size: 15px; }
+  .live-composer textarea { font-size: 22px; min-height: 100px; }
+  .live-composer .btn { font-size: 22px; min-height: 56px; }
+}

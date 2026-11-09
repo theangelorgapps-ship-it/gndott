@@ -184,7 +184,7 @@ export const getDashboard = createServerFn({ method: 'GET' }).handler(async () =
       all<Content>(
         `SELECT ${HERO_COLS} FROM entertainments WHERE movie_access = 'free' AND status = 1 AND deleted_at IS NULL LIMIT 12`,
       ),
-      all(`SELECT id, name, slug, poster_url FROM genres WHERE status = 1 AND deleted_at IS NULL ORDER BY name`),
+      all(`SELECT id, name, slug, file_url FROM genres WHERE status = 1 AND deleted_at IS NULL ORDER BY name`),
       all(
         `SELECT id, name, poster_url FROM live_tv_channel WHERE status = 1 AND deleted_at IS NULL LIMIT 12`,
       ).catch(() => []),

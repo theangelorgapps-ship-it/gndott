@@ -8,10 +8,10 @@ import { TitleDetail } from '../components/TitleDetail'
 
 export const Route = createFileRoute('/sermon/$id')({
   loader: async ({ params }) => await getMovie({ data: contentIdFromPath(params.id) }),
-  component: MovieDetail,
+  component: SermonDetail,
 })
 
-function MovieDetail() {
+function SermonDetail() {
   const data = Route.useLoaderData() as any
   const [tab, setTab] = useState('more')
   if (!data) return <div className="empty">Sermon not found.</div>

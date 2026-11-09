@@ -32,3 +32,13 @@ Detail routes with a trailing underscore in their filename are intentionally ind
 - Local HTTP checks returned successful pages and canonical/OG metadata for all four new detail route families. SPA navigation updates canonical metadata.
 - Store controls meet the mobile dock with a measured 0px gap at 320px and 412px widths. Desktop shelf spans the viewport at its bottom with no horizontal overflow. The dock's duplicate blur veil is disabled while the store shelf supplies the background.
 - No real emails, chat messages or purchases were sent. Existing local schema was brought up to date solely to run the preview; this release requires no production database changes.
+
+## Standards
+
+Independent review found no documented-standard breaches or concrete security defects in this release. Two small maintenance judgments were addressed: the public sermon component is named `SermonDetail`, and legacy prefix recognition now derives its result solely from the mapping. Repeated redirect registration is intentional framework boilerplate; detail JSX duplication predates this release and was only moved. No broader refactor was necessary.
+
+## Spec
+
+Independent review found no missing requirements, unrequested behaviour or implementation errors. The reviewer reran the canonical route gate successfully. Browser checks and deployment verification are recorded separately above and below.
+
+Review totals: Standards — two minor findings resolved, two non-blocking observations retained; Spec — zero findings.

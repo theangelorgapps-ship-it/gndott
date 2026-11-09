@@ -7,7 +7,7 @@ const LEGACY_BASES: Record<string, string> = {
 
 /** Public paths are independent of the migrated database's content types. */
 export function canonicalContentURL(location: { pathname: string; searchStr: string; hash: string }) {
- const pathname = location.pathname.replace(/^\/(movie|teaching|tv-show|video)(?=\/)/, base => LEGACY_BASES[base])
+ const pathname = location.pathname.replace(/^\/[^/]+(?=\/)/, base => LEGACY_BASES[base] || base)
  return pathname + location.searchStr + (location.hash ? '#' + location.hash.replace(/^#/, '') : '')
 }
 

@@ -28,6 +28,7 @@ import { Route as PayPerViewRouteImport } from './routes/pay-per-view'
 import { Route as PayPerViewHistoryRouteImport } from './routes/pay-per-view-history'
 import { Route as PaymentHistoryRouteImport } from './routes/payment-history'
 import { Route as PaymentSuccessRouteImport } from './routes/payment-success'
+import { Route as PersonalitiesRouteImport } from './routes/personalities'
 import { Route as ProfileDetailsRouteImport } from './routes/profile-details'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SearchRouteImport } from './routes/search'
@@ -52,7 +53,9 @@ import { Route as ChannelIdRouteImport } from './routes/channel.$id'
 import { Route as MediaSplatRouteImport } from './routes/media/$'
 import { Route as MovieIdRouteImport } from './routes/movie.$id'
 import { Route as PageSlugRouteImport } from './routes/page.$slug'
+import { Route as PersonalitiesIdRouteImport } from './routes/personalities_.$id'
 import { Route as SermonIdRouteImport } from './routes/sermon.$id'
+import { Route as SermonsIdRouteImport } from './routes/sermons_.$id'
 import { Route as ShopIndexRouteImport } from './routes/shop.index'
 import { Route as ShopSlugRouteImport } from './routes/shop.$slug'
 import { Route as ShopCheckoutRouteImport } from './routes/shop.checkout'
@@ -159,6 +162,11 @@ const PaymentHistoryRoute = PaymentHistoryRouteImport.update({
 const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
   id: '/payment-success',
   path: '/payment-success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PersonalitiesRoute = PersonalitiesRouteImport.update({
+  id: '/personalities',
+  path: '/personalities',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileDetailsRoute = ProfileDetailsRouteImport.update({
@@ -281,9 +289,19 @@ const PageSlugRoute = PageSlugRouteImport.update({
   path: '/page/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PersonalitiesIdRoute = PersonalitiesIdRouteImport.update({
+  id: '/personalities_/$id',
+  path: '/personalities/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SermonIdRoute = SermonIdRouteImport.update({
   id: '/sermon/$id',
   path: '/sermon/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SermonsIdRoute = SermonsIdRouteImport.update({
+  id: '/sermons_/$id',
+  path: '/sermons/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShopIndexRoute = ShopIndexRouteImport.update({
@@ -367,6 +385,7 @@ export interface FileRoutesByFullPath {
   '/pay-per-view-history': typeof PayPerViewHistoryRoute
   '/payment-history': typeof PaymentHistoryRoute
   '/payment-success': typeof PaymentSuccessRoute
+  '/personalities': typeof PersonalitiesRoute
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
@@ -391,7 +410,9 @@ export interface FileRoutesByFullPath {
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/personalities/$id': typeof PersonalitiesIdRoute
   '/sermon/$id': typeof SermonIdRoute
+  '/sermons/$id': typeof SermonsIdRoute
   '/shop/$slug': typeof ShopSlugRoute
   '/shop/checkout': typeof ShopCheckoutRoute
   '/shows/$id': typeof ShowsIdRoute
@@ -425,6 +446,7 @@ export interface FileRoutesByTo {
   '/pay-per-view-history': typeof PayPerViewHistoryRoute
   '/payment-history': typeof PaymentHistoryRoute
   '/payment-success': typeof PaymentSuccessRoute
+  '/personalities': typeof PersonalitiesRoute
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
@@ -448,7 +470,9 @@ export interface FileRoutesByTo {
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/personalities/$id': typeof PersonalitiesIdRoute
   '/sermon/$id': typeof SermonIdRoute
+  '/sermons/$id': typeof SermonsIdRoute
   '/shop/$slug': typeof ShopSlugRoute
   '/shop/checkout': typeof ShopCheckoutRoute
   '/shows/$id': typeof ShowsIdRoute
@@ -483,6 +507,7 @@ export interface FileRoutesById {
   '/pay-per-view-history': typeof PayPerViewHistoryRoute
   '/payment-history': typeof PaymentHistoryRoute
   '/payment-success': typeof PaymentSuccessRoute
+  '/personalities': typeof PersonalitiesRoute
   '/profile-details': typeof ProfileDetailsRoute
   '/register': typeof RegisterRoute
   '/search': typeof SearchRoute
@@ -507,7 +532,9 @@ export interface FileRoutesById {
   '/media/$': typeof MediaSplatRoute
   '/movie/$id': typeof MovieIdRoute
   '/page/$slug': typeof PageSlugRoute
+  '/personalities_/$id': typeof PersonalitiesIdRoute
   '/sermon/$id': typeof SermonIdRoute
+  '/sermons_/$id': typeof SermonsIdRoute
   '/shop/$slug': typeof ShopSlugRoute
   '/shop/checkout': typeof ShopCheckoutRoute
   '/shows_/$id': typeof ShowsIdRoute
@@ -543,6 +570,7 @@ export interface FileRouteTypes {
     | '/pay-per-view-history'
     | '/payment-history'
     | '/payment-success'
+    | '/personalities'
     | '/profile-details'
     | '/register'
     | '/search'
@@ -567,7 +595,9 @@ export interface FileRouteTypes {
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/personalities/$id'
     | '/sermon/$id'
+    | '/sermons/$id'
     | '/shop/$slug'
     | '/shop/checkout'
     | '/shows/$id'
@@ -601,6 +631,7 @@ export interface FileRouteTypes {
     | '/pay-per-view-history'
     | '/payment-history'
     | '/payment-success'
+    | '/personalities'
     | '/profile-details'
     | '/register'
     | '/search'
@@ -624,7 +655,9 @@ export interface FileRouteTypes {
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/personalities/$id'
     | '/sermon/$id'
+    | '/sermons/$id'
     | '/shop/$slug'
     | '/shop/checkout'
     | '/shows/$id'
@@ -658,6 +691,7 @@ export interface FileRouteTypes {
     | '/pay-per-view-history'
     | '/payment-history'
     | '/payment-success'
+    | '/personalities'
     | '/profile-details'
     | '/register'
     | '/search'
@@ -682,7 +716,9 @@ export interface FileRouteTypes {
     | '/media/$'
     | '/movie/$id'
     | '/page/$slug'
+    | '/personalities_/$id'
     | '/sermon/$id'
+    | '/sermons_/$id'
     | '/shop/$slug'
     | '/shop/checkout'
     | '/shows_/$id'
@@ -717,6 +753,7 @@ export interface RootRouteChildren {
   PayPerViewHistoryRoute: typeof PayPerViewHistoryRoute
   PaymentHistoryRoute: typeof PaymentHistoryRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
+  PersonalitiesRoute: typeof PersonalitiesRoute
   ProfileDetailsRoute: typeof ProfileDetailsRoute
   RegisterRoute: typeof RegisterRoute
   SearchRoute: typeof SearchRoute
@@ -740,7 +777,9 @@ export interface RootRouteChildren {
   MediaSplatRoute: typeof MediaSplatRoute
   MovieIdRoute: typeof MovieIdRoute
   PageSlugRoute: typeof PageSlugRoute
+  PersonalitiesIdRoute: typeof PersonalitiesIdRoute
   SermonIdRoute: typeof SermonIdRoute
+  SermonsIdRoute: typeof SermonsIdRoute
   ShowsIdRoute: typeof ShowsIdRoute
   TeachingIdRoute: typeof TeachingIdRoute
   TeachingsIdRoute: typeof TeachingsIdRoute
@@ -884,6 +923,13 @@ declare module '@tanstack/react-router' {
       path: '/payment-success'
       fullPath: '/payment-success'
       preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/personalities': {
+      id: '/personalities'
+      path: '/personalities'
+      fullPath: '/personalities'
+      preLoaderRoute: typeof PersonalitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile-details': {
@@ -1054,11 +1100,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PageSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/personalities_/$id': {
+      id: '/personalities_/$id'
+      path: '/personalities/$id'
+      fullPath: '/personalities/$id'
+      preLoaderRoute: typeof PersonalitiesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sermon/$id': {
       id: '/sermon/$id'
       path: '/sermon/$id'
       fullPath: '/sermon/$id'
       preLoaderRoute: typeof SermonIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sermons_/$id': {
+      id: '/sermons_/$id'
+      path: '/sermons/$id'
+      fullPath: '/sermons/$id'
+      preLoaderRoute: typeof SermonsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/shop/': {
@@ -1204,6 +1264,7 @@ const rootRouteChildren: RootRouteChildren = {
   PayPerViewHistoryRoute: PayPerViewHistoryRoute,
   PaymentHistoryRoute: PaymentHistoryRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
+  PersonalitiesRoute: PersonalitiesRoute,
   ProfileDetailsRoute: ProfileDetailsRoute,
   RegisterRoute: RegisterRoute,
   SearchRoute: SearchRoute,
@@ -1227,7 +1288,9 @@ const rootRouteChildren: RootRouteChildren = {
   MediaSplatRoute: MediaSplatRoute,
   MovieIdRoute: MovieIdRoute,
   PageSlugRoute: PageSlugRoute,
+  PersonalitiesIdRoute: PersonalitiesIdRoute,
   SermonIdRoute: SermonIdRoute,
+  SermonsIdRoute: SermonsIdRoute,
   ShowsIdRoute: ShowsIdRoute,
   TeachingIdRoute: TeachingIdRoute,
   TeachingsIdRoute: TeachingsIdRoute,

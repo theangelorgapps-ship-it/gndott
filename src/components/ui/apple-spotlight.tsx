@@ -36,7 +36,7 @@ interface SearchResult {
 
 const SITE_SHORTCUTS: Shortcut[] = [
   { label: 'Sermons', icon: Clapperboard, link: '/sermons' },
-  { label: 'Teachings', icon: BookOpen, link: '/teachings' },
+  { label: 'Teaching Series', icon: BookOpen, link: '/teachings' },
   { label: 'Shows', icon: MonitorPlay, link: '/shows' },
   { label: 'Videos', icon: Video, link: '/videos' },
   { label: 'Live TV', icon: Radio, link: '/live-tv' },

@@ -1,15 +1,9 @@
-import { contentIdFromPath } from '@/lib/contentRoutes'
-import { createFileRoute } from '@tanstack/react-router'
-import { getPersonalityDetail } from '../lib/people'
-import { PersonalityPage } from '../components/Personality'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { canonicalContentURL } from '../lib/contentRoutes'
 
+/** Personality details live at /personalities/<slug-id>; keep old /cast URLs working. */
 export const Route = createFileRoute('/cast/$id')({
-  loader: async ({ params }) => await getPersonalityDetail({ data: contentIdFromPath(params.id) }),
-  component: CastDetail,
+  beforeLoad: ({ location }) => {
+    throw redirect({ href: canonicalContentURL(location), statusCode: 301 })
+  },
 })
-
-function CastDetail() {
-  const data = Route.useLoaderData()
-  if (!data) return <div className="empty">Personality not found.</div>
-  return <PersonalityPage detail={data} />
-}

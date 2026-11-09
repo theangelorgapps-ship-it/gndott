@@ -41,9 +41,8 @@ body :is(.btn-primary,.btn-play,.auth-btn,.hero-play,.tv-title-play,.subscriptio
 .bible-reader-navigation { position:static; padding:16px 0 4px; background:none; }
 .bible-reader-navigation button { flex:1; background:#24262c; }
 .bible-reader .reader-status:empty { display:none; }
-/* Scrolling never adds a dark band over the hero or catalogue. */
-.site-header .site-header-blur, .site-header.scrolled .site-header-blur { display:none; }
-.site-header .site-header-blur-layer { display:none; }
+/* Header keeps its subtle layered glass blur over the hero; scrolling never adds a dark band. */
+.site-header.scrolled { background: transparent; }
 .site-header .brand-word { text-shadow:0 2px 16px #0008; }
 /* The supplied component paints real rim highlights; do not hide that layer. */
 .mobile-glass-surface > [data-glass-rim] { display:block; }

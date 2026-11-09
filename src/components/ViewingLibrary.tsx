@@ -6,7 +6,7 @@ import { LibraryTabs } from './LibraryTabs'
 import { ResumeCard } from './ResumeCard'
 import '../viewing-library.css'
 
-const categories = [{ value: 'all', label: 'All' }, { value: 'movie', label: 'Sermons' }, { value: 'teaching', label: 'Teachings' }, { value: 'tvshow', label: 'Shows' }, { value: 'video', label: 'Videos' }] as const
+const categories = [{ value: 'all', label: 'All' }, { value: 'movie', label: 'Sermons' }, { value: 'teaching', label: 'Teaching Series' }, { value: 'tvshow', label: 'Shows' }, { value: 'video', label: 'Videos' }] as const
 const tabs = [{ value: 'continue', label: 'Continue Watching' }, { value: 'history', label: 'Watch History' }] as const
 export function ViewingLibrary() {
   const [tab, setTab] = useState<'continue' | 'history'>('continue')

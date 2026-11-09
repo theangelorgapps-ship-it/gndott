@@ -67,7 +67,7 @@ function ExploreCollections({ collections }: { collections: any[] }) {
   return <section className="section home-explore" aria-labelledby="home-explore-heading">
         <div className="section-head"><h2 id="home-explore-heading">Explore</h2></div>
         <div className="explore-promo-grid">{collections.map((collection: any) => {
-          const destinations: Record<string, string[]> = { movie: ['/sermons', 'Sermons'], teaching: ['/teachings', 'Teachings'], tvshow: ['/shows', 'Shows'], video: ['/videos', 'Videos'] }
+          const destinations: Record<string, string[]> = { movie: ['/sermons', 'Sermons'], teaching: ['/teachings', 'Teaching Series'], tvshow: ['/shows', 'Shows'], video: ['/videos', 'Videos'] }
           const destination = destinations[collection.type]
           if (!destination) return null
           return <Link key={collection.type} to={destination[0] as any} className={`explore-promo explore-promo-${collection.type}`}>

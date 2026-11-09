@@ -1,8 +1,8 @@
 const CONTENT_BASES: Record<string, string> = {
- movie: '/sermon', teaching: '/teachings', tvshow: '/shows', video: '/videos', episode: '/episode',
+ movie: '/sermons', teaching: '/teachings', tvshow: '/shows', video: '/videos', episode: '/episode',
 }
 const LEGACY_BASES: Record<string, string> = {
- '/movie': '/sermon', '/teaching': '/teachings', '/tv-show': '/shows', '/video': '/videos',
+ '/movie': '/sermons', '/sermon': '/sermons', '/teaching': '/teachings', '/tv-show': '/shows', '/video': '/videos', '/cast': '/personalities',
 }
 
 /** Public paths are independent of the migrated database's content types. */
@@ -15,7 +15,7 @@ export function titleSlug(value: string) {
  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,150).replace(/-$/,'') || 'title'
 }
 export function contentPath(item: {id:number;name?:string;slug?:string|null;type?:string|null}, base?:string) {
- const prefix = base ? (LEGACY_BASES[base] || base) : (CONTENT_BASES[item.type || 'movie'] || '/sermon')
+ const prefix = base ? (LEGACY_BASES[base] || base) : (CONTENT_BASES[item.type || 'movie'] || '/sermons')
  const slug=item.slug||item.name ? titleSlug(item.slug||item.name!) : ''
  return `${prefix}/${slug ? (slug.endsWith(`-${item.id}`)?slug:`${slug}-${item.id}`) : item.id}`
 }

@@ -42,7 +42,7 @@ const MENU_ICONS = [Home, Clapperboard, BookOpen, Tv, PlaySquare, Radio]
 const NAV_ITEMS = [
   { label: 'Home', to: '/', aliases: ['/'] },
   { label: 'Sermons', to: '/sermons', aliases: ['/sermons', '/sermon', '/movies', '/movie'] },
-  { label: 'Teachings', to: '/teachings', aliases: ['/teachings', '/teaching'] },
+  { label: 'Teaching Series', to: '/teachings', aliases: ['/teachings', '/teaching'] },
   { label: 'Shows', to: '/shows', aliases: ['/shows', '/tv-shows', '/tv-show'] },
   { label: 'Videos', to: '/videos', aliases: ['/videos', '/video'] },
   { label: 'Live TV', to: '/live-tv', aliases: ['/live-tv', '/channel'] },

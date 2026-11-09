@@ -8,7 +8,7 @@ import { PosterCard, IconSearch, img } from '../components/Poster'
 const CATEGORIES = [
   { key: 'movies', label: 'Sermons', base: '/movie', to: '/sermons' },
   { key: 'tvshows', label: 'Shows', base: '/tv-show', to: '/shows' },
-  { key: 'teachings', label: 'Teachings', base: '/teaching', to: '/teachings' },
+  { key: 'teachings', label: 'Teaching Series', base: '/teaching', to: '/teachings' },
   { key: 'videos', label: 'Videos', base: '/video', to: '/videos' },
   { key: 'channels', label: 'Live TV', base: '/channel', to: '/live-tv' },
 ] as const

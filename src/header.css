@@ -19,7 +19,7 @@
 .site-header-blur-layer:nth-child(4) { --blur: 4px; --blur-mask: linear-gradient(transparent 30%, #000 52% 65%, transparent 91%); }
 .site-header-blur-layer:nth-child(5) { --blur: 2px; --blur-mask: linear-gradient(transparent 50%, #000 72% 80%, transparent 100%); }
 .site-header-blur-layer:nth-child(6) { --blur: 1px; --blur-mask: linear-gradient(transparent 70%, #000 85%, transparent 100%); }
-.site-header .brand { width: auto; height: 60px; gap: 10px; }
+.site-header .brand { width: auto; height: 60px; gap: 5px; }
 .site-header .brand img { width: 42px; height: 42px; object-fit: cover; border-radius: 10px; }
 .site-header .brand-word { display: inline; font-size: 22px; letter-spacing: -.045em; }
 .site-header .main-nav { display: flex; gap: clamp(14px, 1.7vw, 26px); }

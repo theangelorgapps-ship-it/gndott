@@ -11,5 +11,5 @@ export const Route = createFileRoute('/teachings')({
 
 function Teachings() {
   const navigate = Route.useNavigate()
-  return <Catalogue title="Teachings" singular="teaching" base="/teaching" data={Route.useLoaderData()} search={Route.useSearch()} onSearchChange={search => { void navigate({ search, resetScroll: false }) }} />
+  return <Catalogue title="Teaching Series" singular="teaching" base="/teaching" data={Route.useLoaderData()} search={Route.useSearch()} onSearchChange={search => { void navigate({ search, resetScroll: false }) }} />
 }

@@ -81,7 +81,7 @@ export function PersonalityProfile({ detail, titleId, onNavigate }: { detail: Pe
   const biography = plainText(person.bio)
 
   async function share() {
-    const url = new URL(contentPath(person, '/cast'), window.location.origin).href
+    const url = new URL(contentPath(person, '/personalities'), window.location.origin).href
     try {
       if (navigator.share) await navigator.share({ title: person.name, url })
       else if (navigator.clipboard) { await navigator.clipboard.writeText(url); setShareMessage('Link copied.') }
@@ -127,5 +127,5 @@ export function PersonalityProfile({ detail, titleId, onNavigate }: { detail: Pe
 }
 
 export function PersonalityPage({ detail }: { detail: PersonalityDetail }) {
-  return <div className="personality-page"><Link className="personality-page-back" to="/cast"><ChevronLeft size={20} /> Personalities</Link><PersonalityProfile detail={detail} /></div>
+  return <div className="personality-page"><Link className="personality-page-back" to="/personalities"><ChevronLeft size={20} /> Personalities</Link><PersonalityProfile detail={detail} /></div>
 }

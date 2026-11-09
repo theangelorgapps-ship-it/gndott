@@ -1157,7 +1157,7 @@ button, input, textarea, select { max-width: 100%; }
   display: grid; grid-template-columns: minmax(210px, 1fr) auto minmax(280px, 1fr);
   align-items: center; gap: 24px; width: 100%; max-width: 1920px; height: 100%; margin: 0 auto; padding: 0 32px;
 }
-.brand { display: inline-flex; align-items: center; gap: 12px; width: 210px; height: 62px; justify-self: start; }
+.brand { display: inline-flex; align-items: center; gap: 6px; width: 210px; height: 62px; justify-self: start; }
 .brand img { width: 48px; height: 48px; flex: 0 0 auto; object-fit: contain; border-radius: 50%; }
 .brand-word { display: flex; flex-direction: column; font-size: 14px; font-weight: 600; line-height: 1.05; letter-spacing: -.02em; color: #fff; }
 .brand-word strong { font-size: 25px; font-weight: 780; line-height: 1.05; letter-spacing: -.045em; }

@@ -47,7 +47,7 @@ export async function passwordLogin(input: unknown) {
     const { getRequestHeaders } = await import('@tanstack/react-start/server')
     const result = await getAuth().api.signInEmail({ body: data, headers: getRequestHeaders() })
     const id = Number(result.user.id)
-    return { ok: true as const, user: { id, email: result.user.email, name: result.user.name }, profiles: await profilesFor(id) }
+    return { ok: true as const, user: { id, email: result.user.email, name: result.user.name }, profiles: await profilesFor(id), token: result.token ?? null }
   } catch { return { ok: false as const, error: INVALID_LOGIN } }
 }
 export async function registerAccount(input: unknown) {
@@ -58,8 +58,8 @@ export async function registerAccount(input: unknown) {
     await authLimit('register', email)
     const { getAuth } = await import('./better-auth.server')
     const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    await getAuth().api.signUpEmail({ headers: getRequestHeaders(), body: { name: data.firstName, lastName: data.lastName, email, password: data.password, mobile: data.mobile || undefined } })
-    return { ok: true as const }
+    const result = await getAuth().api.signUpEmail({ headers: getRequestHeaders(), body: { name: data.firstName, lastName: data.lastName, email, password: data.password, mobile: data.mobile || undefined } })
+    return { ok: true as const, token: (result as any)?.token ?? null }
   } catch { return { ok: false as const, error: 'Could not create your account. Check your details or sign in if you already have an account.' } }
 }
 export async function changeAccountPassword(input: unknown) {
@@ -92,6 +92,6 @@ export async function verifyEmailOtp(contact: string, code: string) {
     const { getRequestHeaders } = await import('@tanstack/react-start/server')
     const result = await getAuth().api.signInEmailOTP({ headers: getRequestHeaders(), body: { email, otp: code } })
     await profilesFor(Number(result.user.id))
-    return { ok: true as const }
+    return { ok: true as const, token: (result as { token?: string | null }).token ?? null }
   } catch { return { ok: false as const, error: 'The code is invalid or expired. Request another code.' } }
 }

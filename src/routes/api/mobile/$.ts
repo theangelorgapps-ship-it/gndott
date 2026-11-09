@@ -12,7 +12,6 @@ import {
   requestOtp, verifyOtp, changePassword, subscribePlan, confirmStripeSession,
   purchasePayPerView, getFooterData,
 } from '../../../lib/api'
-import { sign } from '../../../lib/session.server'
 import { first } from '../../../lib/db'
 
 // Stable public REST surface for the mobile app.
@@ -59,9 +58,8 @@ function num(v: string | undefined): number {
 }
 
 async function withSessionToken(res: any) {
-  if (res?.ok && res?.user?.id != null) {
-    const token = await sign({ uid: res.user.id, email: res.user.email, name: res.user.name ?? '' })
-    return { ...res, sessionToken: token }
+  if (res?.ok && typeof res?.token === 'string') {
+    return { ...res, sessionToken: res.token }
   }
   return res
 }
@@ -107,9 +105,9 @@ async function handleGet(ctx: Ctx): Promise<Response> {
     case 'faq': return json(await getFaqs())
     case 'page': return json(await getPage({ data: q.get('slug') ?? '' }))
     case 'plans': return json(await getPlansPage())
-    case 'checkout-info': return json(await getCheckoutInfo())
+    case 'checkout-info': return json(await getCheckoutInfo({ data: { planId: num(q.get('planId') ?? undefined) } }))
     case 'coupon':
-      return json(await validateCoupon({ data: { code: q.get('code') ?? '', amount: num(q.get('amount') ?? undefined) } }))
+      return json(await validateCoupon({ data: { code: q.get('code') ?? '', planId: num(q.get('planId') ?? undefined) } }))
     case 'session': return json(await getSessionUser())
     case 'watchlist': return json(await getWatchlist())
     case 'continue-watching': return json(await getContinueWatching())

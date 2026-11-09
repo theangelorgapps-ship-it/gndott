@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { RecommendationGroups, img, plainText, IconPlay } from './Poster'
 import { AboutPanel, DetailTabs, ClipsRail, BiblePanel, ContentNotes, hasPlaybackSource, type WatchSectionProps } from './Detail'
 import { PlaybackDialog, TitleDetail } from './TitleDetail'
 import { orderedEpisodes } from './playbackEnding'
+import { warmupBibleReader } from './BibleReader'
 
 export function ShowDetail({ data, kind }: { data: any; kind: 'tvshow' | 'teaching' }) {
   if (!data) return <div className="empty">{kind === 'teaching' ? 'Teaching' : 'Show'} not found.</div>
@@ -14,6 +15,8 @@ function ShowDetailContent({ data, kind }: { data: any; kind: 'tvshow' | 'teachi
   const [episodeMessage, setEpisodeMessage] = useState('')
   const [seasonIdx, setSeasonIdx] = useState(0)
   const [selectedPlayback, setSelectedPlayback] = useState<WatchSectionProps | null>(null)
+  // Warm the Bible cache while the user reads the detail page so the Bible tab opens instantly.
+  useEffect(() => { warmupBibleReader() }, [])
   const { show, seasons = [], episodes = [], genres = [], cast = [], clips = [], similar, bunnyLibraryId, inWatchlist, myPurchase, viewerId } = data
   const season = seasons[Math.min(seasonIdx, Math.max(seasons.length - 1, 0))]
   const ordered = orderedEpisodes<any>(episodes, seasons)

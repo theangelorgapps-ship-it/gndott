@@ -7,6 +7,16 @@ import { BIBLE_VERSIONS, type BibleBook, type BibleChapter } from '../lib/bibleP
 
 const bookCache = new Map<string, BibleBook[]>()
 const chapterCache = new Map<string, BibleChapter>()
+// Warm the default passage (KJV John 3) as soon as a player or detail page
+// mounts, so the Bible tab renders instantly instead of waiting on the network.
+let warmupStarted = false
+export function warmupBibleReader(version = '1', book = 'JHN', chapter = 3) {
+  if (warmupStarted) return
+  warmupStarted = true
+  const key = `${version}:${book}:${chapter}`
+  if (!bookCache.has(version)) void getBibleBooks({ data: { version } }).then(res => { if (res.books.length) bookCache.set(version, res.books) }).catch(() => { warmupStarted = false })
+  if (!chapterCache.has(key)) void getBibleChapter({ data: { version, book, chapter } }).then(res => { if (res.passage) chapterCache.set(key, res.passage) }).catch(() => {})
+}
 export function BibleReader({initial, playbackTime}:{initial?:{version:string;book:string;chapter:number;verse?:number}; playbackTime?: () => number | null}={}) {
   const id = useId()
   const [version, setVersion] = useState(initial?.version||'1')
@@ -55,7 +65,7 @@ export function BibleReader({initial, playbackTime}:{initial?:{version:string;bo
   }, [version, book, chapter, retry])
   useEffect(()=>{
     if(!loading && passage && initial?.verse && initial.book===book && initial.chapter===chapter) {
-      const frame=requestAnimationFrame(()=>document.getElementById(`${id}-verse-${initial.verse}`)?.scrollIntoView({block:'nearest'}))
+      const frame=requestAnimationFrame(()=>document.getElementById(`${id}-verse-${initial.verse}`)?.scrollIntoView({block:'start'}))
       return()=>cancelAnimationFrame(frame)
     }
   },[loading,passage,initial?.verse,book,chapter,id])
@@ -66,7 +76,7 @@ export function BibleReader({initial, playbackTime}:{initial?:{version:string;bo
       <label htmlFor={`${id}-version`}><span id={`${id}-version-label`}>Translation</span><select aria-labelledby={`${id}-version-label`} id={`${id}-version`} value={version} onChange={event => setVersion(event.target.value)}>{BIBLE_VERSIONS.map(item => <option key={item.id} value={item.id}>{item.code}</option>)}</select></label>
       <label htmlFor={`${id}-book`}><span id={`${id}-book-label`}>Book</span><select aria-labelledby={`${id}-book-label`} id={`${id}-book`} value={book} disabled={!books.length} onChange={event => { setBook(event.target.value); setChapter(1); setVerseJump(null) }}>{books.length ? books.map(item => <option key={item.id} value={item.id}>{item.name}</option>) : <option value="JHN">John</option>}</select></label>
       <label htmlFor={`${id}-chapter`}><span id={`${id}-chapter-label`}>Chapter</span><select aria-labelledby={`${id}-chapter-label`} id={`${id}-chapter`} value={chapter} disabled={!selected} onChange={event => { setChapter(Number(event.target.value)); setVerseJump(null) }}>{Array.from({ length: selected?.chapters || 3 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select></label>
-      <label htmlFor={`${id}-verse`}><span id={`${id}-verse-label`}>Verse</span><select aria-labelledby={`${id}-verse-label`} id={`${id}-verse`} value={verseJump ?? ''} disabled={!passage} onChange={event => { const number = Number(event.target.value); if (!number) return; setVerseJump(number); document.getElementById(`${id}-verse-${number}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }) }}><option value="" disabled>—</option>{passage?.verses.map(verse => <option key={verse.number} value={verse.number}>{verse.number}</option>)}</select></label>
+      <label htmlFor={`${id}-verse`}><span id={`${id}-verse-label`}>Verse</span><select aria-labelledby={`${id}-verse-label`} id={`${id}-verse`} value={verseJump ?? ''} disabled={!passage} onChange={event => { const number = Number(event.target.value); if (!number) return; setVerseJump(number); document.getElementById(`${id}-verse-${number}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }) }}><option value="" disabled>—</option>{passage?.verses.map(verse => <option key={verse.number} value={verse.number}>{verse.number}</option>)}</select></label>
     </div>
     <div className="reader-preferences"><span>Select a verse to save or highlight</span><button type="button" aria-label="Smaller reading text" disabled={fontSize<=16} onClick={()=>setFontSize(s=>s-1)}><Minus size={15}/></button><span aria-live="polite">Aa</span><button type="button" aria-label="Larger reading text" disabled={fontSize>=24} onClick={()=>setFontSize(s=>s+1)}><Plus size={15}/></button></div>
     <p className="reader-status" role="status">{readerStatus}</p>

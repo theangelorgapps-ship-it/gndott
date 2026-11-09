@@ -8,6 +8,7 @@ import '../player-interaction.css'
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, X, SlidersHorizontal, PictureInPicture2 } from 'lucide-react'
 import { BiblePanel, ContentNotes, youtubeId, type WatchSectionProps } from './Detail'
+import { warmupBibleReader } from './BibleReader'
 import { img, plainText } from './Poster'
 import { createPlayerBridge, type PlayerBridge } from './playerBridge'
 import { createYouTubeBridge } from './youtubeBridge'
@@ -56,6 +57,8 @@ export function ImmersivePlayer(props: WatchSectionProps) {
   const [endingDismissed, setEndingDismissed] = useState(false)
   const [seekPreview, setSeekPreview] = useState<{ time: number; percent: number } | null>(null)
   const [panel, setPanel] = useState<Panel>(null)
+  // Warm the Bible cache in the background so the Bible tab opens instantly.
+  useEffect(() => { warmupBibleReader() }, [])
   const [providerControls, setProviderControls] = useState(false)
   const [fallback, setFallback] = useState(false)
   const [providerFallback, setProviderFallback] = useState(false)

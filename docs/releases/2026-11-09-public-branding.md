@@ -42,3 +42,12 @@ Independent review found no documented-standard breaches or concrete security de
 Independent review found no missing requirements, unrequested behaviour or implementation errors. The reviewer reran the canonical route gate successfully. Browser checks and deployment verification are recorded separately above and below.
 
 Review totals: Standards — two minor findings resolved, two non-blocking observations retained; Spec — zero findings.
+
+## Published release
+
+- Website source commit: `3fa1fae`, pushed to `codex/apple-tv-experience`.
+- Cloudflare Worker: `gndott`; version `90eb4b0e-a59a-4f25-8933-179798200824`. Only the public website was deployed.
+- Production checks: homepage and all four canonical detail families returned HTTP 200 with the requested title, description and canonical/social metadata. All four legacy detail families returned HTTP 301 and retained query parameters.
+- Social artwork and all favicon renditions returned HTTP 200 with the correct image MIME types.
+- Live browser confirmed the old Putin URL resolves to `/sermon/putin-prophet-uebert-angel-109` and displays Sermon. Store shelf/dock gap and horizontal overflow both measured 0px. Signed-in visitors remained uninterrupted by the welcome.
+- Temporary preview process stopped and browser viewport restored. No emails, chat posts or purchases were sent.

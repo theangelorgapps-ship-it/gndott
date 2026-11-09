@@ -8,6 +8,11 @@ import { TitlePreview } from './TitlePreview'
 import { enterPlayerFullscreen, togglePlayerFullscreen } from './playerFullscreen'
 
 export function PlaybackDialog({ playback, onClose }: { playback: WatchSectionProps; onClose: () => void }) {
+  const router = useRouter()
+  const closePlayback = () => {
+    if (/^watch(?:-episode-\d+)?$/.test(router.state.location.hash)) void router.navigate({ hash: '', replace: true, resetScroll: false })
+    onClose()
+  }
   const dialogRef = useRef<HTMLDialogElement>(null)
   const surfaceRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -41,11 +46,11 @@ export function PlaybackDialog({ playback, onClose }: { playback: WatchSectionPr
 
   if (!mounted) return null
   return createPortal(
-    <dialog ref={dialogRef} data-lenis-prevent className="tv-playback-dialog tv-immersive-dialog" aria-labelledby={headingId} onCancel={(event) => { event.preventDefault(); onClose() }} onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
+    <dialog ref={dialogRef} data-lenis-prevent className="tv-playback-dialog tv-immersive-dialog" aria-labelledby={headingId} onCancel={(event) => { event.preventDefault(); closePlayback() }} onClick={(event) => { if (event.target === event.currentTarget) closePlayback() }}>
       <div ref={surfaceRef} tabIndex={-1} className="tv-playback-content tv-playback-surface">
         <header className="tv-playback-heading">
           <h2 id={headingId}>{playback.title}</h2>
-          <button ref={closeRef} type="button" className="tv-detail-utility" aria-label="Close playback" onClick={onClose}><X size={23} /></button>
+          <button ref={closeRef} type="button" className="tv-detail-utility" aria-label="Close playback" onClick={closePlayback}><X size={23} /></button>
           <button type="button" className="tv-detail-utility tv-player-fullscreen" aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'} onClick={() => { setFullscreenMessage(''); void togglePlayerFullscreen(surfaceRef.current).catch(() => setFullscreenMessage('Start the video, then tap full screen again. If your browser does not support it, the player will continue filling this window.')) }}>{fullscreen ? <Minimize size={22} /> : <Maximize size={22} />}</button>
         </header>
         {fullscreenMessage && <p className="tv-fullscreen-status" role="status">{fullscreenMessage}</p>}
@@ -124,6 +129,7 @@ export function TitleDetail({ title, poster, landscape, description, kind, genre
   useEffect(() => {
     const intent = `${playback.contentType}:${playback.contentId}:${hash}`
     const episodeMatch = hash.match(/^watch-episode-(\d+)$/)
+    if (hash !== 'watch' && !episodeMatch) consumedIntent.current = ''
     if ((hash === 'watch' || (episodeMatch && onPlay)) && consumedIntent.current !== intent) {
       consumedIntent.current = intent
       if (onPlay) onPlay(episodeMatch ? Number(episodeMatch[1]) : undefined)

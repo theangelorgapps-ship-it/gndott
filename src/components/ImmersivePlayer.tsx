@@ -4,6 +4,7 @@ import { LiquidNavbar } from './ui/liquid-glass-navbar'
 import { ChoicePicker } from './ui/choice-picker'
 import '../player-chat-refinement.css'
 import '../release2-experience.css'
+import '../player-interaction.css'
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, X, SlidersHorizontal, PictureInPicture2 } from 'lucide-react'
 import { BiblePanel, ContentNotes, youtubeId, type WatchSectionProps } from './Detail'
@@ -88,15 +89,17 @@ export function ImmersivePlayer(props: WatchSectionProps) {
   const yt = !hasBunny && !direct ? youtubeId(trailerUrl) : null
   const source = liveEmbed || (hasBunny ? `https://iframe.mediadelivery.net/embed/${bunnyLibraryId}/${bunnyVideoId}?autoplay=false&preload=true&responsive=true&compactControls=true&showSpeed=false&showHeatmap=false` : yt ? `https://www.youtube.com/embed/${yt}?autoplay=0&rel=0` : null)
   const customControls = !liveEmbed && (ready || !!direct) && !fallback && !providerControls
-  const idleState = useRef({ paused, panel, settingsOpen, mediaLoading })
-  idleState.current = { paused, panel, settingsOpen, mediaLoading }
+  const idleState = useRef({ settingsOpen })
+  idleState.current = { settingsOpen }
 
   useEffect(() => {
     const controls = createIdleControls(setControlsVisible, () => {
       const state = idleState.current
       const focused = document.activeElement
-      const keyboardFocused = focused instanceof HTMLElement && stageRef.current?.contains(focused) && focused.matches(':focus-visible')
-      return !state.paused && !state.panel && !state.settingsOpen && !state.mediaLoading && !keyboardFocused && !holdingControl.current && !scrubbing.current
+      const surface = stageRef.current?.closest('.tv-playback-surface') ?? stageRef.current
+      const keyboardFocused = focused instanceof HTMLElement && surface?.contains(focused) && focused.matches(':focus-visible')
+        && !!focused.closest('.tv-playback-heading, .tv-player-center, .tv-player-tools, .tv-player-timeline, .tv-player-settings, .tv-player-panel-transport')
+      return !state.settingsOpen && !keyboardFocused && !holdingControl.current && !scrubbing.current
     })
     idleControls.current = controls
     const wake = createPlaybackWakeLock(navigator, document)
@@ -110,11 +113,15 @@ export function ImmersivePlayer(props: WatchSectionProps) {
     const surface = stageRef.current?.closest('.tv-playback-surface')
     surface?.addEventListener('pointermove', reveal)
     surface?.addEventListener('focusin', reveal)
+    surface?.addEventListener('pointerdown', reveal)
+    surface?.addEventListener('keydown', reveal)
     window.addEventListener('pointerup', releaseGesture)
     window.addEventListener('pointercancel', releaseGesture)
     return () => {
       surface?.removeEventListener('pointermove', reveal)
       surface?.removeEventListener('focusin', reveal)
+      surface?.removeEventListener('pointerdown', reveal)
+      surface?.removeEventListener('keydown', reveal)
       window.removeEventListener('pointerup', releaseGesture)
       window.removeEventListener('pointercancel', releaseGesture)
       controls.destroy(); wake.destroy(); idleControls.current = null; wakeLock.current = null
@@ -285,7 +292,7 @@ export function ImmersivePlayer(props: WatchSectionProps) {
   function revealControls() {
     idleControls.current?.reveal()
   }
-  useEffect(() => { revealControls() }, [paused, panel, settingsOpen, mediaLoading])
+  useEffect(() => { revealControls() }, [panel, settingsOpen])
 
   async function togglePip() {
     setPipBusy(true)
@@ -306,17 +313,19 @@ export function ImmersivePlayer(props: WatchSectionProps) {
   }
   const hasSource = !!(source || direct)
   const showEnding = !live && customControls && !panel && !endingDismissed && (ended || nearPlaybackEnd(position, duration, observed.current.hasPlayed))
-  const showOverlay = controlsVisible || paused || !!panel || settingsOpen || mediaLoading || !customControls || showEnding
+  const showOverlay = controlsVisible || !!panel || settingsOpen || !customControls || showEnding
+  const transportHidden = !controlsVisible && hasSource && !fallback && !showEnding
   return (
-    <div ref={stageRef} className={`tv-immersive-player${live ? ' is-live' : ''}${panel ? ' panel-open' : ''}${showEnding ? ' ending-open' : ''}${customControls ? ' has-custom-controls' : ' provider-controls'}${showOverlay ? ' controls-visible' : ''}`} data-lenis-prevent tabIndex={0} aria-label={`${title} video player`} onKeyDown={onKeyDown} onPointerMove={revealControls} onFocusCapture={revealControls} onBlurCapture={revealControls}
+    <div ref={stageRef} className={`tv-immersive-player${live ? ' is-live' : ''}${panel ? ' panel-open' : ''}${showEnding ? ' ending-open' : ''}${customControls ? ' has-custom-controls' : ' provider-controls'}${showOverlay ? ' controls-visible' : ''}${transportHidden ? ' transport-hidden' : ''}`} data-lenis-prevent tabIndex={0} aria-label={`${title} video player`} onKeyDown={onKeyDown} onPointerMove={revealControls} onFocusCapture={revealControls} onBlurCapture={revealControls}
       onPointerDownCapture={() => { holdingControl.current = true; revealControls() }}
       onPointerUpCapture={() => { holdingControl.current = false; revealControls() }}
       onPointerCancel={() => { holdingControl.current = false; scrubbing.current = false; setPosition(observed.current.position); revealControls() }}>
       <div className="tv-player-media">
-        {source ? <iframe ref={iframeRef} src={source} title={title} onLoad={() => { if (liveEmbed) setReady(true) }} sandbox={liveEmbed ? "allow-scripts allow-same-origin allow-presentation" : undefined} referrerPolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen tabIndex={customControls ? -1 : 0} /> : direct ? <video ref={videoRef} poster={img(poster)} controls={!customControls} playsInline preload="metadata" onLoadedMetadata={(event) => { setReady(true); updateTiming(event.currentTarget.currentTime, event.currentTarget.duration) }} onRateChange={(event) => setSpeed(event.currentTarget.playbackRate)} onPlaying={() => { setMediaPlaying(true); setMediaLoading(false) }} onWaiting={() => setMediaLoading(true)} onTimeUpdate={(event) => updateTiming(event.currentTarget.currentTime, event.currentTarget.duration)} onPlay={() => { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); if (!live) resumeRef.current!.onPlay() }} onPause={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved() }} onEnded={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); if (!live) setEnded(true); flushObserved(); if (live) { setFallback(true); setMessage('This broadcast has ended. Reconnect when it resumes.') } }} onVolumeChange={(event) => { setMuted(event.currentTarget.muted); setVolume(event.currentTarget.volume) }} onError={() => { setMediaPlaying(false); setMediaLoading(false); if (bunnyLibraryId && bunnyVideoId) { setReady(false); setProviderFallback(true); setMessage('Opening the video provider’s player…') } else { setFallback(true); setMessage(live ? 'The live stream is unavailable or has ended. Try reconnecting.' : 'This video could not be loaded. Try its original link.') } }} /> : <img className="tv-player-poster" src={img(poster)} alt="" />}
+        {source ? <iframe ref={iframeRef} src={source} title={title} onPointerEnter={revealControls} onFocus={revealControls} onLoad={() => { if (liveEmbed) setReady(true) }} sandbox={liveEmbed ? "allow-scripts allow-same-origin allow-presentation" : undefined} referrerPolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen tabIndex={customControls ? -1 : 0} /> : direct ? <video ref={videoRef} poster={img(poster)} controls={!customControls} playsInline preload="metadata" onLoadedMetadata={(event) => { setReady(true); updateTiming(event.currentTarget.currentTime, event.currentTarget.duration) }} onRateChange={(event) => setSpeed(event.currentTarget.playbackRate)} onPlaying={() => { setMediaPlaying(true); setMediaLoading(false) }} onWaiting={() => setMediaLoading(true)} onTimeUpdate={(event) => updateTiming(event.currentTarget.currentTime, event.currentTarget.duration)} onPlay={() => { pausedIntent.current = false; observed.current.hasPlayed = true; setPaused(false); if (!live) resumeRef.current!.onPlay() }} onPause={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); flushObserved() }} onEnded={() => { pausedIntent.current = true; setMediaPlaying(false); setMediaLoading(false); setPaused(true); if (!live) setEnded(true); flushObserved(); if (live) { setFallback(true); setMessage('This broadcast has ended. Reconnect when it resumes.') } }} onVolumeChange={(event) => { setMuted(event.currentTarget.muted); setVolume(event.currentTarget.volume) }} onError={() => { setMediaPlaying(false); setMediaLoading(false); if (bunnyLibraryId && bunnyVideoId) { setReady(false); setProviderFallback(true); setMessage('Opening the video provider’s player…') } else { setFallback(true); setMessage(live ? 'The live stream is unavailable or has ended. Try reconnecting.' : 'This video could not be loaded. Try its original link.') } }} /> : <img className="tv-player-poster" src={img(poster)} alt="" />}
         {(mediaLoading || (!ready && !fallback && hasSource)) && <PlayerLoading kind="video" label="Loading video…" />}
         {panel && customControls && <button className="tv-player-panel-transport" type="button" onClick={togglePlay} aria-label={paused ? 'Play video while reading' : 'Pause video while reading'}>{paused ? <Play size={20} fill="currentColor" /> : <Pause size={20} fill="currentColor" />}</button>}
       </div>
+      {transportHidden && !customControls && <div className="tv-player-wake-zone" aria-hidden="true" onPointerMove={revealControls} onPointerDown={revealControls} />}
       {customControls && <div className="tv-player-scrim" aria-hidden="true" />}
       {customControls && !panel && !showEnding && <div className="tv-player-center">
         <button type="button" onClick={() => seek(position - 10)} aria-label="Rewind 10 seconds" disabled={!duration || (live && duration - windowStart <= 30)}><RotateCcw size={29} /><span>10</span></button>

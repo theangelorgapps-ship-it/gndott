@@ -55,7 +55,7 @@ function Home() {
       {data.popular?.length > 0 && <Rail title="Popular across Halobox">{data.popular.map((item: any) => <PosterCard key={`${item.type}-${item.id}`} item={item} base={contentBase(item.type)} />)}</Rail>}
       {data.channels.length > 0 && (
         <Rail title="Top Channels" seeAll="/live-tv">
-          {data.channels.map((channel: any) => <Link key={channel.id} to={contentPath(channel,'/channel') as any} className="c-circle"><img src={img(channel.poster_url)} alt={channel.name} loading="lazy" /><div className="c-name">{channel.name}</div></Link>)}
+          {data.channels.map((channel: any) => <Link key={channel.id} to={contentPath(channel,'/channel') as any} hash="watch" className="c-circle"><img src={img(channel.poster_url)} alt={channel.name} loading="lazy" /><div className="c-name">{channel.name}</div></Link>)}
         </Rail>
       )}
       {data.cast?.length > 0 && (

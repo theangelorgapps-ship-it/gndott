@@ -121,7 +121,7 @@ const AppleSpotlight = ({
 
   const go = (link: string) => {
     closeRef.current()
-    navigate({ to: link as any })
+    navigate({ to: link as any, hash: results.some(result => result.link === link) ? 'watch' : undefined })
   }
 
   // Opening always starts a fresh search. Closing releases the page and restores trigger focus.

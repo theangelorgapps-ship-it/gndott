@@ -26,6 +26,7 @@ import '../refinements.css'
 import '../player-chat-refinement.css'
 import '../release2-experience.css'
 import '../release2-visual.css'
+import '../player-interaction.css'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -269,8 +270,8 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
           <div className="contact halo-contact"><a href="mailto:Hello@halobox.tv">Hello@halobox.tv</a><a href="tel:+14488770344">🇺🇸 +1 448 877 0344</a><a href="tel:+441244727242">🇬🇧 +44 1244 727242</a><a href="tel:+2638677211645">🇿🇼 +263 8677 211 645</a><a href="tel:+27872654913">🇿🇦 +27 872 654 913</a></div>
           <div className="socials">{SOCIALS.map((d, i) => <SocialIcon key={i} d={d} />)}</div>
         </div>
-        <div className="footer-col"><h4>Premium Shows</h4>{footer.premium.map((item: any) => <Link key={item.id} to={contentPath(item,'/tv-show') as any}>› {item.name}</Link>)}</div>
-        <div className="footer-col"><h4>Latest Released</h4>{footer.latest.map((item: any) => <Link key={item.id} to={contentPath(item,'/movie') as any}>› {item.name}</Link>)}</div>
+        <div className="footer-col"><h4>Premium Shows</h4>{footer.premium.map((item: any) => <Link key={item.id} to={contentPath(item,'/tv-show') as any} hash="watch">› {item.name}</Link>)}</div>
+        <div className="footer-col"><h4>Latest Released</h4>{footer.latest.map((item: any) => <Link key={item.id} to={contentPath(item,'/movie') as any} hash="watch">› {item.name}</Link>)}</div>
         <div className="footer-col">
           <h4>Download Our App</h4>
           <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Download our app for instant access to the best sermons, shows and teachings!</p>

@@ -3,7 +3,9 @@ import { ChevronDown, Heart, MessageCircle, MoreHorizontal, Send, ShieldCheck, S
 import { blockLiveViewer, getLiveDiscussion, moderateLive, reportLiveComment, sendLiveComment, unblockLiveViewer } from '../lib/liveTv'
 import { useTypingViewport } from '../hooks/useTypingViewport'
 import { PlayerLoading } from './PlayerLoading'
+import { ChatPicker } from './ChatPicker'
 import '../player-chat-refinement.css'
+import '../player-interaction.css'
 
 type Discussion = Awaited<ReturnType<typeof getLiveDiscussion>>
 const tabs = ['Live comments', 'Responses', 'Admin comments', 'Reports'] as const
@@ -24,6 +26,7 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
   const reportForm = useRef<HTMLFormElement>(null)
   const blockTrigger = useRef<HTMLElement | null>(null), composer = useRef<HTMLTextAreaElement>(null), busyRef = useRef(false)
   const sheet = useRef<HTMLDivElement>(null)
+  const reactionTrigger = useRef<HTMLButtonElement>(null), emojiTrigger = useRef<HTMLButtonElement>(null)
   useTypingViewport(sheet)
   channel.current = channelId
   const prefix = useId()
@@ -133,7 +136,7 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
           </> : <>{!comments.length&&!pinned.length&&<p className="chat-notice">{activeTab==='Responses'?'Replies will appear here.':activeTab==='Admin comments'?'Official messages will appear here.':'Be the first to join the conversation.'}</p>}{comments.map(comment)}</>}
         </div>
         <div className="chat-welcome"><ShieldCheck size={20} aria-hidden="true"/><p>Welcome to live chat. Keep personal details private and treat others with kindness.</p>
-          {data.canComment&&activeTab!=='Reports'&&<div className="chat-reactions"><button type="button" aria-label="Choose a reaction" aria-expanded={reactionsOpen} onClick={()=>setReactionsOpen(value=>!value)}><Heart size={23}/></button>{reactionsOpen&&<div className="chat-reaction-options" role="group" aria-label="Send a reaction">{reactions.map(r=><button type="button" key={r.label} disabled={busy} aria-label={`Send ${r.label} reaction`} onClick={()=>send(r.emoji,true)}>{r.emoji}</button>)}<button type="button" aria-label="Close reactions" onClick={()=>setReactionsOpen(false)}><ChevronDown size={18}/></button></div>}</div>}
+          {data.canComment&&activeTab!=='Reports'&&<div className="chat-reactions"><button ref={reactionTrigger} type="button" aria-label="Choose a reaction" aria-expanded={reactionsOpen} onClick={()=>setReactionsOpen(value=>!value)}><Heart size={23}/></button>{reactionsOpen&&<ChatPicker anchor={reactionTrigger} className="chat-reaction-options" label="Send a reaction" onClose={()=>setReactionsOpen(false)}>{reactions.map(r=><button type="button" key={r.label} disabled={busy} aria-label={`Send ${r.label} reaction`} onClick={()=>send(r.emoji,true)}>{r.emoji}</button>)}<button type="button" aria-label="Close reactions" onClick={()=>setReactionsOpen(false)}><ChevronDown size={18}/></button></ChatPicker>}</div>}
         </div>
         {report!==null&&<form ref={reportForm} className="live-composer chat-report-form" aria-label="Report comment" onSubmit={e=>{e.preventDefault();void mutate(()=>reportLiveComment({data:{channelId,commentId:report,reason,detail}}),()=>{setReport(null);setNotice('Report submitted for review.')})}}>
           <label>Reason<select value={reason} onChange={e=>setReason(e.target.value)}>{['spam','abuse','inappropriate','other'].map(r=><option key={r}>{r}</option>)}</select></label><label>Details (optional)<textarea maxLength={500} value={detail} onChange={e=>setDetail(e.target.value)}/></label><div><button className="btn btn-primary" disabled={busy}>Submit report</button><button type="button" onClick={()=>setReport(null)}>Cancel</button></div>
@@ -141,9 +144,9 @@ export function LiveDiscussion({ channelId, moderation = false }: { channelId: n
         {activeTab!=='Reports'&&(data.canComment?<form className="live-composer chat-composer" onSubmit={e=>{e.preventDefault();send()}}>
           {reply&&<p className="chat-replying">Replying to {reply.author_name}<button type="button" aria-label="Cancel reply" onClick={()=>setReply(null)}><X size={16}/></button></p>}
           <label className="chat-sr-only" htmlFor={`${prefix}-message`}>{canModerate&&activeTab==='Admin comments'?'Official announcement':'Your comment'}</label>
-          <div className="chat-input-row"><div className="chat-input-pill"><textarea ref={composer} id={`${prefix}-message`} rows={1} maxLength={1000} value={body} readOnly={busy} aria-busy={busy} onChange={e=>setBody(e.target.value)} placeholder="Chat…" required onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send()}}}/><button type="button" aria-label="Add emoji" aria-expanded={emojiOpen} disabled={busy} onClick={()=>setEmojiOpen(value=>!value)}><Smile size={22}/></button></div><button type="submit" className="chat-send" disabled={busy||!body.trim()} aria-label={busy?'Sending comment':'Send comment'}><Send size={23}/></button></div>
-          {emojiOpen&&<div className="chat-emoji-options" role="group" aria-label="Add emoji to comment">{[...reactions,{emoji:'✨',label:'sparkles'},{emoji:'👏',label:'applause'},{emoji:'🔥',label:'fire'}].map(r=><button key={r.label} type="button" aria-label={`Add ${r.label}`} onClick={()=>{setBody(value=>(value+r.emoji).slice(0,1000));setEmojiOpen(false);composer.current?.focus()}}>{r.emoji}</button>)}</div>}
-          <p className="chat-composer-hint">{body.length>800?`${body.length}/1,000 · `:''}{data.slowMode?`${data.slowMode}s between messages`:'Share a thought with the community'}</p>
+          <div className="chat-input-row"><div className="chat-input-pill"><textarea ref={composer} id={`${prefix}-message`} rows={1} maxLength={1000} value={body} readOnly={busy} aria-busy={busy} onChange={e=>setBody(e.target.value)} placeholder="Chat…" required onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send()}}}/><button ref={emojiTrigger} type="button" aria-label="Add emoji" aria-expanded={emojiOpen} disabled={busy} onClick={()=>setEmojiOpen(value=>!value)}><Smile size={22}/></button></div><button type="submit" className="chat-send" disabled={busy||!body.trim()} aria-label={busy?'Sending comment':'Send comment'}><Send size={23}/></button></div>
+          {emojiOpen&&<ChatPicker anchor={emojiTrigger} className="chat-emoji-options" label="Add emoji to comment" onClose={()=>setEmojiOpen(false)}>{[...reactions,{emoji:'✨',label:'sparkles'},{emoji:'👏',label:'applause'},{emoji:'🔥',label:'fire'}].map(r=><button key={r.label} type="button" aria-label={`Add ${r.label}`} onClick={()=>{setBody(value=>(value+r.emoji).slice(0,1000));setEmojiOpen(false);composer.current?.focus()}}>{r.emoji}</button>)}</ChatPicker>}
+          {body.length>800&&<p className="chat-composer-hint">{body.length}/1,000</p>}
         </form>:<p className="live-sign-in">{!data.signedIn?<>Join the conversation. <a href="/login">Sign in</a></>:data.commentReason}{data.signedIn&&!data.muted&&data.enabled?<a href="/manage-profile"> Choose profile</a>:null}</p>)}
       </>}
       {error&&<p role="alert" className="live-error chat-notice">{error}</p>}{notice&&<p role="status" className="chat-notice chat-status">{notice}</p>}

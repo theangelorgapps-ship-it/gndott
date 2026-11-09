@@ -1,4 +1,4 @@
-export const PLAYER_IDLE_MS = 1820
+export const PLAYER_IDLE_MS = 3720
 
 /** A single idle deadline; an active gesture or keyboard focus never disappears. */
 export function createIdleControls(show: (visible: boolean) => void, canHide: () => boolean, clock = {

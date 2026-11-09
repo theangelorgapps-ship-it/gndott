@@ -23,11 +23,11 @@ const jobs=new Map()
 const clock={set(fn,delay){const id=++next;jobs.set(id,{fn,at:now+delay});return id},clear(id){jobs.delete(id)}}
 function advance(ms){now+=ms;for(const [id,job] of [...jobs])if(job.at<=now){jobs.delete(id);job.fn()}}
 const idle=p.createIdleControls(value=>{visible=value},()=>canHide,clock)
-idle.reveal();advance(1819);assert.equal(visible,true)
-advance(1);assert.equal(visible,false,'Control fade starts at exactly 1820 ms')
-idle.reveal();advance(1000);idle.reveal();advance(821);assert.equal(visible,true,'Activity resets the deadline')
-canHide=false;advance(999);assert.equal(visible,true,'A paused video, panel or held/focused control remains reachable')
-canHide=true;idle.reveal();advance(1820);assert.equal(visible,false)
+idle.reveal();advance(3719);assert.equal(visible,true)
+advance(1);assert.equal(visible,false,'Control fade starts at exactly 3720 ms')
+idle.reveal();advance(1000);idle.reveal();advance(2721);assert.equal(visible,true,'Activity resets the deadline')
+canHide=false;advance(999);assert.equal(visible,true,'A held or keyboard-focused control remains reachable')
+canHide=true;idle.reveal();advance(3720);assert.equal(visible,false)
 idle.reveal();idle.destroy();advance(5000);assert.equal(visible,true);assert.equal(jobs.size,0)
 idle.reveal();assert.equal(jobs.size,0,'Disposed controls cannot restart a timer')
 

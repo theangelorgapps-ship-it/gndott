@@ -64,7 +64,7 @@ export function PosterCard({ item, base, landscape = false, badge }: { item: any
   const paid = item.movie_access === 'paid' || item.access === 'paid'
   return (
     <article className={`p-card${landscape ? ' p-card-landscape' : ''}`}>
-      <Link to={contentPath(item,base) as any} className="p-card-link" aria-keyshortcuts="ArrowDown" params={undefined as never}>
+      <Link to={contentPath(item,base) as any} hash="watch" className="p-card-link" aria-keyshortcuts="ArrowDown" params={undefined as never}>
       <span className="p-poster"><img src={img(landscape ? item.thumbnail_url || item.poster_url : item.poster_url)} alt="" width={landscape ? 480 : 200} height={landscape ? 270 : 300} loading="lazy" decoding="async" />
         {paid && <span className="p-crown" title="Premium"><IconCrown size={11} /></span>}
         {badge && <span className="p-upload-badge">{badge}</span>}
@@ -155,6 +155,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
       clearClose(); closeTimer.current = setTimeout(() => hide(), 180)
     }
     const dismiss = () => hide(true)
+    const scroll = () => { if (!inlineMode) hide(true) }
     const other = (event: Event) => { if ((event as CustomEvent).detail !== host) hide(true) }
     const key = (event: KeyboardEvent) => {
       if (event.key === 'ArrowDown' && present && !inlineMode && document.activeElement === link) { event.preventDefault(); popup.current?.querySelector<HTMLElement>('.halo-preview-sound:not(:disabled), .halo-preview-play')?.focus() }
@@ -188,7 +189,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
     host.addEventListener('pointerdown', down, { passive: true }); host.addEventListener('pointermove', move, { passive: true })
     host.addEventListener('pointerup', finish); host.addEventListener('pointercancel', finish); host.addEventListener('click', click, true)
     document.addEventListener('pointerdown', outside, { passive: true })
-    window.addEventListener('scroll', dismiss, true); window.addEventListener('resize', dismiss)
+    window.addEventListener('scroll', scroll, true); window.addEventListener('resize', dismiss)
     window.addEventListener('halo-preview', other); window.addEventListener('gndott:preview-active', other)
     window.addEventListener('gndott:playback-open', dismiss); window.addEventListener('keydown', key)
     document.addEventListener('visibilitychange', dismiss)
@@ -200,7 +201,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
       host.removeEventListener('pointerdown', down); host.removeEventListener('pointermove', move)
       host.removeEventListener('pointerup', finish); host.removeEventListener('pointercancel', finish); host.removeEventListener('click', click, true)
       document.removeEventListener('pointerdown', outside)
-      window.removeEventListener('scroll', dismiss, true); window.removeEventListener('resize', dismiss)
+      window.removeEventListener('scroll', scroll, true); window.removeEventListener('resize', dismiss)
       window.removeEventListener('gndott:preview-active', other); window.removeEventListener('gndott:playback-open', dismiss)
       window.removeEventListener('halo-preview', other); window.removeEventListener('keydown', key)
       document.removeEventListener('visibilitychange', dismiss)
@@ -246,7 +247,7 @@ function HoverPreview({ item, base }: { item: any; base: string }) {
 
 export function LiveChannelCard({ channel }: { channel: any }) {
   return (
-    <Link to={contentPath(channel,'/channel') as any} className="p-card live-card">
+    <Link to={contentPath(channel,'/channel') as any} hash="watch" className="p-card live-card">
       <span className="p-poster" style={{ backgroundImage: `url(${img(channel.poster_url)})` }}><span className="live-badge">LIVE</span></span>
       <span className="p-name">{channel.name}</span>
     </Link>
@@ -425,7 +426,7 @@ export function RecommendationGroups({ recommendations, fallback = [], recentFal
 }
 
 export function Top10Card({ item, rank, base }: { item: any; rank: number; base: string }) {
-  return <Link to={contentPath(item,base) as any} className="top10-item" aria-label={`${rank}. ${item.name}`}><span className="top10-rank" aria-hidden="true">{rank}</span><span className="p-poster"><img src={img(item.poster_url)} alt="" width={200} height={300} loading="lazy" decoding="async" /></span></Link>
+  return <Link to={contentPath(item,base) as any} hash="watch" className="top10-item" aria-label={`${rank}. ${item.name}`}><span className="top10-rank" aria-hidden="true">{rank}</span><span className="p-poster"><img src={img(item.poster_url)} alt="" width={200} height={300} loading="lazy" decoding="async" /></span></Link>
 }
 
 export function CircleCard({ name, image, to }: { name: string; image?: string | null; to?: string }) {

@@ -13,7 +13,7 @@ function load(file, imports = {}, globals = {}) {
   const module = { exports: {} }
   const result = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX }, reportDiagnostics: true })
   assert.ok(!result.diagnostics?.some(d => d.category === ts.DiagnosticCategory.Error), `Parse failed: ${file}`)
-  vm.runInNewContext(result.outputText, { module, exports: module.exports, require: n => imports[n] ?? require(n), console, URL, crypto: webcrypto, setTimeout, clearTimeout, ...globals })
+  vm.runInNewContext(result.outputText, { module, exports: module.exports, require: n => n.endsWith('.css') ? {} : imports[n] ?? require(n), console, URL, crypto: webcrypto, setTimeout, clearTimeout, ...globals })
   return module.exports
 }
 function nodes(tree) {
@@ -43,7 +43,7 @@ function discussion(data, moderation = false) {
     useRef(initial) { const i = ri++; return refs[i] ??= { current: i === 0 ? true : initial } },
     useEffect() {}, useCallback: fn => fn, useId: () => 'test-chat',
   }
-  const component = load('src/components/LiveDiscussion.tsx', { react, '../hooks/useTypingViewport': { useTypingViewport() {} }, './PlayerLoading': { PlayerLoading() {} }, '../player-chat-refinement.css': {}, '../lib/liveTv': {
+  const component = load('src/components/LiveDiscussion.tsx', { react, './ChatPicker': load('src/components/ChatPicker.tsx'), '../hooks/useTypingViewport': { useTypingViewport() {} }, './PlayerLoading': { PlayerLoading() {} }, '../player-chat-refinement.css': {}, '../lib/liveTv': {
     getLiveDiscussion: async () => data,
     sendLiveComment: async ({ data }) => { if (rejectSend) throw new Error('Please retry'); calls.push(['send', data]) },
     reportLiveComment: async ({ data }) => { calls.push(['report', data]) },

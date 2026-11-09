@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { contentIdFromPath } from '@/lib/contentRoutes'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouterState } from '@tanstack/react-router'
 import { getLiveChannel } from '../lib/liveTv'
 import { LiveChannelCard, Rail, img, IconPlay } from '../components/Poster'
 import { PlaybackDialog } from '../components/TitleDetail'
@@ -14,6 +14,13 @@ export const Route = createFileRoute('/channel/$id')({
 function ChannelDetail() {
   const { channel, related, streamUrl, viewerId, isAdmin, unavailable } = Route.useLoaderData()
   const [watching, setWatching] = useState(false)
+  const hash = useRouterState({ select: state => state.location.hash })
+  const consumedIntent = useRef('')
+  useEffect(() => {
+    if (hash !== 'watch') { consumedIntent.current = ''; return }
+    const intent = `${channel.id}:${hash}`
+    if (streamUrl && consumedIntent.current !== intent) { consumedIntent.current = intent; setWatching(true) }
+  }, [hash, channel.id, streamUrl])
   return <div className="live-channel">
     <section className="live-channel-hero" aria-labelledby="live-channel-title">
       {channel.poster_url && <img className="live-channel-artwork" src={img(channel.poster_url)} alt="" fetchPriority="high" />}

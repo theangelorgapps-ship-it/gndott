@@ -1,0 +1,64 @@
+/* Transport visibility is independent of the reading/chat surface. At the idle
+   deadline controls disappear immediately; a new gesture restores them. */
+.tv-immersive-player.transport-hidden :is(.tv-player-center, .tv-player-panel-transport, .tv-player-scrim),
+.tv-immersive-player.transport-hidden:not(.panel-open) .tv-player-bottom,
+.tv-playback-surface:has(.transport-hidden) > .tv-playback-heading {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: none;
+}
+.tv-playback-surface:has(.transport-hidden) > .tv-playback-heading .tv-detail-utility { pointer-events: none; }
+
+/* Cross-origin embeds cannot bubble pointer activity. A top-edge gesture
+   restores the app controls without covering the provider transport. */
+.tv-player-wake-zone { position: absolute; z-index: 5; inset: 0 0 auto; height: max(80px, env(safe-area-inset-top)); }
+
+/* A continuous translucent conversation without outlined cards or dividers. */
+.chat-sheet.live-discussion {
+  border: 0;
+  border-radius: 0;
+  background: #16192280;
+  box-shadow: none;
+  backdrop-filter: blur(28px) saturate(1.2);
+  -webkit-backdrop-filter: blur(28px) saturate(1.2);
+}
+.chat-sheet .live-discussion-heading,
+.chat-sheet .chat-welcome,
+.chat-sheet .live-composer.chat-composer,
+.chat-sheet .live-sign-in { border: 0; }
+.tv-immersive-player.panel-open .tv-player-bottom .tv-player-panel:has(.chat-sheet) { padding: 0; }
+.tv-immersive-player.panel-open .tv-player-bottom:has(.chat-sheet) { padding-inline: 0; }
+.tv-immersive-player.panel-open .tv-player-bottom:has(.chat-sheet) .tv-player-tabs { margin-inline: 16px; width: calc(100% - 32px); }
+.tv-immersive-player.panel-open .tv-player-bottom:has(.chat-sheet)::before { display: none; }
+
+/* The browser top layer sits above modal/fullscreen content and is not clipped
+   by the chat feed. ChatPicker clamps its fixed coordinates to visualViewport. */
+.chat-sheet .chat-floating-picker {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  z-index: 2147483647;
+  background: #252a38eb;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+.chat-sheet .chat-floating-picker::backdrop { background: transparent; }
+.chat-sheet .chat-reaction-options.chat-floating-picker { gap: 2px; padding: 5px; }
+.chat-sheet .chat-emoji-options.chat-floating-picker { width: 280px; padding: 8px; }
+@media (max-width: 759px), (max-height: 500px) and (pointer: coarse) {
+  .tv-immersive-player.panel-open.controls-visible .tv-player-bottom:has(.chat-sheet) {
+    top: calc(var(--panel-media-top) + var(--panel-media-height));
+  }
+}
+@media (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  .tv-immersive-player.panel-open.controls-visible .tv-player-bottom:has(.chat-sheet) { top: 64px; }
+}
+@media (min-width: 600px) {
+  .tv-immersive-player.panel-open.controls-visible[data-keyboard-open] .tv-player-bottom:has(.chat-sheet) { top: 54px; }
+}
+.tv-immersive-player.panel-open[data-keyboard-open] .tv-player-panel .chat-sheet { border-radius: 0; }
+.tv-immersive-player.panel-open.controls-visible[data-typing-active] .tv-player-bottom:has(.chat-sheet) { top: calc(var(--panel-media-top) + var(--panel-media-height)); }

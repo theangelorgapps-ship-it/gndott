@@ -8,8 +8,8 @@ import type { ActiveViewer } from '../lib/viewer.server'
 export const ADMIN_URL = 'https://fort.halobox.tv'
 const LINKS = [
   { to: '/account-setting', label: 'Account settings', Icon: Settings2 },
-  { to: '/continue-watching', label: 'Continue watching', Icon: Clock3 },
-  { to: '/watchlist', label: 'My watchlist', Icon: Bookmark },
+  { to: '/continue-watching', label: 'Your viewing', Icon: Clock3 },
+  { to: '/watchlist', label: 'Saved list', Icon: Bookmark },
   { to: '/pay-per-view-history', label: 'My rentals', Icon: MonitorPlay },
   { to: '/payment-history', label: 'Payment history', Icon: CreditCard },
   { to: '/profile-details', label: 'Personal details', Icon: UserRound },

@@ -1,0 +1,34 @@
+.title-about-groups { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px; }
+.title-about-pill { flex: 1 1 300px; min-width: 0; max-width: 480px; border-radius: 36px; border: 1px solid #ffffff15; background: linear-gradient(145deg, #282a30e8, #191b20f5); box-shadow: inset 0 1px 0 #ffffff0c, 0 8px 24px #0002; }
+.title-about-pill.is-expanded { border-radius: 28px; }
+.title-about-toggle { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 13px 20px 13px 15px; border: 0; border-radius: inherit; background: transparent; color: #f5f5f7; font: inherit; text-align: left; cursor: pointer; }
+.title-about-toggle:hover { background: #ffffff05; }
+.title-about-toggle:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.title-about-avatars { display: flex; align-items: center; flex: none; padding-left: 0; }
+.title-about-avatar { position: relative; display: grid; place-items: center; flex: none; width: 42px; height: 42px; border: 2px solid #25272c; border-radius: 50%; background: #464b55; color: #f4f4f5; font-size: 15px; font-weight: 600; overflow: hidden; }
+.title-about-avatar + .title-about-avatar { margin-left: -14px; }
+.title-about-avatar > img { width: 100%; height: 100%; object-fit: cover; object-position: center 25%; }
+.title-about-label { flex: 1; min-width: 0; }
+.title-about-label strong { display: block; font-size: 15px; line-height: 1.4; font-weight: 650; }
+.title-about-label > span { display: block; margin-top: 2px; color: #b8bbc3; font-size: 12px; line-height: 1.4; }
+.title-about-chevron { flex: none; color: #b8bbc3; transition: transform 160ms ease; }
+.title-about-toggle[aria-expanded=true] .title-about-chevron { transform: rotate(180deg); }
+.title-about-content { padding: 0 14px 14px; }
+.title-about-content[hidden] { display: none; }
+.title-about-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(110px, 100%), 1fr)); gap: 8px; }
+.title-about-people .personality-card { display: flex; flex-direction: column; align-items: center; width: 100%; min-width: 0; max-width: none; padding: 16px 10px; border: 1px solid #ffffff0a; border-radius: 18px; background: #ffffff05; color: #f5f5f7; }
+.title-about-people .personality-card:hover { background: #ffffff0c; }
+.title-about-people .personality-card > img,
+.title-about-people .personality-avatar { flex: none; width: 64px; height: 64px; max-width: 64px; margin: 0 0 10px; border: 0; border-radius: 50%; object-fit: cover; object-position: center 25%; font-size: 26px; }
+.title-about-people .personality-card .c-name { width: 100%; margin: 0; color: inherit; font-size: 13px; line-height: 1.4; white-space: normal; text-overflow: clip; overflow: visible; }
+.title-about-people .personality-card .c-sub { margin-top: 4px; color: #b8bbc3; font-size: 11px; line-height: 1.4; }
+.title-about-locations { display: grid; gap: 8px; }
+.title-about-locations .title-location { gap: 12px; padding: 13px; border-radius: 18px; background: #ffffff05; }
+.title-about-locations .title-location > img,
+.title-about-locations .title-location-icon { flex: 0 0 52px; width: 52px; height: 52px; border-radius: 14px; }
+.title-about-locations .title-location > div { min-width: 0; overflow-wrap: anywhere; }
+.title-about-locations .title-location h3 { font-size: 14px; line-height: 1.4; }
+.title-about-locations .title-location p { font-size: 12px; line-height: 1.5; color: #b8bbc3; }
+.title-about-empty { flex: 1 1 260px; margin: 0; padding: 16px 4px; color: #aeb1ba; font-size: 13px; line-height: 1.6; }
+@media (max-width: 600px) { .title-about-pill { flex-basis: 100%; max-width: none; } .title-about-toggle { gap: 12px; padding-right: 16px; } }
+@media (prefers-reduced-motion: reduce) { .title-about-chevron { transition: none; } }

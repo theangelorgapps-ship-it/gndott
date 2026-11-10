@@ -13,7 +13,7 @@ function LiveAdmin() {
   const [selected, setSelected] = useState<number>(channels[0]?.id)
   const channel = channels.find(c => c.id === selected)
   return <main className="live-admin">
-    <header><a href="/">GoodNews Halobox</a><a href="/admin/shop">Shop administration</a><a href="/live-tv">View Live TV ↗</a></header>
+    <header><a href="/">GoodNews Halobox</a><a href="/admin/shop">Shop administration</a><a href="/admin/settings">Stream settings</a><a href="/live-tv">View Live TV ↗</a></header>
     <h1>Live TV administration</h1><p>Manage streams, conversation settings and moderation.</p>
     <label className="live-channel-select">Channel<select aria-label="Channel" value={selected || ''} onChange={e => setSelected(Number(e.target.value))}>{channels.map(c => <option key={c.id} value={c.id}>{c.name}{c.status !== 1 ? ' (unpublished)' : ''}</option>)}</select></label>
     {channel ? <div className="live-admin-grid"><ChannelSettings key={`settings-${channel.id}`} channel={channel} /><LiveDiscussion key={`discussion-${channel.id}`} channelId={channel.id} /></div> : <p>No channels have been created yet.</p>}

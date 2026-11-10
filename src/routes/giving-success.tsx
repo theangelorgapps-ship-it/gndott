@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { Check, CreditCard, LoaderCircle } from 'lucide-react'
-import { confirmGivingCheckout } from '../lib/giving'
+import { confirmGivingCheckout, confirmGivingPayment } from '../lib/giving'
 
 export const Route = createFileRoute('/giving-success')({
-  validateSearch: (s: Record<string, unknown>) => ({ session_id: typeof s.session_id === 'string' ? s.session_id.slice(0, 256) : '' }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    session_id: typeof s.session_id === 'string' ? s.session_id.slice(0, 256) : '',
+    donation: typeof s.donation === 'string' ? s.donation.slice(0, 64) : '',
+  }),
   component: GivingSuccess,
 })
 
@@ -45,16 +48,20 @@ function Barcode({ value }: { value: string }) {
 type Confirmed = { kind: string; frequency: string; amountCents: number; name: string; id: string; paidAt: string | null }
 
 function GivingSuccess() {
-  const { session_id } = Route.useSearch()
+  const { session_id, donation } = Route.useSearch()
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<{ loading: boolean; msg: string; ok: boolean; donation: Confirmed | null }>({ loading: true, msg: 'Confirming your giving…', ok: false, donation: null })
   const [confetti, setConfetti] = useState(false)
 
   useEffect(() => {
     let alive = true
-    if (!session_id) { setState({ loading: false, msg: 'This page is missing a payment reference.', ok: false, donation: null }); return }
+    if (!session_id && !donation) { setState({ loading: false, msg: 'This page is missing a payment reference.', ok: false, donation: null }); return }
     setState({ loading: true, msg: 'Confirming your giving securely. This can take a moment.', ok: false, donation: null })
-    confirmGivingCheckout({ data: { sessionId: session_id } }).then(result => {
+    // In-module gifts confirm by donation id; checkout-session gifts by session id.
+    const confirm = donation
+      ? confirmGivingPayment({ data: { donationId: donation } })
+      : confirmGivingCheckout({ data: { sessionId: session_id } })
+    confirm.then(result => {
       if (!alive) return
       if (result.ok && 'donation' in result) {
         setState({ loading: false, ok: true, msg: '', donation: result.donation as Confirmed })
@@ -65,7 +72,7 @@ function GivingSuccess() {
       } else setState({ loading: false, ok: false, donation: null, msg: result.ok ? 'Confirmed.' : result.error })
     }).catch(() => { if (alive) setState({ loading: false, ok: false, donation: null, msg: 'We could not verify the payment yet. Check again; you will not be charged twice.' }) })
     return () => { alive = false }
-  }, [session_id, attempt])
+  }, [session_id, donation, attempt])
 
   if (state.ok && state.donation) {
     const d = state.donation
@@ -111,7 +118,7 @@ function GivingSuccess() {
         <span className={`subscription-result-icon${state.loading ? ' is-loading' : ''}`}>{state.loading ? <LoaderCircle size={30} /> : <CreditCard size={30} />}</span>
         <h1>{state.loading ? 'Confirming your giving' : 'Let’s check your payment'}</h1>
         <p role="status">{state.msg}</p>
-        {!state.loading && !state.ok && session_id && <button type="button" className="subscription-pay" onClick={() => setAttempt(value => value + 1)}>Check payment again</button>}
+        {!state.loading && !state.ok && (session_id || donation) && <button type="button" className="subscription-pay" onClick={() => setAttempt(value => value + 1)}>Check payment again</button>}
         <div className="subscription-result-links">
           <Link to="/">Continue watching <span aria-hidden="true">→</span></Link>
         </div>

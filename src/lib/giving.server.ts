@@ -10,7 +10,9 @@ import type { GivingKind } from './giving'
 export type Donation = {
   id: string; user_id: number | null; name: string; email: string; phone: string; country: string;
   kind: GivingKind; frequency: 'one_time' | 'monthly'; amount_cents: number; currency: string;
-  stripe_session_id: string | null; status: string; created_at: string; paid_at: string | null
+  stripe_session_id: string | null; stripe_payment_intent: string | null;
+  stripe_subscription_id: string | null; stripe_customer: string | null;
+  status: string; created_at: string; paid_at: string | null
 }
 
 const KIND_LABEL: Record<GivingKind, string> = { offering: 'Offering', tithe: 'Tithe', partner: 'Partnership', seed: 'Seed' }
@@ -69,4 +71,65 @@ export async function fulfillDonation(db: D1Database, session: any) {
     try { await sendThankYou({ ...donation, status: 'paid' }) } catch (error) { console.warn('Giving thank-you email failed:', error instanceof Error ? error.message : 'send failed') }
   }
   return { ok: true as const, donation: { ...summary, paidAt: new Date().toISOString() } }
+}
+
+// ---------- in-module payment fulfilment (PaymentIntent / invoice webhooks) ----------
+
+async function markPaid(db: D1Database, donation: Donation) {
+  if (donation.status === 'paid') return false
+  const marked = await run(`UPDATE donations SET status='paid', paid_at=datetime('now') WHERE id=? AND status='pending'`, donation.id)
+  if (marked?.meta?.changes) {
+    try { await sendThankYou({ ...donation, status: 'paid' }) } catch (error) { console.warn('Giving thank-you email failed:', error instanceof Error ? error.message : 'send failed') }
+    return true
+  }
+  return false
+}
+
+/** payment_intent.succeeded: one-time gifts confirm in-panel; this is the authoritative record. */
+export async function fulfillPaymentIntentEvent(db: D1Database, intent: any) {
+  if (intent?.metadata?.purpose !== 'halobox_giving' || intent?.status !== 'succeeded') return
+  const donation = await first<Donation>(`SELECT * FROM donations WHERE id=?`, String(intent.metadata.donation_id || ''))
+  if (!donation || donation.stripe_payment_intent !== intent.id) return
+  if (intent.amount !== donation.amount_cents || intent.currency !== donation.currency) return
+  await markPaid(db, donation)
+}
+
+/** invoice.payment_succeeded: first monthly payment marks the partnership
+ *  donation paid; every later renewal records a new paid donation + thank-you. */
+export async function fulfillInvoiceEvent(db: D1Database, invoice: any) {
+  const subscriptionId = typeof invoice?.subscription === 'string' ? invoice.subscription : null
+  if (!subscriptionId || !invoice?.id || invoice.status !== 'paid') return
+  const original = await first<Donation>(`SELECT * FROM donations WHERE stripe_subscription_id=?`, subscriptionId)
+  if (!original) return
+  const already = await first<any>(`SELECT id FROM donations WHERE stripe_payment_intent=?`, String(invoice.payment_intent ?? ''))
+  if (already) return
+  const amount = Number(invoice.amount_paid)
+  if (!Number.isSafeInteger(amount) || amount <= 0) return
+  if (original.status === 'pending') {
+    await run(`UPDATE donations SET stripe_payment_intent=? WHERE id=?`, String(invoice.payment_intent ?? ''), original.id)
+    await markPaid(db, original)
+    return
+  }
+  // Renewal: a fresh paid donation row in the same campaign.
+  const id = crypto.randomUUID()
+  await run(
+    `INSERT INTO donations(id, user_id, name, email, phone, country, kind, frequency, amount_cents, status, paid_at, stripe_subscription_id, stripe_customer, stripe_payment_intent)
+     VALUES(?,?,?,?,?,?,?,?,?,'pending',NULL,?,?,?)`,
+    id, original.user_id, original.name, original.email, original.phone, original.country,
+    original.kind, 'monthly', amount, subscriptionId, original.stripe_customer, String(invoice.payment_intent ?? ''),
+  )
+  const renewal = await first<Donation>(`SELECT * FROM donations WHERE id=?`, id)
+  if (renewal) await markPaid(db, renewal)
+}
+
+/** Success-page confirmation for in-module gifts (the webhook stays authoritative). */
+export async function fulfillDonationIntent(db: D1Database, intent: any) {
+  if (!intent || intent.metadata?.purpose !== 'halobox_giving') throw new CheckoutError('This payment does not match this donation.')
+  const donation = await first<Donation>(`SELECT * FROM donations WHERE id=?`, String(intent.metadata.donation_id || ''))
+  if (!donation || donation.stripe_payment_intent !== intent.id) throw new CheckoutError('This payment does not match this donation.')
+  if (intent.amount !== donation.amount_cents || intent.currency !== donation.currency) throw new CheckoutError('The paid amount does not match this donation.')
+  if (intent.status !== 'succeeded') throw new CheckoutError(intent.status === 'processing' ? 'Your payment is processing. Check again in a moment.' : 'Payment is not completed yet.')
+  const summary = { kind: donation.kind, frequency: donation.frequency, amountCents: donation.amount_cents, name: donation.name, id: donation.id, paidAt: donation.paid_at }
+  const marked = await markPaid(db, donation)
+  return { ok: true as const, already: !marked, donation: marked ? { ...summary, paidAt: new Date().toISOString() } : summary }
 }

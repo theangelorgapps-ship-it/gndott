@@ -37,10 +37,12 @@ const KIND_LABEL: Record<GivingKind, string> = { offering: 'Offering', tithe: 'T
 /** Giving-specific Stripe config; falls back to the shared subscription config. */
 async function givingConfiguration() {
   const shared = await (await server()).stripeConfiguration()
-  const givingSecret = await first<any>(`SELECT val FROM settings WHERE name='giving_stripe_secretkey' AND deleted_at IS NULL`).then(row => String(row?.val ?? '').trim()).catch(() => '')
-  const givingEnabled = await first<any>(`SELECT val FROM settings WHERE name='giving_stripe_enabled' AND deleted_at IS NULL`).then(row => String(row?.val ?? '')).catch(() => '')
-  if (givingSecret && givingEnabled === '1') return { db: shared.db, secret: givingSecret, enabled: true }
-  return shared
+  const rows = await shared.db.prepare(`SELECT name, val FROM settings WHERE name IN ('giving_stripe_enabled','giving_stripe_secretkey','giving_stripe_publishablekey') AND deleted_at IS NULL`).all<any>().catch(() => ({ results: [] as any[] }))
+  const map = Object.fromEntries((rows.results ?? []).map((r: any) => [r.name, String(r.val ?? '')]))
+  if (map.giving_stripe_enabled === '1' && map.giving_stripe_secretkey) {
+    return { db: shared.db, secret: map.giving_stripe_secretkey as string, enabled: true, publishable: String(map.giving_stripe_publishablekey ?? '') }
+  }
+  return { ...shared, publishable: '' }
 }
 
 type GivingInput = { kind: GivingKind; frequency: GivingFrequency; amountCents: number; name: string; email: string; phone: string; country: string }
@@ -145,6 +147,140 @@ export const confirmGivingCheckout = createServerFn({ method: 'POST' })
   })
 
 export const getGivingStatus = createServerFn({ method: 'GET' }).handler(async () => {
-  const { enabled, secret } = await givingConfiguration()
-  return { available: enabled && !!secret }
+  const { enabled, secret, publishable } = await givingConfiguration()
+  return { available: enabled && !!secret && !!publishable, publishableKey: publishable || null }
 })
+
+// ---------- in-module payment (Payment Element) ----------
+
+async function prepareDonation(data: GivingInput) {
+  const origin = await givingOrigin()
+  const { db, secret, enabled } = await givingConfiguration()
+  if (!enabled || !secret) throw new CheckoutError('Giving is temporarily unavailable. Please try again later.')
+  const viewer = await getActiveViewer()
+  const user = viewer
+    ? await first<any>(`SELECT id, email, first_name, last_name FROM users WHERE id=? AND status=1 AND deleted_at IS NULL AND COALESCE(is_banned,0)=0`, viewer.userId)
+    : null
+  const donationId = crypto.randomUUID()
+  const donor = {
+    userId: user?.id ?? null,
+    name: user ? ([user.first_name, user.last_name].filter(Boolean).join(' ') || data.name) : data.name,
+    email: user ? String(user.email) : data.email,
+  }
+  await run(
+    `INSERT INTO donations(id, user_id, name, email, phone, country, kind, frequency, amount_cents) VALUES(?,?,?,?,?,?,?,?,?)`,
+    donationId, donor.userId, donor.name, donor.email, user ? '' : data.phone, user ? '' : data.country, data.kind, data.frequency, data.amountCents,
+  )
+  return { origin, db, secret, user, donationId, donor }
+}
+
+async function stripeGet(path: string, secret: string) {
+  const result = await fetch(`${STRIPE}${path}`, {
+    redirect: 'manual', signal: AbortSignal.timeout(15000),
+    headers: { Authorization: `Bearer ${secret}`, 'Stripe-Version': '2025-04-30.basil' },
+  })
+  if (!result.ok) throw new CheckoutError('Stripe could not complete this request. Please try again.')
+  return result.json() as Promise<any>
+}
+
+/** Signed-in viewers get a Stripe customer once, so their card can be saved. */
+async function givingCustomer(db: D1Database, secret: string, user: { id: number; email: string } | null, donor: { name: string; email: string }) {
+  if (!user) return null
+  const existing = await first<any>(`SELECT stripe_customer_id FROM giving_customers WHERE user_id=?`, user.id)
+  if (existing) return String(existing.stripe_customer_id)
+  const created = await stripePost('/customers', secret, new URLSearchParams({ email: user.email, name: donor.name, 'metadata[halobox_user_id]': String(user.id) }), `halobox-giving-customer-${user.id}`)
+  if (!/^cus_[a-zA-Z0-9]+$/.test(created.id || '')) throw new CheckoutError('Stripe could not complete this request. Please try again.')
+  await run(`INSERT OR IGNORE INTO giving_customers(user_id, stripe_customer_id) VALUES(?,?)`, user.id, created.id)
+  const stored = await first<any>(`SELECT stripe_customer_id FROM giving_customers WHERE user_id=?`, user.id)
+  return String(stored?.stripe_customer_id ?? created.id)
+}
+
+export const createGivingIntent = createServerFn({ method: 'POST' })
+  .validator(validateGivingInput)
+  .handler(async ({ data }) => {
+    const { origin, db, secret, user, donationId, donor } = await prepareDonation(data)
+    const monthly = data.frequency === 'monthly'
+    const customer = await givingCustomer(db, secret, user, donor)
+    const metadata = {
+      'metadata[purpose]': 'halobox_giving', 'metadata[donation_id]': donationId,
+      'metadata[kind]': data.kind, 'metadata[frequency]': data.frequency,
+      ...(donor.userId ? { 'metadata[user_id]': String(donor.userId) } : {}),
+    }
+    if (!monthly) {
+      const body = new URLSearchParams({
+        amount: String(data.amountCents), currency: 'usd',
+        'automatic_payment_methods[enabled]': 'true',
+        receipt_email: donor.email,
+        ...(customer ? { customer, setup_future_usage: 'off_session' } : {}),
+        ...metadata,
+      })
+      const intent = await stripePost('/payment_intents', secret, body, `halobox-giving-pi-${donationId}`)
+      if (!/^pi_[a-zA-Z0-9]+$/.test(intent.id || '') || typeof intent.client_secret !== 'string') throw new CheckoutError('Stripe did not return a payment. Please try again.')
+      await run(`UPDATE donations SET stripe_payment_intent=?, stripe_customer=? WHERE id=?`, intent.id, customer, donationId)
+      return { ok: true as const, donationId, clientSecret: intent.client_secret, returnUrl: `${origin}/giving-success` }
+    }
+    // Monthly partnership: a subscription whose first invoice confirms in-panel.
+    const monthlyCustomer = customer ?? (await stripePost('/customers', secret, new URLSearchParams({ email: donor.email, name: donor.name }), `halobox-giving-guest-${donationId}`)).id
+    if (!/^cus_[a-zA-Z0-9]+$/.test(monthlyCustomer || '')) throw new CheckoutError('Stripe could not complete this request. Please try again.')
+    const body = new URLSearchParams({
+      customer: monthlyCustomer,
+      'items[0][price_data][currency]': 'usd',
+      'items[0][price_data][product_data][name]': 'Partnership (monthly) — GoodNews HaloBox',
+      'items[0][price_data][unit_amount]': String(data.amountCents),
+      'items[0][price_data][recurring][interval]': 'month',
+      payment_behavior: 'default_incomplete',
+      'payment_settings[save_default_payment_method]': 'on_subscription',
+      'expand[]': 'latest_invoice.confirmation_secret',
+      ...metadata,
+    })
+    const subscription = await stripePost('/subscriptions', secret, body, `halobox-giving-sub-${donationId}`)
+    const clientSecret = subscription?.latest_invoice?.confirmation_secret?.client_secret
+    if (!/^sub_[a-zA-Z0-9]+$/.test(subscription.id || '') || typeof clientSecret !== 'string') throw new CheckoutError('Stripe did not return a subscription. Please try again.')
+    await run(`UPDATE donations SET stripe_subscription_id=?, stripe_customer=?, stripe_payment_intent=? WHERE id=?`, subscription.id, monthlyCustomer, subscription.latest_invoice?.payment_intent ?? null, donationId)
+    return { ok: true as const, donationId, clientSecret, returnUrl: `${origin}/giving-success` }
+  })
+
+export const listGivingCards = createServerFn({ method: 'GET' }).handler(async () => {
+  setResponseHeader('Cache-Control', 'private, no-store')
+  const viewer = await getActiveViewer()
+  if (!viewer) return { cards: [] as { id: string; brand: string; last4: string; exp: string }[] }
+  const { secret } = await givingConfiguration()
+  if (!secret) return { cards: [] }
+  const link = await first<any>(`SELECT stripe_customer_id FROM giving_customers WHERE user_id=?`, viewer.userId)
+  if (!link) return { cards: [] }
+  const result = await stripeGet(`/payment_methods?customer=${encodeURIComponent(String(link.stripe_customer_id))}&type=card`, secret).catch(() => null)
+  const cards = (result?.data ?? [])
+    .filter((pm: any) => pm?.card?.last4)
+    .map((pm: any) => ({ id: String(pm.id), brand: String(pm.card.brand ?? 'card'), last4: String(pm.card.last4), exp: `${pm.card.exp_month}/${pm.card.exp_year}` }))
+  return { cards }
+})
+
+// Confirmation after redirect-based methods (3DS etc.): the success page calls
+// this with the donation id; the webhook remains the authoritative fulfiller.
+export const confirmGivingPayment = createServerFn({ method: 'POST' })
+  .validator((d: { donationId: string }) => {
+    if (typeof d?.donationId !== 'string' || !/^[a-f\d-]{36}$/i.test(d.donationId)) throw new CheckoutError('This payment reference is invalid.')
+    return d
+  })
+  .handler(async ({ data }) => {
+    setResponseHeader('Cache-Control', 'private, no-store')
+    const { db, secret } = await givingConfiguration()
+    if (!secret) throw new CheckoutError('Payment verification is temporarily unavailable. Please try again.')
+    const donation = await first<any>(`SELECT * FROM donations WHERE id=?`, data.donationId)
+    if (!donation) throw new CheckoutError('This donation could not be found.')
+    const { fulfillDonationIntent } = await import('./giving.server')
+    try {
+      if (donation.stripe_payment_intent) {
+        return await fulfillDonationIntent(db, await stripeGet(`/payment_intents/${encodeURIComponent(donation.stripe_payment_intent)}`, secret))
+      }
+      // Legacy checkout-session gifts still confirm through the session.
+      if (donation.stripe_session_id) {
+        const session = await stripeGet(`/checkout/sessions/${encodeURIComponent(donation.stripe_session_id)}`, secret)
+        const { fulfillDonation } = await import('./giving.server')
+        return await fulfillDonation(db, session)
+      }
+      throw new CheckoutError('This payment does not exist yet. Please try again.')
+    } catch (error) {
+      return { ok: false as const, error: checkoutError(error) }
+    }
+  })

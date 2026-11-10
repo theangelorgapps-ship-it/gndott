@@ -232,8 +232,22 @@ export async function handleSubscriptionWebhook(request:Request) {
     catch (error) { lastError=error }
   }
   if (!verified) { void lastError; return new Response('Invalid webhook.',{status:400}) }
-  if (!['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type)) return new Response('Ignored.',{status:200})
+  if (!['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'payment_intent.succeeded', 'invoice.payment_succeeded'].includes(event.type)) return new Response('Ignored.', { status: 200 })
   const purpose = event.data?.object?.metadata?.purpose
+  if (event.type === 'payment_intent.succeeded' && purpose === 'halobox_giving') {
+    try {
+      const giving = await import('./giving.server')
+      await giving.fulfillPaymentIntentEvent(database(), event.data.object)
+      return new Response('Received.', { status: 200 })
+    } catch { return new Response('Fulfilment not completed; retry required.', { status: 500 }) }
+  }
+  if (event.type === 'invoice.payment_succeeded') {
+    try {
+      const giving = await import('./giving.server')
+      await giving.fulfillInvoiceEvent(database(), event.data.object)
+      return new Response('Received.', { status: 200 })
+    } catch { return new Response('Fulfilment not completed; retry required.', { status: 500 }) }
+  }
   if (purpose === 'halobox_giving') {
     try {
       if (event.data.object.payment_status==='unpaid') return new Response('Awaiting payment.',{status:200})

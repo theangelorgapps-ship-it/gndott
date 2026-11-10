@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CreditCard, ChevronLeft, HandHeart, ShieldCheck, Repeat, Sparkles } from 'lucide-react'
-import { createGivingCheckout, getGivingStatus, GIVING_KINDS, type GivingFrequency, type GivingKind } from '../lib/giving'
+import { ChevronLeft, HandHeart, Repeat, Sparkles, Check } from 'lucide-react'
+import { getGivingStatus, GIVING_KINDS, type GivingFrequency, type GivingKind } from '../lib/giving'
+import { GivingPayment, settleGivingPayment } from './GivingPayment'
 import { MoneyField } from './ui/money-field'
 import { LiquidMetalButton } from './ui/liquid-metal-button'
 import '../giving.css'
@@ -43,11 +44,14 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [country, setCountry] = useState('')
-  const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [available, setAvailable] = useState(true)
+  const [publishableKey, setPublishableKey] = useState('')
+  const [done, setDone] = useState<{ kind: string; frequency: string; amountCents: number; name: string; id: string; paidAt: string | null } | null>(null)
 
-  useEffect(() => { getGivingStatus().then(s => setAvailable(s.available)).catch(() => undefined) }, [])
+  useEffect(() => {
+    getGivingStatus().then(s => { setAvailable(s.available); setPublishableKey(s.publishableKey ?? '') }).catch(() => undefined)
+  }, [])
   // Partnership can repeat monthly; everything else is a one-time gift.
   useEffect(() => { if (kind !== 'partner') setFrequency('one_time') }, [kind])
 
@@ -66,24 +70,23 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
     setStep(2)
   }
 
-  async function give() {
-    setBusy(true)
-    setMessage('')
-    try {
-      const result = await createGivingCheckout({ data: { kind, frequency, amountCents: amountCents!, name: name.trim(), email: email.trim(), phone: phone.trim(), country } })
-      window.location.assign(result.checkoutUrl)
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Giving is temporarily unavailable. Please try again.')
-      setBusy(false)
-    }
-  }
 
   if (!available) return <div className="giving-panel"><p className="giving-note">Giving is being set up. Please check back soon.</p></div>
 
   return (
     <div className="giving-panel">
       <AnimatePresence mode="wait" initial={false}>
-        {step === 1 ? (
+        {done ? (
+          <motion.div key="step-done" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
+            <div className="giving-done">
+              <span className="giving-done-check"><Check size={30} strokeWidth={2.6} /></span>
+              <h3>Thank you for giving!</h3>
+              <p>Your {KIND_COPY[done.kind as GivingKind]?.label.toLowerCase()} of ${(done.amountCents / 100).toFixed(2)}{done.frequency === 'monthly' ? ' every month' : ''} is confirmed.</p>
+              <p className="giving-hint">A receipt and thank-you note are on their way to your email. Reference {done.id.slice(0, 8).toUpperCase()}.</p>
+              <LiquidMetalButton label="Amen — back to the video" onClick={() => { setStep(1); setDone(null); setAmountCents(2500) }} />
+            </div>
+          </motion.div>
+        ) : step === 1 ? (
           <motion.div key="step-1" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
             <form className="giving-step" noValidate onSubmit={event => { event.preventDefault(); continueToPayment() }}>
               <header className="giving-head">
@@ -140,18 +143,22 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
               </div>
               <h3 className="giving-step-title">Choose how to pay</h3>
               <p className="giving-hint">{KIND_COPY[kind].label}{monthly ? ' · Monthly' : ''} · {summary} USD{signedIn ? '' : ` · ${name.trim()}`}</p>
-
-              <div className="giving-methods" role="radiogroup" aria-label="Payment method">
-                <div className="giving-method active" role="radio" aria-checked="true" tabIndex={0}>
-                  <span className="giving-method-icon"><CreditCard size={22} /></span>
-                  <span className="giving-method-copy"><strong>Debit / Credit card</strong><span>Visa, Mastercard, Amex, Apple Pay & Google Pay</span></span>
-                  <span className="giving-method-radio"><motion.i initial={{ scale: 0 }} animate={{ scale: 1 }} /></span>
-                </div>
-              </div>
-
-              <p className="giving-secure"><ShieldCheck size={15} /> Secure payment powered by Stripe. You will finish on Stripe’s checkout page.</p>
               {message && <p className="giving-message" role="status">{message}</p>}
-              <LiquidMetalButton label={monthly ? `Partner ${summary} / month` : `Give ${summary}`} onClick={() => void give()} busy={busy} />
+              {publishableKey ? (
+                <GivingPayment
+                  donor={{ kind, frequency, amountCents: amountCents!, name: name.trim(), email: email.trim(), phone: phone.trim(), country }}
+                  viewerId={viewerId}
+                  summary={summary}
+                  monthly={monthly}
+                  publishableKey={publishableKey}
+                  onError={setMessage}
+                  onReset={() => setStep(1)}
+                  onSuccess={donationId => {
+                    setMessage('')
+                    void settleGivingPayment(donationId).then(donation => setDone(donation ?? { kind, frequency, amountCents: amountCents!, name: signedIn ? 'your account' : name.trim(), id: donationId, paidAt: null }))
+                  }}
+                />
+              ) : <p className="giving-note">Secure payment is being set up. Please check back soon.</p>}
             </div>
           </motion.div>
         )}

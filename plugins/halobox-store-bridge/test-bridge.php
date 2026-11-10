@@ -70,17 +70,19 @@ final class TestCart {
     public function empty_cart(){ $this->items=[];$this->coupons=[]; }
     public function add_to_cart($id,$quantity,$variation_id=0,$variation=[]){$this->items[]=['id'=>$id,'quantity'=>$quantity,'variation_id'=>$variation_id,'variation'=>$variation];return 'cart-item';}
     public function apply_coupon($code){$this->coupons[]=$code;return true;}
+    public function calculate_shipping(){}
     public function calculate_totals(){ $this->total=0;foreach($this->items as $item)$this->total+=wc_get_product($item['variation_id']?:$item['id'])->price*$item['quantity']; }
 }
 final class TestSession {public array $data=[]; public bool $cookie=false;public function set($key,$value){$this->data[$key]=$value;}public function get($key){return $this->data[$key]??null;}public function __unset($key){unset($this->data[$key]);}public function set_customer_session_cookie($value){$this->cookie=$value;}}
 final class TestShippingRate { public function __construct(private string $id,private string $label,private string $cost){} public function get_id(){return $this->id;} public function get_label(){return $this->label;} public function get_method_id(){return 'flat_rate';} public function get_cost(){return $this->cost;} }
 final class TestWoo {
-    public $cart; public $session; public $countries;
+    public $cart; public $session; public $countries; public $customer;
     public function __construct(){
         $this->cart=new TestCart(); $this->session=new TestSession();
         $this->countries=new class { public function get_countries(){return ['GB'=>'United Kingdom','US'=>'United States'];} };
+        $this->customer=new class { public array $shippingLocation=[]; public function set_billing_location($c,$s,$p,$city){} public function set_shipping_location($c,$s,$p,$city){$this->shippingLocation=[$c,$s,$p,$city];} };
     }
-    public function shipping(){ return new class { public function calculate_shipping_for_package($package){ $GLOBALS['shipping_package']=$package; return ['rates'=>[new TestShippingRate('flat_rate:1','Standard delivery','4.95'),new TestShippingRate('express:2','Express delivery','9.95')]]; } }; }
+    public function shipping(){ return new class { public function get_packages(){ return [['rates'=>[new TestShippingRate('flat_rate:1','Standard delivery','4.95'),new TestShippingRate('express:2','Express delivery','9.95')]]]; } }; }
 }
 $wc=new TestWoo();function WC(){return $GLOBALS['wc'];}
 final class WC_Order_Item_Shipping { public string $title=''; public string $methodId=''; public string $total='0'; public function set_method_title($t){$this->title=$t;} public function set_method_id($i){$this->methodId=$i;} public function set_total($t){$this->total=$t;} }
@@ -187,6 +189,7 @@ check($quote->data['items_total']==='50.00','Quote items total must come from Wo
 check($quote->data['total']==='50.00','Unchosen shipping must not inflate the quote total');
 check(count($quote->data['shipping_rates'])===2 && $quote->data['shipping_rates'][0]['id']==='flat_rate:1','Live shipping rates missing from quote');
 check($quote->data['expires_in']<=1800,'Quote lifetime too long');
+check((WC()->customer->shippingLocation[0]??'')==='GB','Quote did not set the customer shipping location');
 rejected(Halobox_Store_Bridge::quote(new TestRequest(['items'=>[['id'=>1,'quantity'=>1]],'address'=>['country'=>'XX','postcode'=>'AB1']])),400,'Invalid country accepted in quote');
 rejected(Halobox_Store_Bridge::quote(new TestRequest(['items'=>[['id'=>1,'quantity'=>1]],'address'=>['country'=>'GB']])),400,'Missing postcode accepted in quote');
 rejected(Halobox_Store_Bridge::quote(new TestRequest(['items'=>[['id'=>2,'quantity'=>1]],'address'=>$address])),409,'Virtual product accepted in quote');

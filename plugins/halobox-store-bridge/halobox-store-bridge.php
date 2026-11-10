@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Halobox Store Bridge
  * Description: Secure Halobox cart handoff, in-site checkout fulfilment and order visibility. WooCommerce remains the product, payment and order authority.
- * Version: 1.1.0
+ * Version: 1.1.2
  * Requires PHP: 8.0
  * Requires Plugins: woocommerce
  * License: GPL-2.0-or-later
@@ -147,6 +147,11 @@ final class Halobox_Store_Bridge {
         return $order && $order->get_status() === 'checkout-draft' ? $order : null;
     }
     public static function quote($request) {
+        try { return self::quote_inner($request); }
+        catch (Throwable $e) { return new WP_Error('bridge_internal','Quote error: '.$e->getMessage(),['status'=>500]); }
+    }
+    private static function quote_inner($request) {
+        if (!WC()->cart && function_exists('wc_load_cart')) wc_load_cart();
         $data = $request->get_json_params();
         try { $items = self::validate_items($data['items'] ?? null); }
         catch (Exception $e) { return new WP_Error('bridge_cart', $e->getMessage(), ['status'=>409]); }
@@ -175,24 +180,20 @@ final class Halobox_Store_Bridge {
             if ($code !== '' && !is_wp_error($order->apply_coupon($code))) $applied[] = $code;
         }
 
-        // Live shipping rates for this destination: rates added, edited or deleted
-        // in WooCommerce shipping zones are reflected here automatically.
-        $contents = [];
-        $contents_cost = 0.0;
-        foreach ($order->get_items() as $line) {
-            $product = $line->get_product();
-            if (!$product || $product->is_virtual()) continue;
-            $contents[] = ['product_id'=>$product->get_id(),'variation_id'=>$line->get_variation_id(),'quantity'=>$line->get_quantity(),'data'=>$product,'line_total'=>(float)$line->get_subtotal(),'line_subtotal'=>(float)$line->get_subtotal(),'line_tax'=>0,'line_subtotal_tax'=>0];
-            $contents_cost += (float)$line->get_subtotal();
+        // Live shipping rates, computed the same way the WooCommerce cart page
+        // does: a real guest cart, the customer location, then zone matching.
+        // Rates added, edited or deleted in Woo shipping zones are reflected here.
+        WC()->cart->empty_cart();
+        foreach ($items as $item) WC()->cart->add_to_cart($item['id'], $item['quantity'], $item['variation_id'], $item['variation']);
+        if (WC()->customer) {
+            WC()->customer->set_billing_location($address['country'], $address['state'], $address['postcode'], $address['city']);
+            WC()->customer->set_shipping_location($address['country'], $address['state'], $address['postcode'], $address['city']);
         }
-        $package = [
-            'contents'=>$contents,
-            'contents_cost'=>$contents_cost,
-            'applied_coupons'=>$applied,
-            'destination'=>['country'=>$address['country'],'state'=>$address['state'],'postcode'=>$address['postcode'],'city'=>$address['city'],'address'=>$address['address_1'],'address_2'=>$address['address_2']],
-            'user'=>['ID'=>0],
-        ];
-        $rates = array_values(WC()->shipping()->calculate_shipping_for_package($package)['rates'] ?? []);
+        WC()->cart->calculate_shipping();
+        $packages = WC()->shipping() ? WC()->shipping()->get_packages() : [];
+        $rates = array_values($packages[0]['rates'] ?? []);
+        WC()->cart->empty_cart();
+        if (count($rates) === 0) return new WP_Error('bridge_shipping','No delivery options for this address.',['status'=>409]);
         $chosen = self::clean_text($data['shipping_rate'] ?? '', 100);
         $selected = null;
         foreach ($rates as $rate) { if ($rate->get_id() === $chosen) { $selected = $rate; break; } }
@@ -223,6 +224,11 @@ final class Halobox_Store_Bridge {
     }
 
     public static function order($request) {
+        try { return self::order_inner($request); }
+        catch (Throwable $e) { return new WP_Error('bridge_internal','Order error: '.$e->getMessage(),['status'=>500]); }
+    }
+    private static function order_inner($request) {
+        if (!WC()->cart && function_exists('wc_load_cart')) wc_load_cart();
         $data = $request->get_json_params();
         $payment = $data['payment'] ?? [];
         $reference = is_array($payment) ? self::clean_text($payment['reference'] ?? '', 100) : '';

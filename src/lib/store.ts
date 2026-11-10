@@ -139,7 +139,7 @@ export const quoteStoreCheckout = createServerFn({ method: 'POST' })
       const address = mod.cleanAddress(data.address)
       const { db } = await stripeConfiguration()
       return { ok: true as const, ...(await mod.createStoreQuote(db, user, cart, address, data.shippingRate)) }
-    } catch (error) { return { ok: false as const, error: checkoutError(error) } }
+    } catch (error) { console.warn('Store quote:', error instanceof Error ? error.message : 'failed'); return { ok: false as const, error: checkoutError(error) } }
   })
 
 /** Pay a quoted cart with the shared Stripe configurator; the order is created after payment. */

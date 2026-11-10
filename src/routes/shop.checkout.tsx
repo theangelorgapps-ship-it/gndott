@@ -54,7 +54,8 @@ function Checkout() {
   const total = cart.totals
   const money = (amount: string) => storeMoney(amount, total.currency_code, total.currency_minor_unit)
   const subtotal = money(String(Number(total.total_items) - Number(total.total_discount)))
-  const quoteMoney = (amount: string) => storeMoney(amount, quote?.quote.currency ?? 'GBP', 2)
+  // Bridge quote amounts are decimal strings ('96.04'); storeMoney wants minor units.
+  const quoteMoney = (amount: string) => storeMoney(String(Math.round(Number(amount) * 100)), quote?.quote.currency ?? 'GBP', 2)
 
   const field = (key: keyof Address, label: string, props: Record<string, unknown> = {}) => (
     <label>{label}<input value={address[key]} autoComplete={key.replaceAll('_', '-')} disabled={busy || processing} onChange={event => { setAddress(current => ({ ...current, [key]: event.target.value })); setQuote(null) }} {...props} /></label>

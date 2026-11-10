@@ -116,6 +116,11 @@ const subscriptionMock = {
   subscriptionActor: async () => actor,
   subscriptionWriteOrigin: () => { if (requestOrigin !== origin || fetchSite === 'cross-site') throw new Error('Please retry from Halobox.'); return origin },
   stripeConfiguration: async () => ({ db: storeD1, secret: 'sk_test_gate', enabled: stripeEnabled }),
+  stripeCheckoutUrl: session => {
+    const u = new URL(session.url)
+    if (!/^cs_(?:test_|live_)?[a-zA-Z0-9]+$/.test(session.id || '') || u.protocol !== 'https:' || (u.hostname !== 'checkout.stripe.com' && u.hostname !== 'pay.uebertangelstore.com')) throw new subscriptionMock.CheckoutError('Stripe did not return a valid checkout. Please try again.')
+    return u.href
+  },
   stripeRequest: async (path, secret, transport, body, idempotencyKey) => {
     assert.equal(secret, 'sk_test_gate')
     stripeCalls.push({ path, params: body ? Object.fromEntries(body) : undefined, key: idempotencyKey })

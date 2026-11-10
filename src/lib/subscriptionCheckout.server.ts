@@ -47,6 +47,18 @@ export async function stripeConfiguration() {
   const enabled = await setting(db, 'str_payment_method') === '1'
   return { db, secret: typeof secret === 'string' ? secret : '', enabled }
 }
+/** Validate a Stripe-hosted checkout URL: the default Stripe domain or the account's custom checkout domain. */
+export function stripeCheckoutUrl(session: any): string {
+  let safeUrl: URL
+  try { safeUrl = new URL(session.url) } catch { throw new CheckoutError('Stripe did not return a checkout link. Please try again.') }
+  const customHost = String((env as any).STRIPE_CHECKOUT_HOST || '').trim().toLowerCase()
+  const hostOk = safeUrl.hostname === 'checkout.stripe.com' || (customHost !== '' && safeUrl.hostname === customHost && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(customHost))
+  if (!/^cs_(?:test_|live_)?[a-zA-Z0-9]+$/.test(session.id || '') || safeUrl.protocol !== 'https:' || !hostOk || safeUrl.username || safeUrl.password) {
+    console.warn('Stripe checkout session rejected:', String(session.id || '').slice(0, 12), safeUrl.hostname)
+    throw new CheckoutError('Stripe did not return a valid checkout. Please try again.')
+  }
+  return safeUrl.href
+}
 export function quoteFor(plan: any, coupon: any = null, now = new Date()): CheckoutQuote {
   if (!plan || !validId(Number(plan.id)) || Number(plan.status) !== 1 || plan.deleted_at) throw new CheckoutError('This plan is unavailable.')
   const amount = Number(plan.price)
@@ -119,11 +131,10 @@ export async function createSubscriptionCheckout(db: D1Database, user: {id:numbe
     'metadata[checkout_id]':snapshot.id,'metadata[user_id]':String(snapshot.user_id),'metadata[plan_id]':String(snapshot.plan_id),
   })
   const session=await stripeRequest('/checkout/sessions',secret,transport,body,`halobox-subscription-${snapshot.id}`)
-  let safeUrl: URL
-  try { safeUrl=new URL(session.url) } catch { throw new CheckoutError('Stripe did not return a checkout link. Please try again.') }
-  if (!/^cs_(?:test_|live_)?[a-zA-Z0-9]+$/.test(session.id||'') || safeUrl.protocol!=='https:' || safeUrl.hostname!=='checkout.stripe.com' || safeUrl.username || safeUrl.password || !Number.isSafeInteger(session.expires_at)) throw new CheckoutError('Stripe did not return a valid checkout. Please try again.')
-  await db.prepare('UPDATE subscription_checkouts SET stripe_session_id=?,checkout_url=?,expires_at=? WHERE id=? AND stripe_session_id IS NULL').bind(session.id,safeUrl.href,session.expires_at,snapshot.id).run()
-  return {ok:true as const,checkoutUrl:safeUrl.href}
+  const checkoutUrl = stripeCheckoutUrl(session)
+  if (!Number.isSafeInteger(session.expires_at)) throw new CheckoutError('Stripe did not return a valid checkout. Please try again.')
+  await db.prepare('UPDATE subscription_checkouts SET stripe_session_id=?,checkout_url=?,expires_at=? WHERE id=? AND stripe_session_id IS NULL').bind(session.id,checkoutUrl,session.expires_at,snapshot.id).run()
+  return {ok:true as const,checkoutUrl}
 }
 export function planEndDate(duration:string, count:number, now=new Date()) {
   const date=new Date(now)

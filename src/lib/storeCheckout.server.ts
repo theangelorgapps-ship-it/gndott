@@ -3,7 +3,7 @@
 // create the order on uebertangel.org only after a verified payment.
 // The Stripe session/transport and webhook plumbing are the same ones
 // subscriptionCheckout.server.ts uses — one Stripe integration, two purposes.
-import { checkoutError, stripeConfiguration, stripeRequest, CheckoutError } from './subscriptionCheckout.server'
+import { checkoutError, stripeConfiguration, stripeRequest, stripeCheckoutUrl, CheckoutError } from './subscriptionCheckout.server'
 import { bridge } from './storeBridge.server'
 
 export type StoreAddress = {
@@ -88,11 +88,9 @@ export async function createStoreCheckout(db: D1Database, user: { id: number; em
     'metadata[quote_id]': snapshot.quote_id,
   })
   const session = await stripeRequest('/checkout/sessions', secret, transport, body, `halobox-store-${snapshot.id}`)
-  let safeUrl: URL
-  try { safeUrl = new URL(session.url) } catch { throw new CheckoutError('Stripe did not return a checkout link. Please try again.') }
-  if (!/^cs_(?:test_|live_)?[a-zA-Z0-9]+$/.test(session.id || '') || safeUrl.protocol !== 'https:' || safeUrl.hostname !== 'checkout.stripe.com' || safeUrl.username || safeUrl.password) throw new CheckoutError('Stripe did not return a valid checkout. Please try again.')
+  const safeUrl = stripeCheckoutUrl(session)
   await db.prepare(`UPDATE store_checkouts SET stripe_session_id = ?, status = 'pending', updated_at = datetime('now') WHERE id = ? AND stripe_session_id IS NULL`).bind(session.id, snapshot.id).run()
-  return { ok: true as const, checkoutUrl: safeUrl.href }
+  return { ok: true as const, checkoutUrl: safeUrl }
 }
 
 function verifyStorePayment(session: any, snapshot: StoreSnapshot, userId?: number) {

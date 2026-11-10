@@ -12,6 +12,6 @@ export async function bridge(path: string, payload: object) {
   const signature = btoa(String.fromCharCode(...new Uint8Array(digest)))
   const r = await fetch(`${BRIDGE}${path}`, { method: 'POST', headers: { 'Content-Type':'application/json', 'X-Halobox-Time':timestamp, 'X-Halobox-Nonce':nonce, 'X-Halobox-Signature':signature }, body, redirect:'manual', signal:AbortSignal.timeout(15000) })
   const data:any = await r.json()
-  if (!r.ok) throw new Error('The store connection is unavailable. Please try again shortly.')
+  if (!r.ok) throw new Error(`The store connection is unavailable (HTTP ${r.status}${typeof data?.code === 'string' ? ' ' + data.code : ''}${typeof data?.message === 'string' ? ': ' + String(data.message).replace(/<[^>]*>/g, '').slice(0, 200) : ''}). Please try again shortly.`)
   return data
 }

@@ -82,6 +82,14 @@ assert.equal(helpers.planEndDate('month',1,new Date('2027-01-31T12:00:00Z')),'20
 assert.equal(helpers.planEndDate('year',1,new Date('2024-02-29T12:00:00Z')),'2025-02-28')
 assert.equal(helpers.planEndDate('week',2,new Date('2026-11-01T12:00:00Z')),'2026-11-15')
 
+// Stripe-hosted checkout URLs: default domain, or the account's configured custom domain only.
+assert.equal(helpers.stripeCheckoutUrl({id:'cs_test_abc123',url:'https://checkout.stripe.com/c/pay/cs_test_abc123'}),'https://checkout.stripe.com/c/pay/cs_test_abc123')
+env.STRIPE_CHECKOUT_HOST='pay.uebertangelstore.com'
+assert.equal(helpers.stripeCheckoutUrl({id:'cs_live_abc123',url:'https://pay.uebertangelstore.com/c/pay/cs_live_abc123'}),'https://pay.uebertangelstore.com/c/pay/cs_live_abc123')
+for (const bad of ['https://evil.test/c/pay/cs_live_abc123','http://pay.uebertangelstore.com/c/pay/cs_live_abc123','https://pay.uebertangelstore.com.evil.test/','https://checkout.stripe.com@evil.test/']) assert.throws(()=>helpers.stripeCheckoutUrl({id:'cs_live_abc123',url:bad}),/valid checkout/,bad)
+delete env.STRIPE_CHECKOUT_HOST
+assert.throws(()=>helpers.stripeCheckoutUrl({id:'cs_live_abc123',url:'https://pay.uebertangelstore.com/c/pay/cs_live_abc123'}),/valid checkout/,'Custom checkout domain must not be trusted without configuration')
+
 // API handlers check origin + active account before creating a provider session.
 {
  const f=fixture()

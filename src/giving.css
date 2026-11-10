@@ -1,0 +1,261 @@
+/* Giving panel (player) — glass kind selector + 2-step donation flow. */
+
+.giving-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 2px 12px;
+  color: #e5e5e5;
+}
+
+.giving-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.giving-head h3 { margin: 0; font-size: 1.1rem; font-weight: 650; }
+.giving-head p { margin: 2px 0 0; font-size: 0.82rem; color: #a3a3a3; }
+.giving-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 1px 1px 4px rgba(255, 255, 255, 0.2), inset -1px -1px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Glass radio group — 4-way glider (ported from the styled-components design,
+   no runtime CSS-in-JS). */
+.glass-giving-group {
+  --bg: rgba(255, 255, 255, 0.06);
+  --text: #e5e5e5;
+  display: flex;
+  position: relative;
+  background: var(--bg);
+  border-radius: 1rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    inset 1px 1px 4px rgba(255, 255, 255, 0.2),
+    inset -1px -1px 6px rgba(0, 0, 0, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+.glass-giving-group label {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  padding: 0.8rem 0.4rem;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--text);
+  z-index: 2;
+  transition: color 0.3s ease-in-out;
+  text-align: center;
+}
+.glass-giving-group label:hover { color: #fff; }
+.glass-giving-group label.active { color: #fff; }
+.glass-giving-group input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.glass-giving-glider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 25%;
+  border-radius: 1rem;
+  z-index: -1;
+  transition:
+    transform 0.5s cubic-bezier(0.37, 1.95, 0.66, 0.56),
+    background 0.4s ease-in-out,
+    box-shadow 0.4s ease-in-out;
+}
+.glass-giving-glider.is-offering {
+  transform: translateX(0%);
+  background: linear-gradient(135deg, #c0c0c055, #e0e0e0);
+  box-shadow: 0 0 18px rgba(192, 192, 192, 0.5), 0 0 10px rgba(255, 255, 255, 0.4) inset;
+}
+.glass-giving-glider.is-tithe {
+  transform: translateX(100%);
+  background: linear-gradient(135deg, #ffd70055, #ffcc00);
+  box-shadow: 0 0 18px rgba(255, 215, 0, 0.5), 0 0 10px rgba(255, 235, 150, 0.4) inset;
+}
+.glass-giving-glider.is-partner {
+  transform: translateX(200%);
+  background: linear-gradient(135deg, #d0e7ff55, #a0d8ff);
+  box-shadow: 0 0 18px rgba(160, 216, 255, 0.5), 0 0 10px rgba(200, 240, 255, 0.4) inset;
+}
+.glass-giving-glider.is-seed {
+  transform: translateX(300%);
+  background: linear-gradient(135deg, #9fe6b855, #5ecf7e);
+  box-shadow: 0 0 18px rgba(94, 207, 126, 0.5), 0 0 10px rgba(190, 255, 205, 0.4) inset;
+}
+.glass-giving-group label.active,
+.glass-giving-group label.active span { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55); }
+
+.giving-hint { margin: 0; font-size: 0.8rem; color: #9d9d9d; }
+.giving-step-title { margin: 0; font-size: 1.05rem; font-weight: 650; }
+
+.giving-amounts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.giving-amounts button,
+.giving-custom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0.65rem 0.4rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e5e5e5;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+}
+.giving-amounts button.active,
+.giving-custom.active {
+  border-color: rgba(255, 215, 0, 0.65);
+  background: rgba(255, 215, 0, 0.12);
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.35);
+}
+.giving-custom span { color: #9d9d9d; }
+.giving-custom input {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  font: inherit;
+}
+.giving-custom input::placeholder { color: #7a7a7a; }
+
+.giving-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.giving-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: #b5b5b5;
+}
+.giving-fields label:first-child,
+.giving-fields label:nth-child(2) { grid-column: span 1; }
+.giving-fields input,
+.giving-fields select {
+  padding: 0.6rem 0.7rem;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: #f0f0f0;
+  font-size: 0.9rem;
+  outline: none;
+}
+.giving-fields input:focus,
+.giving-fields select:focus { border-color: rgba(255, 215, 0, 0.55); }
+.giving-fields select option { color: #111; }
+
+.giving-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: none;
+  border: 0;
+  color: #b5b5b5;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+}
+.giving-back:hover { color: #fff; }
+
+.giving-methods { display: flex; flex-direction: column; gap: 10px; }
+.giving-method {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+}
+.giving-method:hover { background: rgba(255, 255, 255, 0.08); }
+.giving-method.active {
+  border-color: rgba(255, 215, 0, 0.65);
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.3);
+}
+.giving-method-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+.giving-method-copy { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.giving-method-copy strong { font-size: 0.95rem; }
+.giving-method-copy span { font-size: 0.78rem; color: #9d9d9d; }
+.giving-method-radio {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+}
+.giving-method.active .giving-method-radio { border-color: rgba(255, 215, 0, 0.8); }
+.giving-method-radio i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffd700;
+}
+
+.giving-secure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.78rem;
+  color: #9d9d9d;
+}
+.giving-message { margin: 0; font-size: 0.85rem; color: #ffb4b4; }
+
+.giving-primary {
+  padding: 0.85rem;
+  border: 0;
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, #ffd700, #f5b800);
+  color: #191300;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+.giving-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255, 215, 0, 0.25); }
+.giving-primary:disabled { opacity: 0.55; cursor: default; }
+
+.giving-note { font-size: 0.9rem; color: #b5b5b5; }
+
+@media (max-width: 480px) {
+  .giving-fields { grid-template-columns: 1fr; }
+}

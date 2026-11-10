@@ -1,0 +1,42 @@
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { Check, CreditCard, LoaderCircle } from 'lucide-react'
+import { confirmGivingCheckout } from '../lib/giving'
+
+export const Route = createFileRoute('/giving-success')({
+  validateSearch: (s: Record<string, unknown>) => ({ session_id: typeof s.session_id === 'string' ? s.session_id.slice(0, 256) : '' }),
+  component: GivingSuccess,
+})
+
+function GivingSuccess() {
+  const { session_id } = Route.useSearch()
+  const [attempt, setAttempt] = useState(0)
+  const [state, setState] = useState({ loading: true, msg: 'Confirming your giving…', ok: false })
+
+  useEffect(() => {
+    let alive = true
+    if (!session_id) { setState({ loading: false, msg: 'This page is missing a payment reference.', ok: false }); return }
+    setState({ loading: true, msg: 'Confirming your giving securely. This can take a moment.', ok: false })
+    confirmGivingCheckout({ data: { sessionId: session_id } }).then(result => {
+      if (!alive) return
+      if (result.ok) setState({ loading: false, ok: true, msg: 'Thank you — your giving is confirmed. A receipt is on its way to your email.' })
+      else setState({ loading: false, ok: false, msg: result.error })
+    }).catch(() => { if (alive) setState({ loading: false, ok: false, msg: 'We could not verify the payment yet. Check again; you will not be charged twice.' }) })
+    return () => { alive = false }
+  }, [session_id, attempt])
+
+  return (
+    <div className="auth-page subscription-result-page">
+      <section className="subscription-result" aria-busy={state.loading}>
+        <span className={`subscription-result-icon${state.loading ? ' is-loading' : ''}`}>{state.loading ? <LoaderCircle size={30} /> : state.ok ? <Check size={30} /> : <CreditCard size={30} />}</span>
+        <h1>{state.loading ? 'Confirming your giving' : state.ok ? 'Thank you for giving.' : 'Let’s check your payment'}</h1>
+        <p role="status">{state.msg}</p>
+        {!state.loading && !state.ok && session_id && <button type="button" className="subscription-pay" onClick={() => setAttempt(value => value + 1)}>Check payment again</button>}
+        <div className="subscription-result-links">
+          <Link to="/">Continue watching <span aria-hidden="true">→</span></Link>
+        </div>
+        {!state.ok && !state.loading && <a className="subscription-support" href="mailto:Hello@halobox.tv">Contact support</a>}
+      </section>
+    </div>
+  )
+}

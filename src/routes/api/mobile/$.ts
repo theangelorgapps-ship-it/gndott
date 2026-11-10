@@ -154,7 +154,7 @@ async function handleGet(ctx: Ctx): Promise<Response> {
       // Native HLS needs the library's pull-zone host (Stream → API in the
       // Bunny dashboard); admins set it as the `bunny_pull_zone` setting.
       // Without it we still return embed + direct URLs as fallbacks.
-      const pullZone = await first<any>(`SELECT val FROM settings WHERE name = 'bunny_pull_zone'`).then(row => String(row?.val ?? '').trim()).catch(() => '')
+      const pullZone = await first<any>(`SELECT val FROM settings WHERE name = 'bunny_pull_zone' AND deleted_at IS NULL`).then(row => String(row?.val ?? '').trim()).catch(() => '')
       const pullHost = /^[a-z0-9-]+\.b-cdn\.net$/i.test(pullZone) ? pullZone : null
       const shape = (item: any, libraryId: string | null) => {
         if (!item) return null

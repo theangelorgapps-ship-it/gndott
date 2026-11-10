@@ -18,6 +18,7 @@ import { Route as ContinueWatchingRouteImport } from './routes/continue-watching
 import { Route as FaqRouteImport } from './routes/faq'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as GenresRouteImport } from './routes/genres'
+import { Route as GivingSuccessRouteImport } from './routes/giving-success'
 import { Route as LiveTvRouteImport } from './routes/live-tv'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ManageProfileRouteImport } from './routes/manage-profile'
@@ -113,6 +114,11 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
 const GenresRoute = GenresRouteImport.update({
   id: '/genres',
   path: '/genres',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GivingSuccessRoute = GivingSuccessRouteImport.update({
+  id: '/giving-success',
+  path: '/giving-success',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LiveTvRoute = LiveTvRouteImport.update({
@@ -381,6 +387,7 @@ export interface FileRoutesByFullPath {
   '/faq': typeof FaqRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/genres': typeof GenresRoute
+  '/giving-success': typeof GivingSuccessRoute
   '/live-tv': typeof LiveTvRoute
   '/login': typeof LoginRoute
   '/manage-profile': typeof ManageProfileRoute
@@ -443,6 +450,7 @@ export interface FileRoutesByTo {
   '/faq': typeof FaqRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/genres': typeof GenresRoute
+  '/giving-success': typeof GivingSuccessRoute
   '/live-tv': typeof LiveTvRoute
   '/login': typeof LoginRoute
   '/manage-profile': typeof ManageProfileRoute
@@ -505,6 +513,7 @@ export interface FileRoutesById {
   '/faq': typeof FaqRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/genres': typeof GenresRoute
+  '/giving-success': typeof GivingSuccessRoute
   '/live-tv': typeof LiveTvRoute
   '/login': typeof LoginRoute
   '/manage-profile': typeof ManageProfileRoute
@@ -569,6 +578,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/forgot-password'
     | '/genres'
+    | '/giving-success'
     | '/live-tv'
     | '/login'
     | '/manage-profile'
@@ -631,6 +641,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/forgot-password'
     | '/genres'
+    | '/giving-success'
     | '/live-tv'
     | '/login'
     | '/manage-profile'
@@ -692,6 +703,7 @@ export interface FileRouteTypes {
     | '/faq'
     | '/forgot-password'
     | '/genres'
+    | '/giving-success'
     | '/live-tv'
     | '/login'
     | '/manage-profile'
@@ -755,6 +767,7 @@ export interface RootRouteChildren {
   FaqRoute: typeof FaqRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GenresRoute: typeof GenresRoute
+  GivingSuccessRoute: typeof GivingSuccessRoute
   LiveTvRoute: typeof LiveTvRoute
   LoginRoute: typeof LoginRoute
   ManageProfileRoute: typeof ManageProfileRoute
@@ -866,6 +879,13 @@ declare module '@tanstack/react-router' {
       path: '/genres'
       fullPath: '/genres'
       preLoaderRoute: typeof GenresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/giving-success': {
+      id: '/giving-success'
+      path: '/giving-success'
+      fullPath: '/giving-success'
+      preLoaderRoute: typeof GivingSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/live-tv': {
@@ -1274,6 +1294,7 @@ const rootRouteChildren: RootRouteChildren = {
   FaqRoute: FaqRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   GenresRoute: GenresRoute,
+  GivingSuccessRoute: GivingSuccessRoute,
   LiveTvRoute: LiveTvRoute,
   LoginRoute: LoginRoute,
   ManageProfileRoute: ManageProfileRoute,

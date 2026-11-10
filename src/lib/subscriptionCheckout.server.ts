@@ -1,14 +1,13 @@
 import { env } from 'cloudflare:workers'
 import { getRequestHeader, getRequestUrl, setResponseHeader } from '@tanstack/react-start/server'
 import { getActiveViewer } from './viewer.server'
+import { CheckoutError, checkoutError } from './checkoutError'
+
+export { CheckoutError, checkoutError }
 
 const STRIPE = 'https://api.stripe.com/v1'
 const PRODUCTION_ORIGIN = 'https://halobox.tv'
 const validId = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0
-export class CheckoutError extends Error {}
-export function checkoutError(error: unknown) {
-  return error instanceof CheckoutError ? error.message : 'Checkout is temporarily unavailable. Please try again.'
-}
 export type CheckoutQuote = {
   planId: number; name: string; duration: 'day'|'week'|'month'|'year'; durationValue: number;
   priceCents: number; discountCents: number; totalCents: number; currency: 'usd'; couponCode: string
@@ -200,7 +199,7 @@ export async function verifyStripeWebhook(raw:string, signature:string, secret:s
   if (!valid) throw new CheckoutError('Invalid webhook signature.')
   return JSON.parse(raw)
 }
-async function boundedWebhookBody(request: Request) {
+export async function boundedWebhookBody(request: Request) {
   const reader = request.body?.getReader()
   if (!reader) throw new CheckoutError('Missing webhook body.')
   const chunks: Uint8Array[] = []
@@ -228,6 +227,14 @@ export async function handleSubscriptionWebhook(request:Request) {
   catch { return new Response('Invalid webhook.',{status:400}) }
   if (!['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type)) return new Response('Ignored.',{status:200})
   const purpose = event.data?.object?.metadata?.purpose
+  if (purpose === 'halobox_giving') {
+    try {
+      if (event.data.object.payment_status==='unpaid') return new Response('Awaiting payment.',{status:200})
+      const giving = await import('./giving.server')
+      await giving.fulfillDonation(database(),event.data.object)
+      return new Response('Received.',{status:200})
+    } catch { return new Response('Fulfilment not completed; retry required.',{status:500}) }
+  }
   if (purpose === 'halobox_store_order') {
     try {
       if (event.data.object.payment_status==='unpaid') return new Response('Awaiting payment.',{status:200})

@@ -8,6 +8,9 @@ import '../player-interaction.css'
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, X, SlidersHorizontal, PictureInPicture2 } from 'lucide-react'
 import { BiblePanel, ContentNotes, youtubeId, type WatchSectionProps } from './Detail'
+import { GivingPanel } from './GivingPanel'
+import { RecommendedResources } from './RecommendedResources'
+import '../resources.css'
 import { warmupBibleReader } from './BibleReader'
 import { img, plainText } from './Poster'
 import { createPlayerBridge, type PlayerBridge } from './playerBridge'
@@ -23,7 +26,7 @@ import { nearPlaybackEnd } from './playbackEnding'
 import { liveWindow, liveEmbedUrl } from '../lib/liveSources'
 import { createIdleControls, createPlaybackWakeLock, supportsPictureInPicture, isPictureInPicture, togglePictureInPicture } from './playerCapabilities'
 
-type Panel = 'comments' | 'notes' | 'bible' | 'info' | null
+type Panel = 'comments' | 'notes' | 'bible' | 'info' | 'giving' | null
 export function playbackTime(value: number) {
   const seconds = Math.floor(Number.isFinite(value) ? Math.max(0, value) : 0)
   return seconds >= 3600 ? `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}` : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
@@ -366,20 +369,20 @@ export function ImmersivePlayer(props: WatchSectionProps) {
           </div>
         </div>}
         <LiquidNavbar className="tv-player-tabs" tone="dark" label="Player information"
-          active={panel ? (live ? ['comments', 'bible', 'info'] : ['notes', 'bible', 'info']).indexOf(panel) : -1}
+          active={panel ? (live ? ['comments', 'bible', 'info', 'giving'] : ['notes', 'bible', 'info', 'giving']).indexOf(panel) : -1}
           items={[
             ...(live ? [{ label: 'Comments', ariaLabel: 'Live discussion' }] : [{ label: 'Notes' }]),
-            { label: 'Bible' }, { label: 'Info' },
+            { label: 'Bible' }, { label: 'Info' }, { label: 'Giving', ariaLabel: 'Give an offering, tithe, partnership or seed' },
             ...(panel ? [{ label: customControls ? 'Continue Watching' : 'Return to Video', className: 'tv-player-continue', action: true }] : []),
           ]}
           onChange={index => {
-            if (index === 3) { continueWatching(); return }
-            const key = (live ? ['comments', 'bible', 'info'] : ['notes', 'bible', 'info'])[index] as Exclude<Panel, null>
+            if (index === 4) { continueWatching(); return }
+            const key = (live ? ['comments', 'bible', 'info', 'giving'] : ['notes', 'bible', 'info', 'giving'])[index] as Exclude<Panel, null>
             setPanel(current => current === key ? null : key)
           }} />
-        {panel && <section className="tv-player-panel" aria-label={panel === 'comments' ? 'Live discussion' : panel === 'info' ? 'Title information' : panel === 'notes' ? 'Your notes' : 'Bible reading'}>
+        {panel && <section className="tv-player-panel" aria-label={panel === 'comments' ? 'Live discussion' : panel === 'info' ? 'Title information' : panel === 'notes' ? 'Your notes' : panel === 'giving' ? 'Giving' : 'Bible reading'}>
           {panel !== 'comments' && <button type="button" className="tv-player-panel-close" aria-label="Close information panel" onClick={() => setPanel(null)}><X size={19} /></button>}
-          {panel === 'comments' ? liveDiscussion : panel === 'info' ? <div className={`tv-player-info${nextEpisodes.length > 0 ? ' has-next' : ''}`}><img src={img(props.portrait || poster)} alt="" /><div className="tv-player-info-main"><h3>{title}</h3><details className="tv-player-description"><summary>Description</summary><p>{plainText(description) || 'No description is available for this title.'}</p></details>{metadata.filter(Boolean).length > 0 && <p className="tv-player-meta">{metadata.filter(Boolean).join(' · ')}</p>}</div>{Boolean(props.locations?.length) && <TitlePeople locations={props.locations} />}{nextEpisodes.length > 0 && <div className="tv-player-next"><h4>Next</h4><div className="tv-player-next-rail" data-lenis-prevent>{nextEpisodes.map((episode, index) => <button type="button" className="tv-player-next-card" key={`${episode.title}-${index}`} onClick={episode.onPlay}><span className="tv-player-next-art"><img src={img(episode.poster)} alt="" loading="lazy" /><span className="tv-player-next-play"><Play size={18} fill="currentColor" /></span></span><span className="tv-player-next-text"><span className="tv-player-next-title">{episode.title}</span>{episode.subtitle && <span className="tv-player-next-subtitle">{episode.subtitle}</span>}{episode.meta && <span className="tv-player-next-meta">{episode.meta}</span>}</span></button>)}</div></div>}<div className="tv-player-info-actions">{customControls && <><button type="button" onClick={() => continueWatching(true)}><Play size={17} fill="currentColor" /> {live ? 'Back to live' : 'From Beginning'}</button><button type="button" onClick={() => continueWatching()}>Continue Watching</button></>}</div></div> : panel === 'notes' ? <ContentNotes contentType={contentType} contentId={contentId} title={title} /> : <BiblePanel playbackTime={() => observed.current.hasPlayed && observed.current.position > 0 ? Math.round(observed.current.position) : null} />}
+          {panel === 'comments' ? liveDiscussion : panel === 'info' ? <div className={`tv-player-info${nextEpisodes.length > 0 ? ' has-next' : ''}`}><img src={img(props.portrait || poster)} alt="" /><div className="tv-player-info-main"><h3>{title}</h3><details className="tv-player-description"><summary>Description</summary><p>{plainText(description) || 'No description is available for this title.'}</p></details><RecommendedResources contentType={contentType} contentId={contentId} viewerId={viewerId} />{metadata.filter(Boolean).length > 0 && <p className="tv-player-meta">{metadata.filter(Boolean).join(' · ')}</p>}</div>{Boolean(props.locations?.length) && <TitlePeople locations={props.locations} />}{nextEpisodes.length > 0 && <div className="tv-player-next"><h4>Next</h4><div className="tv-player-next-rail" data-lenis-prevent>{nextEpisodes.map((episode, index) => <button type="button" className="tv-player-next-card" key={`${episode.title}-${index}`} onClick={episode.onPlay}><span className="tv-player-next-art"><img src={img(episode.poster)} alt="" loading="lazy" /><span className="tv-player-next-play"><Play size={18} fill="currentColor" /></span></span><span className="tv-player-next-text"><span className="tv-player-next-title">{episode.title}</span>{episode.subtitle && <span className="tv-player-next-subtitle">{episode.subtitle}</span>}{episode.meta && <span className="tv-player-next-meta">{episode.meta}</span>}</span></button>)}</div></div>}<div className="tv-player-info-actions">{customControls && <><button type="button" onClick={() => continueWatching(true)}><Play size={17} fill="currentColor" /> {live ? 'Back to live' : 'From Beginning'}</button><button type="button" onClick={() => continueWatching()}>Continue Watching</button></>}</div></div> : panel === 'notes' ? <ContentNotes contentType={contentType} contentId={contentId} title={title} /> : panel === 'giving' ? <GivingPanel viewerId={viewerId} /> : <BiblePanel playbackTime={() => observed.current.hasPlayed && observed.current.position > 0 ? Math.round(observed.current.position) : null} />}
         </section>}
         {!live && progress.saveRequirement && <p className="tv-player-status"><a href={progress.saveRequirement === 'profile' ? '/manage-profile' : '/login'}>{progress.saveRequirement === 'profile' ? 'Choose a profile to save your place' : 'Sign in to save your place'}</a></p>}
         {progress.loadError && <p className="tv-player-status" role="status">Your viewing activity could not load. Reopen this title to save progress.</p>}

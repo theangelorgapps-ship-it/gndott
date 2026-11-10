@@ -5,11 +5,16 @@ import { ChevronLeft, Share2, X, Maximize, Minimize } from 'lucide-react'
 import { img, plainText, IconPlay, IconPlus } from './Poster'
 import { WatchlistButton, WatchSection, type WatchSectionProps } from './Detail'
 import { TitlePreview } from './TitlePreview'
+import { StoreReminderPrompt } from './StoreReminderPrompt'
 import { enterPlayerFullscreen, togglePlayerFullscreen } from './playerFullscreen'
 
 export function PlaybackDialog({ playback, onClose }: { playback: WatchSectionProps; onClose: () => void }) {
   const router = useRouter()
+  const [reminding, setReminding] = useState(false)
   const closePlayback = () => {
+    // Viewers who chose "Remind Me" on a recommended resource get one prompt
+    // when the video ends or the player closes, before the dialog goes away.
+    if (playback.viewerId && !reminding) { setReminding(true); return }
     if (/^watch(?:-episode-\d+)?$/.test(router.state.location.hash)) void router.navigate({ hash: '', replace: true, resetScroll: false })
     onClose()
   }
@@ -55,6 +60,7 @@ export function PlaybackDialog({ playback, onClose }: { playback: WatchSectionPr
         </header>
         {fullscreenMessage && <p className="tv-fullscreen-status" role="status">{fullscreenMessage}</p>}
         <WatchSection key={`${playback.contentType}:${playback.contentId}`} {...playback} onNavigate={onClose} initialAutoPlay />
+        {reminding && <StoreReminderPrompt contentType={playback.contentType} contentId={playback.contentId} onDone={() => { setReminding(false); if (/^watch(?:-episode-\d+)?$/.test(router.state.location.hash)) void router.navigate({ hash: '', replace: true, resetScroll: false }); onClose() }} />}
       </div>
     </dialog>, document.body,
   )

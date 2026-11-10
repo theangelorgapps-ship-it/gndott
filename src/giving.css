@@ -1,11 +1,16 @@
 /* Giving panel (player) — glass kind selector + 2-step donation flow. */
 
 .giving-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 4px 2px 12px;
   color: #e5e5e5;
+  padding: 16px;
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.18),
+    0 18px 44px rgba(0, 0, 0, 0.35);
 }
 
 .giving-head {
@@ -72,29 +77,25 @@
   left: 0;
   width: 25%;
   border-radius: 1rem;
-  z-index: -1;
+  z-index: 1;
   transition:
     transform 0.5s cubic-bezier(0.37, 1.95, 0.66, 0.56),
     background 0.4s ease-in-out,
     box-shadow 0.4s ease-in-out;
 }
 .glass-giving-glider.is-offering {
-  transform: translateX(0%);
   background: linear-gradient(135deg, #c0c0c055, #e0e0e0);
   box-shadow: 0 0 18px rgba(192, 192, 192, 0.5), 0 0 10px rgba(255, 255, 255, 0.4) inset;
 }
 .glass-giving-glider.is-tithe {
-  transform: translateX(100%);
   background: linear-gradient(135deg, #ffd70055, #ffcc00);
   box-shadow: 0 0 18px rgba(255, 215, 0, 0.5), 0 0 10px rgba(255, 235, 150, 0.4) inset;
 }
 .glass-giving-glider.is-partner {
-  transform: translateX(200%);
   background: linear-gradient(135deg, #d0e7ff55, #a0d8ff);
   box-shadow: 0 0 18px rgba(160, 216, 255, 0.5), 0 0 10px rgba(200, 240, 255, 0.4) inset;
 }
 .glass-giving-glider.is-seed {
-  transform: translateX(300%);
   background: linear-gradient(135deg, #9fe6b855, #5ecf7e);
   box-shadow: 0 0 18px rgba(94, 207, 126, 0.5), 0 0 10px rgba(190, 255, 205, 0.4) inset;
 }
@@ -103,45 +104,97 @@
 
 .giving-hint { margin: 0; font-size: 0.8rem; color: #9d9d9d; }
 .giving-step-title { margin: 0; font-size: 1.05rem; font-weight: 650; }
+.giving-step { display: flex; flex-direction: column; gap: 14px; }
+.giving-step-badge {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: #c9c9c9;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.giving-step2-head { display: flex; align-items: center; justify-content: space-between; }
+.giving-step2-head .giving-step-badge { margin-left: 0; }
 
-.giving-amounts {
+/* Partnership frequency toggle. */
+.giving-frequency {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-.giving-amounts button,
-.giving-custom {
-  display: flex;
+.giving-frequency button {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 0.65rem 0.4rem;
+  gap: 7px;
+  padding: 0.7rem 0.5rem;
   border-radius: 0.8rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.05);
-  color: #e5e5e5;
-  font-size: 0.92rem;
+  color: #d5d5d5;
+  font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
 }
-.giving-amounts button.active,
-.giving-custom.active {
-  border-color: rgba(255, 215, 0, 0.65);
-  background: rgba(255, 215, 0, 0.12);
-  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.35);
+.giving-frequency button.active {
+  border-color: rgba(160, 216, 255, 0.6);
+  background: rgba(160, 216, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(160, 216, 255, 0.3);
+  color: #fff;
 }
-.giving-custom span { color: #9d9d9d; }
-.giving-custom input {
-  width: 100%;
+
+/* Money field (ported MoneyInput, USD). */
+.money-field { display: flex; flex-direction: column; gap: 8px; }
+.money-label { font-size: 0.78rem; color: #b5b5b5; }
+.money-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: inset 1px 1px 4px rgba(255, 255, 255, 0.12), inset -1px -1px 6px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.money-control.focused { border-color: rgba(255, 215, 0, 0.55); box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.3), inset 1px 1px 4px rgba(255, 255, 255, 0.12); }
+.money-control.invalid { border-color: rgba(255, 120, 120, 0.6); }
+.money-symbol { font-size: 1.15rem; font-weight: 650; color: #d8b53a; }
+.money-control input {
+  flex: 1;
   min-width: 0;
   background: transparent;
   border: 0;
   outline: 0;
-  color: inherit;
-  font: inherit;
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
 }
-.giving-custom input::placeholder { color: #7a7a7a; }
+.money-control input::placeholder { color: #6d6d6d; }
+.money-code { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; color: #9d9d9d; padding: 3px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.07); }
+.money-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.money-chip {
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e5e5e5;
+  font-size: 0.82rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+.money-chip:hover { border-color: rgba(255, 215, 0, 0.5); background: rgba(255, 215, 0, 0.1); }
+.money-chip:active { transform: scale(0.96); }
+.money-message { font-size: 0.8rem; color: #ffb4b4; }
+.money-hint { font-size: 0.78rem; color: #8d8d8d; }
 
 .giving-fields {
   display: grid;
@@ -240,19 +293,6 @@
 }
 .giving-message { margin: 0; font-size: 0.85rem; color: #ffb4b4; }
 
-.giving-primary {
-  padding: 0.85rem;
-  border: 0;
-  border-radius: 0.9rem;
-  background: linear-gradient(135deg, #ffd700, #f5b800);
-  color: #191300;
-  font-size: 0.98rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
-}
-.giving-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255, 215, 0, 0.25); }
-.giving-primary:disabled { opacity: 0.55; cursor: default; }
 
 .giving-note { font-size: 0.9rem; color: #b5b5b5; }
 

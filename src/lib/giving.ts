@@ -9,13 +9,20 @@ import { CheckoutError, checkoutError } from './checkoutError'
 // rule for *.server.* files).
 const server = () => import('./subscriptionCheckout.server')
 
-// Giving: one-time Stripe donations (Offering / Tithe / Partner / Seed) from the
-// immersive player. Guests give with name/email/phone/country; signed-in viewers
-// give from their account details. Fulfilment is the Stripe webhook marking the
-// donation paid — there is nothing to unlock, so the success page only confirms.
+// Giving: donations (Offering / Tithe / Partner / Seed) from the immersive
+// player. Guests give with name/email/phone/country; signed-in viewers give
+// from their account details. Partnership can repeat monthly (Stripe
+// subscription); everything else is a one-time payment. Fulfilment is the
+// Stripe webhook marking the donation paid — there is nothing to unlock, so
+// the success page only confirms.
+//
+// Giving can run on its own Stripe account (e.g. test mode while rolling out):
+// set `giving_stripe_secretkey` (and `giving_stripe_webhook_secret`) in admin
+// settings; the shared subscription Stripe config is the fallback.
 
 export const GIVING_KINDS = ['offering', 'tithe', 'partner', 'seed'] as const
 export type GivingKind = (typeof GIVING_KINDS)[number]
+export type GivingFrequency = 'one_time' | 'monthly'
 
 const STRIPE = 'https://api.stripe.com/v1'
 
@@ -27,11 +34,24 @@ async function givingOrigin() {
 
 const KIND_LABEL: Record<GivingKind, string> = { offering: 'Offering', tithe: 'Tithe', partner: 'Partnership', seed: 'Seed' }
 
-type GivingInput = { kind: GivingKind; amountCents: number; name: string; email: string; phone: string; country: string }
+/** Giving-specific Stripe config; falls back to the shared subscription config. */
+async function givingConfiguration() {
+  const shared = await (await server()).stripeConfiguration()
+  const givingSecret = await first<any>(`SELECT val FROM settings WHERE name='giving_stripe_secretkey' AND deleted_at IS NULL`).then(row => String(row?.val ?? '').trim()).catch(() => '')
+  const givingEnabled = await first<any>(`SELECT val FROM settings WHERE name='giving_stripe_enabled' AND deleted_at IS NULL`).then(row => String(row?.val ?? '')).catch(() => '')
+  if (givingSecret && givingEnabled === '1') return { db: shared.db, secret: givingSecret, enabled: true }
+  return shared
+}
+
+type GivingInput = { kind: GivingKind; frequency: GivingFrequency; amountCents: number; name: string; email: string; phone: string; country: string }
 
 export function validateGivingInput(d: any): GivingInput {
   const kind = String(d?.kind ?? '') as GivingKind
   if (!GIVING_KINDS.includes(kind)) throw new CheckoutError('Choose what you are giving: Offering, Tithe, Partner or Seed.')
+  const frequency = String(d?.frequency ?? 'one_time')
+  if (frequency !== 'one_time' && frequency !== 'monthly') throw new CheckoutError('Choose one-time or monthly giving.')
+  // Only Partnership repeats; every other kind is always one-time.
+  if (frequency === 'monthly' && kind !== 'partner') throw new CheckoutError('Only Partnership can repeat monthly.')
   const amountCents = Number(d?.amountCents)
   if (!Number.isSafeInteger(amountCents) || amountCents < 100 || amountCents > 100000000) throw new CheckoutError('Enter an amount between $1.00 and $1,000,000.')
   const name = String(d?.name ?? '').trim()
@@ -42,7 +62,7 @@ export function validateGivingInput(d: any): GivingInput {
   if (!/^.{1,254}@.{1,254}$/.test(email)) throw new CheckoutError('Enter a valid email address.')
   if (phone.length > 40) throw new CheckoutError('Enter a valid phone number.')
   if (country.length > 80) throw new CheckoutError('Enter a valid country.')
-  return { kind, amountCents, name, email, phone, country }
+  return { kind, frequency: frequency as GivingFrequency, amountCents, name, email, phone, country }
 }
 
 async function stripePost(path: string, secret: string, body: URLSearchParams, key: string) {
@@ -59,7 +79,7 @@ export const createGivingCheckout = createServerFn({ method: 'POST' })
   .validator(validateGivingInput)
   .handler(async ({ data }) => {
     const origin = await givingOrigin()
-    const { db, secret, enabled } = await (await server()).stripeConfiguration()
+    const { db, secret, enabled } = await givingConfiguration()
     if (!enabled || !secret) throw new CheckoutError('Giving is temporarily unavailable. Please try again later.')
     // Signed-in viewers give from their account; guests from the details they entered.
     const viewer = await getActiveViewer()
@@ -73,20 +93,24 @@ export const createGivingCheckout = createServerFn({ method: 'POST' })
       email: user ? String(user.email) : data.email,
     }
     await run(
-      `INSERT INTO donations(id, user_id, name, email, phone, country, kind, amount_cents) VALUES(?,?,?,?,?,?,?,?)`,
-      donationId, donor.userId, donor.name, donor.email, user ? '' : data.phone, user ? '' : data.country, data.kind, data.amountCents,
+      `INSERT INTO donations(id, user_id, name, email, phone, country, kind, frequency, amount_cents) VALUES(?,?,?,?,?,?,?,?,?)`,
+      donationId, donor.userId, donor.name, donor.email, user ? '' : data.phone, user ? '' : data.country, data.kind, data.frequency, data.amountCents,
     )
+    const monthly = data.frequency === 'monthly'
     const body = new URLSearchParams({
-      mode: 'payment', 'payment_method_types[0]': 'card',
+      mode: monthly ? 'subscription' : 'payment',
+      'payment_method_types[0]': 'card',
       'line_items[0][price_data][currency]': 'usd',
-      'line_items[0][price_data][product_data][name]': `${KIND_LABEL[data.kind]} — GoodNews HaloBox`,
+      'line_items[0][price_data][product_data][name]': `${KIND_LABEL[data.kind]}${monthly ? ' (monthly)' : ''} — GoodNews HaloBox`,
       'line_items[0][price_data][unit_amount]': String(data.amountCents), 'line_items[0][quantity]': '1',
+      ...(monthly ? { 'line_items[0][price_data][recurring][interval]': 'month', 'line_items[0][price_data][recurring][interval_count]': '1' } : {}),
       success_url: `${origin}/giving-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?giving=cancelled`,
       customer_email: donor.email,
       ...(donor.userId ? { client_reference_id: String(donor.userId) } : {}),
       'metadata[purpose]': 'halobox_giving', 'metadata[donation_id]': donationId,
-      'metadata[kind]': data.kind, ...(donor.userId ? { 'metadata[user_id]': String(donor.userId) } : {}),
+      'metadata[kind]': data.kind, 'metadata[frequency]': data.frequency,
+      ...(donor.userId ? { 'metadata[user_id]': String(donor.userId) } : {}),
     })
     const session = await stripePost('/checkout/sessions', secret, body, `halobox-giving-${donationId}`)
     let safeUrl: URL
@@ -105,7 +129,7 @@ export const confirmGivingCheckout = createServerFn({ method: 'POST' })
   })
   .handler(async ({ data }) => {
     setResponseHeader('Cache-Control', 'private, no-store')
-    const { db, secret } = await (await server()).stripeConfiguration()
+    const { db, secret } = await givingConfiguration()
     if (!secret) throw new CheckoutError('Payment verification is temporarily unavailable. Please try again.')
     const result = await fetch(`${STRIPE}/checkout/sessions/${encodeURIComponent(data.sessionId)}`, {
       redirect: 'manual', signal: AbortSignal.timeout(15000),
@@ -120,8 +144,7 @@ export const confirmGivingCheckout = createServerFn({ method: 'POST' })
     }
   })
 
-// Called from the Stripe webhook for events whose metadata.purpose is halobox_giving.
 export const getGivingStatus = createServerFn({ method: 'GET' }).handler(async () => {
-  const { enabled, secret } = await (await server()).stripeConfiguration()
+  const { enabled, secret } = await givingConfiguration()
   return { available: enabled && !!secret }
 })

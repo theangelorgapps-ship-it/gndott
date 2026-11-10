@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
-import { BellRing, ShoppingBag, Truck } from 'lucide-react'
+import { BellRing, ChevronLeft, ChevronRight, ShoppingBag, Truck } from 'lucide-react'
 import {
   buyNowProduct, getContentProducts, getStoreAddress, saveStoreAddress, saveStoreReminder,
   type ContentType, type RecommendedProduct, type StoreAddress,
@@ -78,7 +78,9 @@ function ResourceCard({ product, contentType, contentId, viewerId }: { product: 
 
   return (
     <div className="resource-card">
-      <img src={product.image} alt={product.name} loading="lazy" />
+      <div className="resource-art">
+        <img src={product.image} alt={product.name} loading="lazy" />
+      </div>
       <div className="resource-card-body">
         <strong>{product.name}</strong>
         <span className="resource-price">{storeMoney(product.price, product.currency, product.minorUnit)}</span>
@@ -103,6 +105,35 @@ function ResourceCard({ product, contentType, contentId, viewerId }: { product: 
   )
 }
 
+function ResourceCarousel({ products, contentType, contentId, viewerId }: { products: RecommendedProduct[]; contentType: ContentType; contentId: number; viewerId: number | null }) {
+  const railRef = useRef<HTMLDivElement>(null)
+  const [edge, setEdge] = useState({ start: true, end: false })
+  const updateEdges = () => {
+    const rail = railRef.current
+    if (!rail) return
+    setEdge({ start: rail.scrollLeft <= 4, end: rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 4 })
+  }
+  useEffect(() => { updateEdges() }, [products])
+  const step = (direction: 1 | -1) => {
+    const rail = railRef.current
+    if (!rail) return
+    rail.scrollBy({ left: direction * rail.clientWidth * 0.85, behavior: 'smooth' })
+  }
+  return (
+    <div className="resource-carousel">
+      {products.length > 1 && (
+        <div className="resource-carousel-nav">
+          <button type="button" aria-label="Previous products" disabled={edge.start} onClick={() => step(-1)}><ChevronLeft size={16} /></button>
+          <button type="button" aria-label="More products" disabled={edge.end} onClick={() => step(1)}><ChevronRight size={16} /></button>
+        </div>
+      )}
+      <div className="resource-rail" ref={railRef} onScroll={updateEdges} data-lenis-prevent>
+        {products.map(p => <ResourceCard key={p.id} product={p} contentType={contentType} contentId={contentId} viewerId={viewerId} />)}
+      </div>
+    </div>
+  )
+}
+
 export function RecommendedResources({ contentType, contentId, viewerId }: { contentType: ContentType; contentId: number; viewerId: number | null }) {
   const [products, setProducts] = useState<RecommendedProduct[] | null>(null)
   useEffect(() => {
@@ -116,9 +147,7 @@ export function RecommendedResources({ contentType, contentId, viewerId }: { con
   return (
     <details className="tv-player-description tv-resources">
       <summary>Recommended Resources</summary>
-      <div className="resource-list">
-        {products.map(p => <ResourceCard key={p.id} product={p} contentType={contentType} contentId={contentId} viewerId={viewerId} />)}
-      </div>
+      <ResourceCarousel products={products} contentType={contentType} contentId={contentId} viewerId={viewerId} />
     </details>
   )
 }

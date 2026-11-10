@@ -219,12 +219,19 @@ export async function boundedWebhookBody(request: Request) {
   return new TextDecoder('utf-8', { fatal: true }).decode(data)
 }
 export async function handleSubscriptionWebhook(request:Request) {
-  const secret=(env as any).STRIPE_SUBSCRIPTION_WEBHOOK_SECRET
-  if (typeof secret!=='string' || !secret) return new Response('Webhook is not configured.',{status:503})
+  const primary=(env as any).STRIPE_SUBSCRIPTION_WEBHOOK_SECRET
+  if (typeof primary!=='string' || !primary) return new Response('Webhook is not configured.',{status:503})
   if (Number(request.headers.get('content-length')||0)>262144) return new Response('Payload too large.',{status:413})
-  let event:any
-  try { event=await verifyStripeWebhook(await boundedWebhookBody(request),request.headers.get('stripe-signature')||'',secret) }
-  catch { return new Response('Invalid webhook.',{status:400}) }
+  // Giving may run on its own Stripe account (test mode): its endpoint signs
+  // with its own secret, so try both before rejecting the signature.
+  const giving=await database().prepare(`SELECT val FROM settings WHERE name='giving_stripe_webhook_secret' AND deleted_at IS NULL LIMIT 1`).first<{val:string}>().then(row=>String(row?.val??'').trim()).catch(()=> '')
+  const secrets=[primary,...(giving?[giving]:[])]
+  let event:any, verified=false, lastError:unknown
+  for (const secret of secrets) {
+    try { event=await verifyStripeWebhook(await boundedWebhookBody(request.clone() as unknown as Request),request.headers.get('stripe-signature')||'',secret); verified=true; break }
+    catch (error) { lastError=error }
+  }
+  if (!verified) { void lastError; return new Response('Invalid webhook.',{status:400}) }
   if (!['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type)) return new Response('Ignored.',{status:200})
   const purpose = event.data?.object?.metadata?.purpose
   if (purpose === 'halobox_giving') {

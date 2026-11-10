@@ -5,7 +5,9 @@ import { getActiveViewer } from './viewer.server'
 
 // Admin-managed streaming settings: the Bunny library id (already used for
 // embed playback) and the library's pull-zone host, which unlocks native HLS
-// URLs for the mobile app (/api/mobile/stream/*).
+// URLs for the mobile app (/api/mobile/stream/*). Plus the Giving Stripe
+// account: its own keys let giving run in test mode (or on a separate
+// account) without touching subscription checkout.
 
 function writeOrigin() {
   const origin = getRequestHeader('origin')
@@ -24,14 +26,24 @@ async function admin() {
 
 const PULL_ZONE = /^[a-z0-9-]+\.b-cdn\.net$/i
 const LIBRARY_ID = /^\d{1,12}$/
+const STRIPE_KEY = /^(sk|rk)_(test|live)_[a-zA-Z0-9]+$/
+const STRIPE_WHSEC = /^whsec_[a-zA-Z0-9]+$/
 
-const KEYS = ['bunny_library_id', 'bunny_pull_zone'] as const
+const GIVING_KEYS = ['giving_stripe_enabled', 'giving_stripe_secretkey', 'giving_stripe_webhook_secret'] as const
 
 export const getStreamSettings = createServerFn({ method: 'GET' }).handler(async () => {
   await admin()
-  const rows = await all<any>(`SELECT name, val FROM settings WHERE name IN ('bunny_library_id','bunny_pull_zone') AND deleted_at IS NULL`)
+  const rows = await all<any>(`SELECT name, val FROM settings WHERE name IN ('bunny_library_id','bunny_pull_zone','giving_stripe_enabled','giving_stripe_secretkey','giving_stripe_webhook_secret') AND deleted_at IS NULL`)
   const map = Object.fromEntries(rows.map(r => [r.name, String(r.val ?? '')]))
-  return { bunnyLibraryId: map.bunny_library_id ?? '', bunnyPullZone: map.bunny_pull_zone ?? '' }
+  const mask = (v: string) => v ? `••••${v.slice(-4)}` : ''
+  return {
+    bunnyLibraryId: map.bunny_library_id ?? '',
+    bunnyPullZone: map.bunny_pull_zone ?? '',
+    givingStripeEnabled: map.giving_stripe_enabled === '1',
+    // Secrets never leave the server; the form only reports whether one is set.
+    givingSecretKeySet: mask(map.giving_stripe_secretkey ?? ''),
+    givingWebhookSecretSet: mask(map.giving_stripe_webhook_secret ?? ''),
+  }
 })
 
 async function upsert(name: string, val: string) {
@@ -50,7 +62,25 @@ export const saveStreamSettings = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     writeOrigin()
     await admin()
-    await upsert(KEYS[0], data.bunnyLibraryId)
-    await upsert(KEYS[1], data.bunnyPullZone)
+    await upsert('bunny_library_id', data.bunnyLibraryId)
+    await upsert('bunny_pull_zone', data.bunnyPullZone)
+    return { ok: true }
+  })
+
+export const saveGivingSettings = createServerFn({ method: 'POST' })
+  .validator((d: { enabled: boolean; secretKey: string; webhookSecret: string }) => {
+    const secretKey = String(d?.secretKey ?? '').trim()
+    const webhookSecret = String(d?.webhookSecret ?? '').trim()
+    if (secretKey && !STRIPE_KEY.test(secretKey)) throw new Error('The Stripe secret key looks like sk_test_... or sk_live_... (Stripe dashboard → Developers → API keys).')
+    if (webhookSecret && !STRIPE_WHSEC.test(webhookSecret)) throw new Error('The webhook signing secret looks like whsec_... (Stripe dashboard → Developers → Webhooks).')
+    return { enabled: !!d?.enabled, secretKey, webhookSecret }
+  })
+  .handler(async ({ data }) => {
+    writeOrigin()
+    await admin()
+    await upsert(GIVING_KEYS[0], data.enabled ? '1' : '0')
+    // Blank secret fields keep the stored value; only overwrite when filled in.
+    if (data.secretKey) await upsert(GIVING_KEYS[1], data.secretKey)
+    if (data.webhookSecret) await upsert(GIVING_KEYS[2], data.webhookSecret)
     return { ok: true }
   })

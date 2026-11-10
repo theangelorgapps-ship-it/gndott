@@ -59,11 +59,33 @@ function project(p: StoreProduct): RecommendedProduct {
 }
 
 async function mappedProducts(contentType: ContentType, contentId: number): Promise<RecommendedProduct[]> {
-  const rows = await all<any>(`SELECT product_id FROM content_products WHERE content_type=? AND content_id=? ORDER BY sort, product_id LIMIT 12`, contentType, contentId)
+  const rows = await all<any>(`SELECT * FROM content_products WHERE content_type=? AND content_id=? ORDER BY sort, product_id LIMIT 12`, contentType, contentId)
   if (!rows.length) return []
-  const ids = new Set(rows.map(r => Number(r.product_id)))
+  // Fast path: the product snapshot written at attach time — D1 only, no
+  // WooCommerce round-trip. Rows predating snapshots fall back to the live
+  // catalogue once, then get backfilled.
+  const snapshotted: RecommendedProduct[] = []
+  const stale: number[] = []
+  for (const row of rows) {
+    if (row.product_name) {
+      snapshotted.push({
+        id: Number(row.product_id), name: String(row.product_name), slug: String(row.product_slug ?? ''),
+        path: productPath({ slug: String(row.product_slug ?? ''), id: Number(row.product_id) }),
+        image: String(row.product_image ?? ''), price: String(row.product_price ?? '0'),
+        currency: String(row.product_currency ?? 'GBP'), minorUnit: Number(row.product_minor_unit ?? 2),
+        inStock: row.product_in_stock == null ? true : !!row.product_in_stock,
+      })
+    } else stale.push(Number(row.product_id))
+  }
+  if (!stale.length) return snapshotted
   const catalogue = await catalogueList()
-  return catalogue.filter(p => ids.has(p.id)).map(project)
+  for (const p of catalogue.filter(p => stale.includes(p.id))) {
+    snapshotted.push(project(p))
+    // Backfill the snapshot so the next read is local-only.
+    await run(`UPDATE content_products SET product_name=?, product_slug=?, product_price=?, product_currency=?, product_minor_unit=?, product_image=?, product_in_stock=?, snapshot_at=datetime('now') WHERE product_id=? AND product_name IS NULL`,
+      storeText(p.name), p.slug, p.prices.price, p.prices.currency_code, p.prices.currency_minor_unit, p.images[0]?.src ?? '', p.is_in_stock ? 1 : 0, p.id).catch(() => undefined)
+  }
+  return snapshotted
 }
 
 export const getContentProducts = createServerFn({ method: 'GET' })
@@ -211,8 +233,28 @@ export const getDueReminders = createServerFn({ method: 'GET' })
     const rows = await all<any>(`SELECT product_id FROM store_reminders WHERE user_id=? AND content_type=? AND content_id=? AND status='pending' ORDER BY id LIMIT 6`, viewer.userId, data.contentType, data.contentId)
     if (!rows.length) return { reminders: [] as RecommendedProduct[] }
     const ids = new Set(rows.map(r => Number(r.product_id)))
-    const catalogue = await catalogueList()
-    return { reminders: catalogue.filter(p => ids.has(p.id)).map(project) }
+    // Snapshots from any mapping row keep this read local.
+    const idList = [...ids]
+    const snaps = await all<any>(`SELECT DISTINCT product_id, product_name, product_slug, product_price, product_currency, product_minor_unit, product_image, product_in_stock FROM content_products WHERE product_name IS NOT NULL AND product_id IN (${idList.map(() => '?').join(',')})`, ...idList)
+    const byId = new Map(snaps.map(s => [Number(s.product_id), s]))
+    const missing = [...ids].filter(id => !byId.has(id))
+    const catalogue = missing.length ? await catalogueList() : []
+    const reminders: RecommendedProduct[] = []
+    for (const id of ids) {
+      const s = byId.get(id)
+      if (s) {
+        reminders.push({
+          id, name: String(s.product_name), slug: String(s.product_slug ?? ''),
+          path: productPath({ slug: String(s.product_slug ?? ''), id }), image: String(s.product_image ?? ''),
+          price: String(s.product_price ?? '0'), currency: String(s.product_currency ?? 'GBP'),
+          minorUnit: Number(s.product_minor_unit ?? 2), inStock: s.product_in_stock == null ? true : !!s.product_in_stock,
+        })
+      } else {
+        const p = catalogue.find(p => p.id === id)
+        if (p) reminders.push(project(p))
+      }
+    }
+    return { reminders }
   })
 
 export const dismissStoreReminders = createServerFn({ method: 'POST' })

@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Halobox Store Bridge
- * Description: Secure Halobox cart handoff and fulfilment visibility. WooCommerce remains the product, payment and order authority.
- * Version: 1.0.0
+ * Description: Secure Halobox cart handoff, in-site checkout fulfilment and order visibility. WooCommerce remains the product, payment and order authority.
+ * Version: 1.1.0
  * Requires PHP: 8.0
  * Requires Plugins: woocommerce
  * License: GPL-2.0-or-later
@@ -21,7 +21,7 @@ final class Halobox_Store_Bridge {
         add_action('woocommerce_blocks_loaded', [__CLASS__, 'extend_products']);
     }
     public static function routes() {
-        foreach (['status','checkout','orders'] as $endpoint) {
+        foreach (['status','checkout','orders','quote','order'] as $endpoint) {
             register_rest_route('halobox-bridge/v1', '/' . $endpoint, [
                 'methods' => 'POST', 'permission_callback' => [__CLASS__, 'authenticate'],
                 'callback' => [__CLASS__, $endpoint],
@@ -50,7 +50,7 @@ final class Halobox_Store_Bridge {
     }
     private static function reply($data) { $r = new WP_REST_Response($data); $r->header('Cache-Control','private, no-store'); return $r; }
     public static function status() {
-        return self::reply(['version'=>'1.0.0','store_url'=>home_url(),'currency'=>get_woocommerce_currency(),'checkout_url'=>wc_get_checkout_url(),'orders_managed_at'=>admin_url('admin.php?page=wc-orders')]);
+        return self::reply(['version'=>'1.1.0','store_url'=>home_url(),'currency'=>get_woocommerce_currency(),'checkout_url'=>wc_get_checkout_url(),'orders_managed_at'=>admin_url('admin.php?page=wc-orders')]);
     }
     private static function validate_items($items) {
         if (!is_array($items) || count($items)<1 || count($items)>40) throw new Exception('Choose between 1 and 40 products.');
@@ -105,8 +105,162 @@ final class Halobox_Store_Bridge {
     public static function clear_source() { if(WC()->session) WC()->session->__unset('halobox_order_source'); }
     public static function orders() {
         $orders=wc_get_orders(['limit'=>50,'orderby'=>'date','order'=>'DESC','meta_key'=>'_halobox_source','meta_value'=>'halobox']);
-        return self::reply(['orders'=>array_map(static function($o){return ['id'=>$o->get_id(),'status'=>$o->get_status(),'total'=>$o->get_total(),'currency'=>$o->get_currency(),'date'=>$o->get_date_created()?->date('c'),'edit_url'=>$o->get_edit_order_url()];},$orders)]);
+        $all=wc_get_orders(['limit'=>-1,'meta_key'=>'_halobox_source','meta_value'=>'halobox','return'=>'objects']);
+        $revenue=0.0;$count=0;$recent=0.0;$cutoff=strtotime('-30 days');
+        foreach($all as $o){
+            if(in_array($o->get_status(),['cancelled','refunded','failed','checkout-draft'],true)) continue;
+            $count++;$revenue+=(float)$o->get_total();
+            if($o->get_date_created() && $o->get_date_created()->getTimestamp()>=$cutoff) $recent+=(float)$o->get_total();
+        }
+        $currency=get_woocommerce_currency();
+        return self::reply([
+            'orders'=>array_map([__CLASS__,'order_summary'],$orders),
+            'summary'=>['count'=>$count,'revenue'=>number_format($revenue,2,'.',''),'revenue_30d'=>number_format($recent,2,'.',''),'currency'=>$currency],
+        ]);
     }
+    private static function order_summary($o) {
+        return ['id'=>$o->get_id(),'number'=>$o->get_order_number(),'status'=>$o->get_status(),'total'=>$o->get_total(),'currency'=>$o->get_currency(),'date'=>$o->get_date_created()?->date('c'),'edit_url'=>$o->get_edit_order_url()];
+    }
+
+    // ---------- in-site checkout: quote and order creation ----------
+
+    private static function clean_text($value, $max = 200) {
+        return mb_substr(trim(sanitize_text_field((string)($value ?? ''))), 0, $max);
+    }
+    /** Address fields allowed through the bridge; country must be a real WC country. */
+    private static function validate_address($input, $require_contact = false) {
+        if (!is_array($input)) return new WP_Error('bridge_address','A delivery address is required.',['status'=>400]);
+        $address = [];
+        foreach (['first_name','last_name','address_1','address_2','city','state','postcode','country','phone'] as $field) $address[$field] = self::clean_text($input[$field] ?? '', $field === 'address_1' || $field === 'address_2' ? 300 : 100);
+        $countries = array_keys(WC()->countries->get_countries());
+        if (!in_array($address['country'], $countries, true)) return new WP_Error('bridge_address','Choose a valid delivery country.',['status'=>400]);
+        if ($address['postcode'] === '') return new WP_Error('bridge_address','A delivery postcode is required.',['status'=>400]);
+        if ($require_contact && ($address['first_name'] === '' || $address['address_1'] === '' || $address['city'] === '')) return new WP_Error('bridge_address','Name, street address and city are required.',['status'=>400]);
+        return $address;
+    }
+    /** Reusable draft order behind a quote id; Woo computes totals, shipping and tax. */
+    private static function draft_order($quote_id) {
+        if (!is_string($quote_id) || !preg_match('/^[a-f0-9]{64}$/', $quote_id)) return null;
+        $draft_id = get_transient('halobox_quote_' . $quote_id);
+        if (!$draft_id) return null;
+        $order = wc_get_order($draft_id);
+        return $order && $order->get_status() === 'checkout-draft' ? $order : null;
+    }
+    public static function quote($request) {
+        $data = $request->get_json_params();
+        try { $items = self::validate_items($data['items'] ?? null); }
+        catch (Exception $e) { return new WP_Error('bridge_cart', $e->getMessage(), ['status'=>409]); }
+        $address = self::validate_address($data['address'] ?? null);
+        if (is_wp_error($address)) return $address;
+        $coupons = $data['coupons'] ?? [];
+        if (!is_array($coupons) || count($coupons) > 5) return new WP_Error('bridge_coupon','Invalid coupons.',['status'=>400]);
+
+        $order = self::draft_order($data['quote_id'] ?? null);
+        if (!$order) {
+            $order = wc_create_order(['status'=>'checkout-draft']);
+            if (!$order) return new WP_Error('bridge_quote','Could not prepare a quote.',['status'=>500]);
+        } else {
+            $order->remove_order_items(); // line items, shipping and coupons; totals recomputed below
+        }
+        foreach ($items as $item) {
+            $product = wc_get_product($item['variation_id'] ?: $item['id']);
+            try { $order->add_product($product, $item['quantity']); }
+            catch (Exception $e) { return new WP_Error('bridge_cart','A product in this cart is unavailable.',['status'=>409]); }
+        }
+        $order->set_address($address, 'billing');
+        $order->set_address($address, 'shipping');
+        $applied = [];
+        foreach ($coupons as $code) {
+            $code = self::clean_text($code, 100);
+            if ($code !== '' && !is_wp_error($order->apply_coupon($code))) $applied[] = $code;
+        }
+
+        // Live shipping rates for this destination: rates added, edited or deleted
+        // in WooCommerce shipping zones are reflected here automatically.
+        $contents = [];
+        $contents_cost = 0.0;
+        foreach ($order->get_items() as $line) {
+            $product = $line->get_product();
+            if (!$product || $product->is_virtual()) continue;
+            $contents[] = ['product_id'=>$product->get_id(),'variation_id'=>$line->get_variation_id(),'quantity'=>$line->get_quantity(),'data'=>$product,'line_total'=>(float)$line->get_subtotal(),'line_subtotal'=>(float)$line->get_subtotal(),'line_tax'=>0,'line_subtotal_tax'=>0];
+            $contents_cost += (float)$line->get_subtotal();
+        }
+        $package = [
+            'contents'=>$contents,
+            'contents_cost'=>$contents_cost,
+            'applied_coupons'=>$applied,
+            'destination'=>['country'=>$address['country'],'state'=>$address['state'],'postcode'=>$address['postcode'],'city'=>$address['city'],'address'=>$address['address_1'],'address_2'=>$address['address_2']],
+            'user'=>['ID'=>0],
+        ];
+        $rates = array_values(WC()->shipping()->calculate_shipping_for_package($package)['rates'] ?? []);
+        $chosen = self::clean_text($data['shipping_rate'] ?? '', 100);
+        $selected = null;
+        foreach ($rates as $rate) { if ($rate->get_id() === $chosen) { $selected = $rate; break; } }
+        if (!$selected && count($rates) === 1) $selected = $rates[0];
+        if ($selected) {
+            $shipping = new WC_Order_Item_Shipping();
+            $shipping->set_method_title($selected->get_label());
+            $shipping->set_method_id($selected->get_method_id());
+            $shipping->set_total((string)$selected->get_cost());
+            $order->add_item($shipping);
+        }
+        $order->calculate_totals();
+        $order->save();
+
+        $quote_id = hash('sha256', random_bytes(32));
+        set_transient('halobox_quote_' . $quote_id, $order->get_id(), 1800);
+        return self::reply([
+            'quote_id'=>$quote_id,
+            'currency'=>$order->get_currency(),
+            'items_total'=>$order->get_subtotal(),
+            'discount_total'=>$order->get_discount_total(),
+            'shipping_total'=>$order->get_shipping_total(),
+            'tax_total'=>$order->get_total_tax(),
+            'total'=>$order->get_total(),
+            'shipping_rates'=>array_map(static function($r) use ($selected){ return ['id'=>$r->get_id(),'label'=>$r->get_label(),'cost'=>number_format((float)$r->get_cost(),2,'.',''),'selected'=>$selected && $r->get_id()===$selected->get_id()]; }, $rates),
+            'expires_in'=>1800,
+        ]);
+    }
+
+    public static function order($request) {
+        $data = $request->get_json_params();
+        $payment = $data['payment'] ?? [];
+        $reference = is_array($payment) ? self::clean_text($payment['reference'] ?? '', 100) : '';
+        $amount = is_array($payment) ? (string)($payment['amount'] ?? '') : '';
+        $currency = is_array($payment) ? strtoupper(self::clean_text($payment['currency'] ?? '', 3)) : '';
+        if (!preg_match('/^(cs|pi)_(test|live)?_?[a-zA-Z0-9]{6,}$/', $reference) || !preg_match('/^\d+(\.\d{1,2})?$/', $amount) || strlen($currency) !== 3) {
+            return new WP_Error('bridge_payment','Invalid payment confirmation.',['status'=>400]);
+        }
+        // Idempotent: a Stripe session that already produced an order returns it.
+        $existing = wc_get_orders(['limit'=>1,'meta_key'=>'_halobox_payment_ref','meta_value'=>$reference]);
+        if ($existing) return self::reply(['order'=>self::order_summary(reset($existing)),'already'=>true]);
+
+        $order = self::draft_order($data['quote_id'] ?? null);
+        if (!$order) return new WP_Error('bridge_quote','This quote has expired. Return to Halobox and check out again; you were not charged twice.',['status'=>410]);
+        if ($order->get_currency() !== $currency || abs((float)$order->get_total() - (float)$amount) > 0.005) {
+            return new WP_Error('bridge_total','The paid amount does not match the quoted total.',['status'=>409]);
+        }
+        $email = is_array($data['customer'] ?? null) ? sanitize_email($data['customer']['email'] ?? '') : '';
+        if (!is_email($email)) return new WP_Error('bridge_address','A valid email address is required.',['status'=>400]);
+        $billing = self::validate_address($data['billing'] ?? null, true);
+        if (is_wp_error($billing)) return $billing;
+        $shipping_address = self::validate_address($data['shipping'] ?? $data['billing'] ?? null, true);
+        if (is_wp_error($shipping_address)) return $shipping_address;
+        $order->set_address($billing, 'billing');
+        $order->set_address($shipping_address, 'shipping');
+        $order->set_billing_email($email);
+        $order->set_created_via('halobox-bridge');
+        $order->set_payment_method_title('Stripe — Halobox');
+        $order->set_transaction_id($reference);
+        $order->update_meta_data('_halobox_source', 'halobox');
+        $order->update_meta_data('_halobox_payment_ref', $reference);
+        $order->save();
+        // Moves checkout-draft → processing, reduces stock and sends WooCommerce emails.
+        $order->payment_complete($reference);
+        delete_transient('halobox_quote_' . $data['quote_id']);
+        return self::reply(['order'=>self::order_summary(wc_get_order($order->get_id())),'already'=>false]);
+    }
+
     public static function menu() { add_submenu_page('woocommerce','Halobox Bridge','Halobox Bridge','manage_woocommerce','halobox-bridge',[__CLASS__,'page']); }
     public static function extend_products() {
         if (!function_exists('woocommerce_store_api_register_endpoint_data')) return;

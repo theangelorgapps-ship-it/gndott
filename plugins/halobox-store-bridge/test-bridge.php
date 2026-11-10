@@ -19,7 +19,7 @@ final class TestRequest {
 }
 final class TestDie extends Error { public function __construct(public int $status){parent::__construct('wp_die: '.$status);} }
 final class TestRedirect extends Error { public function __construct(public string $url){parent::__construct('redirect');} }
-$options=['halobox_bridge_enabled'=>true];$transients=[];$routes=[];$order_query=[];$capability=false;
+$options=['halobox_bridge_enabled'=>true];$transients=[];$routes=[];$order_query=[];$capability=false;$orders_by_id=[];$halobox_orders=[];
 final class TestProductSchema { const IDENTIFIER='product'; }
 class_alias(TestProductSchema::class,'Automattic\\WooCommerce\\StoreApi\\Schemas\\V1\\ProductSchema');
 function woocommerce_store_api_register_endpoint_data($data){$GLOBALS['product_extension']=$data;}
@@ -34,6 +34,8 @@ function set_transient($key,$value,$seconds){$GLOBALS['transients'][$key]=['valu
 function get_transient($key){$entry=$GLOBALS['transients'][$key]??null;return $entry&&$entry['expiry']>time()?$entry['value']:false;}
 function delete_transient($key){unset($GLOBALS['transients'][$key]);return true;}
 function sanitize_text_field($value){return trim(strip_tags((string)$value));}
+function sanitize_email($value){return trim((string)$value);}
+function is_email($value){return (bool)filter_var($value,FILTER_VALIDATE_EMAIL);}
 function wp_unslash($value){return $value;}
 function esc_html($value){return htmlspecialchars((string)$value);}
 function esc_url($value){return $value;}
@@ -71,9 +73,56 @@ final class TestCart {
     public function calculate_totals(){ $this->total=0;foreach($this->items as $item)$this->total+=wc_get_product($item['variation_id']?:$item['id'])->price*$item['quantity']; }
 }
 final class TestSession {public array $data=[]; public bool $cookie=false;public function set($key,$value){$this->data[$key]=$value;}public function get($key){return $this->data[$key]??null;}public function __unset($key){unset($this->data[$key]);}public function set_customer_session_cookie($value){$this->cookie=$value;}}
-$wc=(object)['cart'=>new TestCart(),'session'=>new TestSession()];function WC(){return $GLOBALS['wc'];}
-final class TestOrder {public array $meta=[];public function update_meta_data($key,$value){$this->meta[$key]=$value;}public function get_id(){return 321;}public function get_status(){return 'processing';}public function get_total(){return '25.00';}public function get_currency(){return 'GBP';}public function get_date_created(){return null;}public function get_edit_order_url(){return 'https://uebertangel.org/wp-admin/admin.php?page=wc-orders&action=edit&id=321';}}
-function wc_get_orders($query){$GLOBALS['order_query']=$query;return [new TestOrder()];}
+final class TestShippingRate { public function __construct(private string $id,private string $label,private string $cost){} public function get_id(){return $this->id;} public function get_label(){return $this->label;} public function get_method_id(){return 'flat_rate';} public function get_cost(){return $this->cost;} }
+final class TestWoo {
+    public $cart; public $session; public $countries;
+    public function __construct(){
+        $this->cart=new TestCart(); $this->session=new TestSession();
+        $this->countries=new class { public function get_countries(){return ['GB'=>'United Kingdom','US'=>'United States'];} };
+    }
+    public function shipping(){ return new class { public function calculate_shipping_for_package($package){ $GLOBALS['shipping_package']=$package; return ['rates'=>[new TestShippingRate('flat_rate:1','Standard delivery','4.95'),new TestShippingRate('express:2','Express delivery','9.95')]]; } }; }
+}
+$wc=new TestWoo();function WC(){return $GLOBALS['wc'];}
+final class WC_Order_Item_Shipping { public string $title=''; public string $methodId=''; public string $total='0'; public function set_method_title($t){$this->title=$t;} public function set_method_id($i){$this->methodId=$i;} public function set_total($t){$this->total=$t;} }
+final class TestOrderLine { public function __construct(private TestProduct $product, private int $qty){} public function get_product(){return $this->product;} public function get_variation_id(){return 0;} public function get_quantity(){return $this->qty;} public function get_subtotal(){return $this->product->price*$this->qty/100;} }
+final class TestDraftOrder {
+    public array $items=[]; public array $addresses=[]; public array $meta=[]; public string $status='checkout-draft'; public string $email=''; public float $shipping=0.0; public string $shippingLabel='';
+    private static int $nextId=500; public int $id;
+    public function __construct(){ $this->id=self::$nextId++; $GLOBALS['orders_by_id'][$this->id]=$this; }
+    public function get_id(){return $this->id;} public function get_status(){return $this->status;}
+    public function add_product($product,$quantity){ $this->items[]=['product'=>$product,'quantity'=>$quantity]; }
+    public function remove_order_items(){ $this->items=[]; }
+    public function set_address($address,$type){ $this->addresses[$type]=$address; }
+    public function apply_coupon($code){ if($code==='BOOKS') return true; return new WP_Error('bridge_coupon','Invalid coupon.'); }
+    public function get_items(){ return array_map(fn($i)=>new TestOrderLine($i['product'],$i['quantity']),$this->items); }
+    public function add_item($shipping){ $this->shipping=(float)$shipping->total; $this->shippingLabel=$shipping->title; }
+    public function calculate_totals(){} public function save(){}
+    public function get_currency(){return 'GBP';}
+    public function get_subtotal(){ $t=0; foreach($this->items as $i) $t+=$i['product']->price*$i['quantity']; return number_format($t/100,2,'.',''); }
+    public function get_discount_total(){return '0.00';}
+    public function get_shipping_total(){return number_format($this->shipping,2,'.','');}
+    public function get_total_tax(){return '0.00';}
+    public function get_total(){ return number_format((float)$this->get_subtotal()+$this->shipping,2,'.',''); }
+    public function set_billing_email($e){$this->email=$e;}
+    public function set_created_via($v){} public function set_payment_method_title($t){} public function set_transaction_id($t){}
+    public function update_meta_data($key,$value){$this->meta[$key]=$value;}
+    public function payment_complete($reference){ $this->status='processing'; }
+    public function get_order_number(){return (string)$this->id;}
+    public function get_date_created(){return null;}
+    public function get_edit_order_url(){return 'https://uebertangel.org/wp-admin/admin.php?page=wc-orders&action=edit&id='.$this->id;}
+}
+function wc_create_order($args){ return new TestDraftOrder(); }
+function wc_get_order($id){ return $GLOBALS['orders_by_id'][$id]??null; }
+final class TestOrder {public array $meta=[];public function update_meta_data($key,$value){$this->meta[$key]=$value;}public function get_id(){return 321;}public function get_order_number(){return '321';}public function get_status(){return 'processing';}public function get_total(){return '25.00';}public function get_currency(){return 'GBP';}public function get_date_created(){return null;}public function get_edit_order_url(){return 'https://uebertangel.org/wp-admin/admin.php?page=wc-orders&action=edit&id=321';}}
+function wc_get_orders($query){
+    if(($query['meta_key']??'')==='_halobox_payment_ref'){
+        $found=[];foreach($GLOBALS['orders_by_id'] as $order) if(($order->meta['_halobox_payment_ref']??null)===$query['meta_value']) $found[]=$order;
+        return $found;
+    }
+    $GLOBALS['order_query']=$query;
+    return ($query['limit']??0)===-1 ? $GLOBALS['halobox_orders'] : [new TestOrder()];
+}
+$halobox_orders=[new TestOrder()];
 $private=openssl_pkey_new(['private_key_bits'=>2048,'private_key_type'=>OPENSSL_KEYTYPE_RSA]);check($private!==false,'RSA key creation failed');
 define('HALOBOX_BRIDGE_PUBLIC_KEY',openssl_pkey_get_details($private)['key']);
 require __DIR__.'/halobox-store-bridge.php';
@@ -88,6 +137,8 @@ function rejected($result,$code,$message){check($result instanceof WP_Error&&($r
 Halobox_Store_Bridge::routes();
 foreach($routes as $route) check($route['permission_callback']===[Halobox_Store_Bridge::class,'authenticate'],'Every bridge endpoint must authenticate');
 check(isset($routes['halobox-bridge/v1/orders']),'Order endpoint missing');
+check(isset($routes['halobox-bridge/v1/quote']),'Quote endpoint missing');
+check(isset($routes['halobox-bridge/v1/order']),'Order creation endpoint missing');
 $request=signed_request(['items'=>[['id'=>1,'quantity'=>2]]]);check(Halobox_Store_Bridge::authenticate($request)===true,'Valid RSA signature rejected');
 rejected(Halobox_Store_Bridge::authenticate($request),409,'Replayed signed request must fail');
 $tampered=signed_request(['items'=>[['id'=>1,'quantity'=>1]]]);$tampered->data['items'][0]['quantity']=2;rejected(Halobox_Store_Bridge::authenticate($tampered),401,'Body tampering accepted');
@@ -125,6 +176,37 @@ try{Halobox_Store_Bridge::handoff();check(false,'Disabling the bridge did not re
 check(WC()->cart->items===$previousCart,'Disabled handoff modified the Woo cart');$options['halobox_bridge_enabled']=true;
 $order=new TestOrder();Halobox_Store_Bridge::tag_order($order);check(($order->meta['_halobox_source']??null)==='halobox','Bridge order marker missing');Halobox_Store_Bridge::clear_source();$otherOrder=new TestOrder();Halobox_Store_Bridge::tag_order($otherOrder);check($otherOrder->meta===[],'Unrelated order tagged');
 $orders=Halobox_Store_Bridge::orders();check($order_query['meta_key']==='_halobox_source'&&$order_query['meta_value']==='halobox','Order endpoint exposes unrelated orders');check(!isset($orders->data['orders'][0]['billing']),'Order endpoint unnecessarily exposes customer address');
+check($orders->data['orders'][0]['number']==='321','Order number missing from dashboard feed');
+check($orders->data['summary']['count']===1&&$orders->data['summary']['revenue']==='25.00'&&$orders->data['summary']['currency']==='GBP','Revenue summary missing or wrong');
+
+// In-site checkout: quote and paid order creation.
+$address=['first_name'=>'Ada','last_name'=>'Lovelace','address_1'=>'1 Halo Way','city'=>'London','postcode'=>'N1 9GU','country'=>'GB'];
+$quote=Halobox_Store_Bridge::quote(new TestRequest(['items'=>[['id'=>1,'quantity'=>2,'price'=>1]],'address'=>$address]));
+check($quote instanceof WP_REST_Response && (bool)preg_match('/^[a-f0-9]{64}$/',$quote->data['quote_id']),'Quote id malformed');
+check($quote->data['items_total']==='50.00','Quote items total must come from Woo prices, not client input');
+check($quote->data['total']==='50.00','Unchosen shipping must not inflate the quote total');
+check(count($quote->data['shipping_rates'])===2 && $quote->data['shipping_rates'][0]['id']==='flat_rate:1','Live shipping rates missing from quote');
+check($quote->data['expires_in']<=1800,'Quote lifetime too long');
+rejected(Halobox_Store_Bridge::quote(new TestRequest(['items'=>[['id'=>1,'quantity'=>1]],'address'=>['country'=>'XX','postcode'=>'AB1']])),400,'Invalid country accepted in quote');
+rejected(Halobox_Store_Bridge::quote(new TestRequest(['items'=>[['id'=>1,'quantity'=>1]],'address'=>['country'=>'GB']])),400,'Missing postcode accepted in quote');
+rejected(Halobox_Store_Bridge::quote(new TestRequest(['items'=>[['id'=>2,'quantity'=>1]],'address'=>$address])),409,'Virtual product accepted in quote');
+$express=Halobox_Store_Bridge::quote(new TestRequest(['items'=>[['id'=>1,'quantity'=>2]],'address'=>$address,'shipping_rate'=>'express:2']));
+check($express->data['shipping_total']==='9.95' && $express->data['total']==='59.95','Chosen shipping rate not reflected in quote total');
+check($express->data['shipping_rates'][1]['selected']===true,'Chosen rate not marked selected');
+$orderRequest=fn($overrides)=>new TestRequest(array_merge(['quote_id'=>$express->data['quote_id'],'payment'=>['gateway'=>'stripe','reference'=>'pi_live_ABC123','amount'=>'59.95','currency'=>'GBP'],'customer'=>['email'=>'buyer@example.com'],'billing'=>$address],$overrides));
+rejected(Halobox_Store_Bridge::order($orderRequest(['payment'=>['reference'=>'not-a-stripe-ref','amount'=>'59.95','currency'=>'GBP']])),400,'Non-Stripe payment reference accepted');
+rejected(Halobox_Store_Bridge::order($orderRequest(['payment'=>['reference'=>'pi_live_WRONG99','amount'=>'1.00','currency'=>'GBP']])),409,'Paid amount mismatch accepted');
+rejected(Halobox_Store_Bridge::order($orderRequest(['payment'=>['reference'=>'pi_live_WRONG99','amount'=>'59.95','currency'=>'USD']])),409,'Currency mismatch accepted');
+rejected(Halobox_Store_Bridge::order($orderRequest(['payment'=>['reference'=>'pi_live_WRONG99','amount'=>'59.95','currency'=>'GBP'],'customer'=>['email'=>'not-an-email']])),400,'Invalid customer email accepted');
+rejected(Halobox_Store_Bridge::order($orderRequest(['payment'=>['reference'=>'pi_live_WRONG99','amount'=>'59.95','currency'=>'GBP'],'billing'=>['country'=>'GB','postcode'=>'N1 9GU']])),400,'Incomplete billing address accepted');
+$paid=Halobox_Store_Bridge::order($orderRequest([]));
+check($paid instanceof WP_REST_Response && $paid->data['already']===false,'Paid order not created');
+check($paid->data['order']['status']==='processing','payment_complete did not move the draft to processing');
+check($paid->data['order']['number']==='501','Order number missing from confirmation');
+$draft=$orders_by_id[501];check($draft->email==='buyer@example.com' && ($draft->meta['_halobox_source']??'')==='halobox' && ($draft->meta['_halobox_payment_ref']??'')==='pi_live_ABC123','Order not stamped with customer, source and payment reference');
+$repeat=Halobox_Store_Bridge::order($orderRequest([]));
+check($repeat->data['already']===true && $repeat->data['order']['number']==='501','Duplicate payment reference created a second order');
+rejected(Halobox_Store_Bridge::order($orderRequest(['quote_id'=>hash('sha256','expired'),'payment'=>['reference'=>'pi_live_NEWREF1','amount'=>'59.95','currency'=>'GBP']])),410,'Expired quote accepted for order creation');
 ob_start();Halobox_Store_Bridge::page();$denied=ob_get_clean();check($denied==='','Non-admin WP page exposed');
 $capability=true;$_POST=['halobox_save'=>'1'];$valid_admin_nonce=false;ob_start();try{Halobox_Store_Bridge::page();check(false,'Settings mutation accepted without nonce');}catch(TestDie $die){check($die->status===403,'Wrong admin nonce rejection');}finally{ob_end_clean();}
 check($options['halobox_bridge_enabled']===true,'Rejected settings mutation changed bridge state');

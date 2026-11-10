@@ -26,7 +26,7 @@ const helpers=load(read('src/lib/subscriptionCheckout.server.ts'),{
 })
 const factory={createServerFn(){let validate=data=>data;return{validator(fn){validate=fn;return this},handler(fn){return(input={})=>fn({data:validate(input.data)})}}}}
 const apiSource=read('src/lib/api.ts')
-const handlers=load("const {createServerFn}=require('@tanstack/react-start');\n"+apiSource.slice(apiSource.indexOf('export const getCheckoutInfo ='),apiSource.indexOf('// ---------- pay per view ----------')),{ '@tanstack/react-start':factory,'./subscriptionCheckout.server':helpers })
+const handlers=load("const {createServerFn}=require('@tanstack/react-start');\n"+apiSource.slice(apiSource.indexOf('export const getCheckoutInfo ='),apiSource.indexOf('// ---------- pay per view ----------')),{ '@tanstack/react-start':factory,'./subscriptionCheckout.server':helpers,'./storeCheckout.server':{confirmStoreCheckout:async()=>null} })
 const schema=`
  CREATE TABLE users(id INTEGER PRIMARY KEY,email TEXT NOT NULL,status INTEGER DEFAULT 1,is_banned INTEGER DEFAULT 0,deleted_at TEXT,is_subscribe INTEGER DEFAULT 0,updated_at TEXT);
  CREATE TABLE settings(name TEXT,val TEXT,deleted_at TEXT);

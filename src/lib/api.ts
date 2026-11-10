@@ -848,6 +848,10 @@ export const confirmStripeSession = createServerFn({ method: 'POST' })
       checkout.subscriptionWriteOrigin()
       const user = await checkout.subscriptionActor()
       if (!user) return { ok: false as const, needsAuth: true, error: 'Sign in to the account used at checkout to verify your payment.' }
+      // A store order session confirms through the bridge; anything else is a subscription.
+      const store = await import('./storeCheckout.server')
+      const storeResult = await store.confirmStoreCheckout(data.sessionId, user.id)
+      if (storeResult) return storeResult
       return await checkout.confirmSubscriptionCheckout(data.sessionId, user.id)
     } catch (error) { return { ok: false as const, error: checkout.checkoutError(error) } }
   })

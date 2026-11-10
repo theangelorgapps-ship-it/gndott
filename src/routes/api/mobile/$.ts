@@ -12,6 +12,7 @@ import {
   requestOtp, verifyOtp, changePassword, subscribePlan, confirmStripeSession,
   purchasePayPerView, getFooterData,
 } from '../../../lib/api'
+import { getStoreProducts, getStoreCart, updateStoreCart, quoteStoreCheckout, startStoreCheckout } from '../../../lib/store'
 import { first } from '../../../lib/db'
 import { getBibleBooks, getBibleChapter } from '../../../lib/bible'
 import { BIBLE_VERSIONS } from '../../../lib/bibleProvider'
@@ -203,6 +204,10 @@ async function handleGet(ctx: Ctx): Promise<Response> {
       }
       return json({ ok: false, error: `Unknown stream type: ${type}` }, { status: 404 })
     }
+    case 'shop':
+      if (second === 'products') return json(await getStoreProducts())
+      if (second === 'cart') return json(await getStoreCart())
+      return json({ ok: false, error: `Unknown endpoint: shop/${second ?? ''}` }, { status: 404 })
     default: return json({ ok: false, error: `Unknown endpoint: ${head ?? '(root)'}` }, { status: 404 })
   }
 }
@@ -255,6 +260,13 @@ async function handlePost(ctx: Ctx): Promise<Response> {
       }
       break
     case 'subscribe': return json(await subscribePlan({ data: body }))
+    case 'shop':
+      switch (second) {
+        case 'cart': return json(await updateStoreCart({ data: body }))
+        case 'quote': return json(await quoteStoreCheckout({ data: body }))
+        case 'checkout': return json(await startStoreCheckout({ data: body }))
+        default: return json({ ok: false, error: 'Unknown shop action.' }, { status: 404 })
+      }
     case 'stripe':
       if (second === 'confirm') return json(await confirmStripeSession({ data: body }))
       break

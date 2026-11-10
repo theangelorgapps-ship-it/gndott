@@ -83,7 +83,7 @@ export async function getSubscriptionCheckoutInfo(planId?: number) {
   const quote = planId ? (await readSubscriptionQuote(db, planId)).quote : null
   return { gateways:enabled && secret ? [{id:'stripe',label:'Secure payment with Stripe'}] : [], quote }
 }
-async function stripeRequest(path: string, secret: string, transport: typeof fetch, body?: URLSearchParams, key?: string) {
+export async function stripeRequest(path: string, secret: string, transport: typeof fetch, body?: URLSearchParams, key?: string) {
   const result = await transport(`${STRIPE}${path}`, {
     method:body ? 'POST' : 'GET', redirect:'manual', signal:AbortSignal.timeout(15000),
     headers:{Authorization:`Bearer ${secret}`,'Stripe-Version':'2025-04-30.basil',...(body?{'Content-Type':'application/x-www-form-urlencoded'}:{}),...(key?{'Idempotency-Key':key}:{})},
@@ -215,7 +215,17 @@ export async function handleSubscriptionWebhook(request:Request) {
   let event:any
   try { event=await verifyStripeWebhook(await boundedWebhookBody(request),request.headers.get('stripe-signature')||'',secret) }
   catch { return new Response('Invalid webhook.',{status:400}) }
-  if (!['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type) || event.data?.object?.metadata?.purpose!=='halobox_subscription') return new Response('Ignored.',{status:200})
+  if (!['checkout.session.completed','checkout.session.async_payment_succeeded'].includes(event.type)) return new Response('Ignored.',{status:200})
+  const purpose = event.data?.object?.metadata?.purpose
+  if (purpose === 'halobox_store_order') {
+    try {
+      if (event.data.object.payment_status==='unpaid') return new Response('Awaiting payment.',{status:200})
+      const store = await import('./storeCheckout.server')
+      await store.fulfillStoreOrder(database(),event.data.object)
+      return new Response('Received.',{status:200})
+    } catch { return new Response('Fulfilment not completed; retry required.',{status:500}) }
+  }
+  if (purpose!=='halobox_subscription') return new Response('Ignored.',{status:200})
   try {
     if (event.data.object.payment_status==='unpaid') return new Response('Awaiting payment.',{status:200})
     await fulfillSubscription(database(),event.data.object)

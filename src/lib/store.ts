@@ -1,12 +1,10 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getCookie, setCookie, getRequestHeader, getRequestUrl, setResponseHeader } from '@tanstack/react-start/server'
-import { env } from 'cloudflare:workers'
 import { first } from './db'
 import { getActiveViewer } from './viewer.server'
 import { STORE_ORIGIN, isPhysicalProduct, storeText, type StoreProduct } from './storeTypes'
 const TOKEN = 'halobox_store_cart'
 const API = `${STORE_ORIGIN}/wp-json/wc/store/v1`
-const BRIDGE = `${STORE_ORIGIN}/wp-json/halobox-bridge/v1`
 let catalogue: { until: number; products: StoreProduct[] } | undefined
 function storeWriteOrigin() {
   if (getRequestHeader('origin') !== new URL(getRequestUrl()).origin || getRequestHeader('sec-fetch-site') === 'cross-site') throw new Error('Please retry from Halobox.')
@@ -123,30 +121,42 @@ export const updateStoreCart = createServerFn({ method: 'POST' }).validator((d: 
   if (d.action === 'remove') return woo('/cart/remove-item', { key: d.key }, true)
   return woo(`/cart/${d.action === 'coupon' ? 'apply-coupon' : 'remove-coupon'}`, { code: d.code?.trim() }, true)
 })
+/** Signed call to the Halobox Store Bridge on uebertangel.org (quote/order/orders/status). */
 async function bridge(path: string, payload: object) {
-  const secret = (env as any).STORE_BRIDGE_PRIVATE_KEY
-  if (typeof secret !== 'string' || !secret.includes('BEGIN PRIVATE KEY')) throw new Error('Store checkout is being connected. You can shop directly at uebertangel.org meanwhile.')
-  const body = JSON.stringify(payload), timestamp = String(Math.floor(Date.now()/1000)), nonce = crypto.randomUUID()
-  const der = Uint8Array.from(atob(secret.replace(/-----[^-]+-----|\s/g, '')), c => c.charCodeAt(0))
-  const key = await crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign'])
-  const digest = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(`${timestamp}\n${nonce}\n${path}\n${body}`))
-  const signature = btoa(String.fromCharCode(...new Uint8Array(digest)))
-  const r = await fetch(`${BRIDGE}${path}`, { method: 'POST', headers: { 'Content-Type':'application/json', 'X-Halobox-Time':timestamp, 'X-Halobox-Nonce':nonce, 'X-Halobox-Signature':signature }, body, redirect:'manual', signal:AbortSignal.timeout(15000) })
-  const data:any = await r.json()
-  if (!r.ok) throw new Error('The store connection is unavailable. Please try again shortly.')
-  return data
+  return (await import('./storeBridge.server')).bridge(path, payload)
 }
-export const startStoreCheckout = createServerFn({method:'POST'}).handler(async()=>{
-  storeWriteOrigin()
-  if (!getCookie(TOKEN)) throw new Error('Your cart is empty.')
-  const cart = await woo('/cart', undefined, true)
-  if (!cart.items?.length || cart.items.length > 40) throw new Error('Please review your cart.')
-  const items = cart.items.map((x:any)=>({id:x.id,quantity:x.quantity}))
-  const data = await bridge('/checkout', { items, coupons: (cart.coupons || []).map((x:any)=>x.code) })
-  const target = new URL(data.checkout_url)
-  if (target.origin !== STORE_ORIGIN || !target.searchParams.has('halobox_checkout')) throw new Error('Invalid checkout destination.')
-  return { url:target.toString() }
-})
+/** Quote the cart through the bridge: WooCommerce computes totals, shipping and tax. */
+export const quoteStoreCheckout = createServerFn({ method: 'POST' })
+  .validator((d: { address: unknown; shippingRate?: string }) => d)
+  .handler(async ({ data }) => {
+    storeWriteOrigin()
+    const { subscriptionActor, stripeConfiguration, checkoutError } = await import('./subscriptionCheckout.server')
+    const user = await subscriptionActor()
+    if (!user) return { ok: false as const, needsAuth: true as const, error: 'Sign in to check out.' }
+    try {
+      const cart = await woo('/cart', undefined, true)
+      const mod = await import('./storeCheckout.server')
+      const address = mod.cleanAddress(data.address)
+      const { db } = await stripeConfiguration()
+      return { ok: true as const, ...(await mod.createStoreQuote(db, user, cart, address, data.shippingRate)) }
+    } catch (error) { return { ok: false as const, error: checkoutError(error) } }
+  })
+
+/** Pay a quoted cart with the shared Stripe configurator; the order is created after payment. */
+export const startStoreCheckout = createServerFn({ method: 'POST' })
+  .validator((d: { checkoutId: string; requestKey: string; expectedTotalMinor: number }) => d)
+  .handler(async ({ data }) => {
+    const { subscriptionWriteOrigin, subscriptionActor, stripeConfiguration, checkoutError } = await import('./subscriptionCheckout.server')
+    const origin = subscriptionWriteOrigin()
+    const user = await subscriptionActor()
+    if (!user) return { ok: false as const, needsAuth: true as const, error: 'Sign in to check out.' }
+    const { db, secret, enabled } = await stripeConfiguration()
+    if (!enabled || !secret) return { ok: false as const, error: 'Online checkout is temporarily unavailable. Please try again later.' }
+    try {
+      const mod = await import('./storeCheckout.server')
+      return await mod.createStoreCheckout(db, user, data, origin, secret)
+    } catch (error) { return { ok: false as const, error: checkoutError(error) } }
+  })
 async function admin() {
   setResponseHeader('Cache-Control','private, no-store')
   const a = await getActiveViewer()
@@ -160,4 +170,4 @@ export const getStoreAdmin = createServerFn({method:'GET'}).handler(async()=>{
   return { connection, error, productCount:list.length, origin:STORE_ORIGIN }
 })
 export const refreshStoreAdmin = createServerFn({method:'POST'}).handler(async()=>{ storeWriteOrigin();await admin(); return {count:(await products(true)).length} })
-export const getStoreOrders = createServerFn({method:'GET'}).handler(async()=>{await admin();return await bridge('/orders',{}) as {orders:{id:number;status:string;total:string;currency:string;date:string;edit_url:string}[]} })
+export const getStoreOrders = createServerFn({method:'GET'}).handler(async()=>{await admin();return await bridge('/orders',{}) as {orders:{id:number;number:string;status:string;total:string;currency:string;date:string;edit_url:string}[];summary:{count:number;revenue:string;revenue_30d:string;currency:string}} })

@@ -30,21 +30,10 @@
   box-shadow: inset 1px 1px 4px rgba(255, 255, 255, 0.2), inset -1px -1px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* Glass radio group — 4-way glider (ported from the styled-components design,
-   no runtime CSS-in-JS). */
+/* Glass giving-kind selector — boxless segmented bar, neutral silver glider. */
 .glass-giving-group {
-  --bg: rgba(255, 255, 255, 0.06);
-  --text: #e5e5e5;
   display: flex;
   position: relative;
-  background: var(--bg);
-  border-radius: 1rem;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow:
-    inset 1px 1px 4px rgba(255, 255, 255, 0.2),
-    inset -1px -1px 6px rgba(0, 0, 0, 0.3),
-    0 4px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
 }
 .glass-giving-group label {
@@ -58,14 +47,14 @@
   cursor: pointer;
   font-weight: 600;
   letter-spacing: 0.3px;
-  color: var(--text);
+  color: #8f8f97;
   z-index: 2;
   transition: color 0.3s ease-in-out;
   text-align: center;
 }
 .glass-giving-group label:hover { color: #fff; }
 .glass-giving-group label.active,
-.glass-giving-group label.active span { color: #141414; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35); }
+.glass-giving-group label.active span { color: #141414; }
 .glass-giving-group input {
   position: absolute;
   opacity: 0;
@@ -73,32 +62,15 @@
 }
 .glass-giving-glider {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 2px;
+  bottom: 2px;
   left: 0;
   width: 25%;
-  border-radius: 1rem;
+  border-radius: 999px;
   z-index: 1;
-  transition:
-    transform 0.5s cubic-bezier(0.37, 1.95, 0.66, 0.56),
-    background 0.4s ease-in-out,
-    box-shadow 0.4s ease-in-out;
-}
-.glass-giving-glider.is-offering {
-  background: linear-gradient(135deg, #c0c0c055, #e0e0e0);
-  box-shadow: 0 0 18px rgba(192, 192, 192, 0.5), 0 0 10px rgba(255, 255, 255, 0.4) inset;
-}
-.glass-giving-glider.is-tithe {
-  background: linear-gradient(135deg, #ffd70055, #ffcc00);
-  box-shadow: 0 0 18px rgba(255, 215, 0, 0.5), 0 0 10px rgba(255, 235, 150, 0.4) inset;
-}
-.glass-giving-glider.is-partner {
-  background: linear-gradient(135deg, #d0e7ff55, #a0d8ff);
-  box-shadow: 0 0 18px rgba(160, 216, 255, 0.5), 0 0 10px rgba(200, 240, 255, 0.4) inset;
-}
-.glass-giving-glider.is-seed {
-  background: linear-gradient(135deg, #9fe6b855, #5ecf7e);
-  box-shadow: 0 0 18px rgba(94, 207, 126, 0.5), 0 0 10px rgba(190, 255, 205, 0.4) inset;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(226, 232, 240, 0.85));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+  transition: transform 0.5s cubic-bezier(0.37, 1.95, 0.66, 0.56);
 }
 .glass-giving-group label.active,
 .glass-giving-group label.active span { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55); }
@@ -172,9 +144,9 @@
   box-shadow: inset 1px 1px 4px rgba(255, 255, 255, 0.12), inset -1px -1px 6px rgba(0, 0, 0, 0.3);
   transition: border-color 0.25s, box-shadow 0.25s;
 }
-.money-control.focused { border-color: rgba(255, 215, 0, 0.55); box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.3), inset 1px 1px 4px rgba(255, 255, 255, 0.12); }
+.money-control.focused { border-color: rgba(255, 255, 255, 0.5); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25), inset 1px 1px 4px rgba(255, 255, 255, 0.12); }
 .money-control.invalid { border-color: rgba(255, 120, 120, 0.6); }
-.money-symbol { font-size: 1.15rem; font-weight: 650; color: #d8b53a; }
+.money-symbol { font-size: 1.15rem; font-weight: 650; color: #e8e8ee; }
 .money-control input {
   flex: 1;
   min-width: 0;
@@ -200,7 +172,7 @@
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s, transform 0.15s;
 }
-.money-chip:hover { border-color: rgba(255, 215, 0, 0.5); background: rgba(255, 215, 0, 0.1); }
+.money-chip:hover { border-color: rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.08); }
 .money-chip:active { transform: scale(0.96); }
 .money-message { font-size: 0.8rem; color: #ffb4b4; }
 .money-hint { font-size: 0.78rem; color: #8d8d8d; }
@@ -230,7 +202,7 @@
   outline: none;
 }
 .giving-fields input:focus,
-.giving-fields select:focus { border-color: rgba(255, 215, 0, 0.55); }
+.giving-fields select:focus { border-color: rgba(255, 255, 255, 0.5); }
 .giving-fields select option { color: #111; }
 
 .giving-back {
@@ -260,8 +232,8 @@
 }
 .giving-method:hover { background: rgba(255, 255, 255, 0.08); }
 .giving-method.active {
-  border-color: rgba(255, 215, 0, 0.65);
-  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
 }
 .giving-method-icon {
   display: grid;
@@ -284,12 +256,12 @@
   border: 2px solid rgba(255, 255, 255, 0.25);
   flex-shrink: 0;
 }
-.giving-method.active .giving-method-radio { border-color: rgba(255, 215, 0, 0.8); }
+.giving-method.active .giving-method-radio { border-color: rgba(255, 255, 255, 0.8); }
 .giving-method-radio i {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #ffd700;
+  background: #f2f3f7;
 }
 
 .giving-secure {
@@ -369,9 +341,9 @@
   height: 68px;
   margin: 0 auto 14px;
   border-radius: 50%;
-  background: rgba(255, 215, 0, 0.12);
-  color: #ffd700;
-  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.35), 0 0 30px rgba(255, 215, 0, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #f2f3f7;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3), 0 0 30px rgba(255, 255, 255, 0.16);
   animation: giving-ticket-in 0.5s 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
 }
 .giving-ticket-head h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
@@ -381,7 +353,7 @@
 .giving-ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .giving-ticket-grid p { margin: 0 0 3px; font-size: 0.66rem; letter-spacing: 0.09em; text-transform: uppercase; color: #8d8d97; }
 .giving-ticket-grid strong { font-size: 0.95rem; font-weight: 650; }
-.giving-ticket-amount { font-size: 1.25rem !important; color: #ffd700; }
+.giving-ticket-amount { font-size: 1.25rem !important; color: #f2f3f7; }
 .giving-ticket-donor {
   display: flex;
   align-items: center;
@@ -417,9 +389,9 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: rgba(255, 215, 0, 0.12);
-  color: #ffd700;
-  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.35), 0 0 28px rgba(255, 215, 0, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #f2f3f7;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3), 0 0 28px rgba(255, 255, 255, 0.18);
 }
 .giving-done h3 { margin: 0; font-size: 1.25rem; }
 .giving-done p { margin: 0; font-size: 0.92rem; color: #c9c9d1; }

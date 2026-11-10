@@ -11,7 +11,6 @@
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
-    "@paper-design/shaders": "^0.0.82",
     "@radix-ui/react-popover": "^1.3.1",
     "@radix-ui/react-separator": "^1.2.0",
     "@radix-ui/react-slot": "^1.5.0",

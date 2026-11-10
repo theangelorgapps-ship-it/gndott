@@ -3,7 +3,7 @@ import { loadStripe, type Stripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { CreditCard, ShieldCheck } from 'lucide-react'
 import { confirmGivingPayment, createGivingIntent, listGivingCards, type GivingFrequency, type GivingKind } from '../lib/giving'
-import { LiquidMetalButton } from './ui/liquid-metal-button'
+import { LiquidGlassButton } from './ui/apple-tahoe-liquid-glass-button'
 
 // Step 2 of Giving: the transaction happens inside the player. One-time gifts
 // confirm a PaymentIntent; monthly partnerships confirm the first invoice of a
@@ -39,6 +39,12 @@ function PaymentForm({ prepared, summary, monthly, savedCards, onSuccess, onErro
     onError('')
     try {
       const common = { return_url: `${prepared.returnUrl}?donation=${prepared.donationId}` }
+      // Payment Element flow: submit() validates and finalizes the form first.
+      if (method === 'new') {
+        if (!elements) { onError('The payment form is still loading. Try again in a moment.'); setBusy(false); return }
+        const submit = await elements.submit()
+        if (submit.error) { onError(submit.error.message ?? 'Check your card details and try again.'); setBusy(false); return }
+      }
       const result = method === 'new'
         ? await stripe.confirmPayment({ elements: elements ?? undefined, clientSecret: prepared.clientSecret, confirmParams: common, redirect: 'if_required' })
         : await stripe.confirmPayment({ clientSecret: prepared.clientSecret, confirmParams: { ...common, payment_method: method }, redirect: 'if_required' })
@@ -48,7 +54,8 @@ function PaymentForm({ prepared, summary, monthly, savedCards, onSuccess, onErro
       if (status === 'processing') { onSuccess(prepared.donationId); return }
       onError('Payment was not completed. Please try again.')
       setBusy(false)
-    } catch {
+    } catch (cause) {
+      console.error('[giving-pay]', cause)
       onError('Payment could not be completed. Please try again.')
       setBusy(false)
     }
@@ -80,7 +87,7 @@ function PaymentForm({ prepared, summary, monthly, savedCards, onSuccess, onErro
         </div>
       )}
       <p className="giving-secure"><ShieldCheck size={15} /> Secure payment powered by Stripe{monthly ? '. Your partnership repeats monthly and can be cancelled any time.' : '.'}</p>
-      <LiquidMetalButton label={monthly ? `Partner ${summary} / month` : `Give ${summary}`} onClick={() => void pay()} busy={busy} disabled={!stripe} />
+      <LiquidGlassButton interactive appearance="dark" className="w-full" disabled={!stripe || busy} aria-busy={busy} onClick={() => void pay()}>{busy ? 'Processing…' : monthly ? `Partner ${summary} / month` : `Give ${summary}`}</LiquidGlassButton>
     </div>
   )
 }
@@ -131,13 +138,13 @@ export function GivingPayment({ donor, viewerId, summary, monthly, publishableKe
         appearance: {
           theme: 'night',
           variables: {
-            colorPrimary: '#ffd700',
-            colorBackground: 'rgba(255,255,255,0.06)',
+            colorPrimary: '#f2f3f7',
+            colorBackground: '#17181c',
             colorText: '#f2f2f5',
             colorTextSecondary: '#a3a3ad',
             colorDanger: '#ff8a8a',
             borderRadius: '14px',
-            fontFamily: 'inherit',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
           },
         },
       }}

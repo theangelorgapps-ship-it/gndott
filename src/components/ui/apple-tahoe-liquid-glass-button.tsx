@@ -1,8 +1,5 @@
 "use client";
 
-// Adapted from the user-supplied Apple Tahoe Liquid Glass reference.
-// Retains its measured squircle/displacement engine; demo assets are omitted.
-
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
@@ -410,7 +407,6 @@ export function squircleOutline(w: number, h: number, radius: number): SquircleO
       height: h,
       radius: 0,
     };
-    if (outlineCache.size >= 64) outlineCache.delete(outlineCache.keys().next().value!);
     outlineCache.set(key, outline);
     return outline;
   }
@@ -501,7 +497,7 @@ export function squircleOutline(w: number, h: number, radius: number): SquircleO
     height: h,
     radius: r,
   };
-  if (outlineCache.size >= 64) outlineCache.delete(outlineCache.keys().next().value!);
+  if (outlineCache.size > 256) outlineCache.delete(outlineCache.keys().next().value!);
   outlineCache.set(key, outline);
   return outline;
 }
@@ -1249,11 +1245,9 @@ function useLiquidGlass(options: LiquidGlassOptions, rootRef: React.RefObject<HT
         const markup = filterMarkup({
           w, h, field, material, appearance, refraction: amount, dispersion, tint: tintRGB, nested,
         });
-        if (heldFilter !== filterId) {
-          if (heldFilter) releaseFilter(heldFilter);
-          acquireFilter(filterId, markup);
-          heldFilter = filterId;
-        }
+        if (heldFilter && heldFilter !== filterId) releaseFilter(heldFilter);
+        acquireFilter(filterId, markup);
+        heldFilter = filterId;
       } else if (heldFilter) {
         releaseFilter(heldFilter);
         heldFilter = null;
@@ -1351,7 +1345,6 @@ function useLiquidGlass(options: LiquidGlassOptions, rootRef: React.RefObject<HT
        * to the same squircle the maps were built from. */}
       <span
         ref={lensRef}
-        data-glass-lens=""
         aria-hidden
         style={{
           position: "absolute",
@@ -1370,7 +1363,6 @@ function useLiquidGlass(options: LiquidGlassOptions, rootRef: React.RefObject<HT
         <>
           {/* Overlay plane: the shader's rim light, its own alpha the mask. */}
           <span
-            data-glass-rim=""
             aria-hidden
             style={{
               position: "absolute",

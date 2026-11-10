@@ -4,7 +4,7 @@ import { ChevronLeft, HandHeart, Repeat, Sparkles, Check } from 'lucide-react'
 import { getGivingStatus, GIVING_KINDS, type GivingFrequency, type GivingKind } from '../lib/giving'
 import { GivingPayment, settleGivingPayment } from './GivingPayment'
 import { MoneyField } from './ui/money-field'
-import { LiquidMetalButton } from './ui/liquid-metal-button'
+import { LiquidGlassButton } from './ui/apple-tahoe-liquid-glass-button'
 import '../giving.css'
 
 const KIND_COPY: Record<GivingKind, { label: string; hint: string }> = {
@@ -83,7 +83,7 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
               <h3>Thank you for giving!</h3>
               <p>Your {KIND_COPY[done.kind as GivingKind]?.label.toLowerCase()} of ${(done.amountCents / 100).toFixed(2)}{done.frequency === 'monthly' ? ' every month' : ''} is confirmed.</p>
               <p className="giving-hint">A receipt and thank-you note are on their way to your email. Reference {done.id.slice(0, 8).toUpperCase()}.</p>
-              <LiquidMetalButton label="Amen — back to the video" onClick={() => { setStep(1); setDone(null); setAmountCents(2500) }} />
+              <LiquidGlassButton interactive appearance="dark" className="w-full" onClick={() => { setStep(1); setDone(null); setAmountCents(2500) }}>Amen — back to the video</LiquidGlassButton>
             </div>
           </motion.div>
         ) : step === 1 ? (
@@ -99,7 +99,6 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
               </header>
 
               <GivingKindPicker kind={kind} onChange={setKind} />
-              <p className="giving-hint">{KIND_COPY[kind].hint}</p>
 
               {kind === 'partner' && (
                 <div className="giving-frequency" role="radiogroup" aria-label="Partnership frequency">
@@ -111,9 +110,9 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
                   </button>
                 </div>
               )}
-              {monthly && <p className="giving-hint">Your partnership repeats every month. You can cancel any time from your account.</p>}
+              {monthly && <p className="giving-hint">Repeats monthly. Cancel any time.</p>}
 
-              <MoneyField label="Amount (USD)" value={amountCents} onValueChange={setAmountCents} quickAdd={[10, 25, 50, 100]} description="US dollars" />
+              <MoneyField label="Amount (USD)" value={amountCents} onValueChange={setAmountCents} quickAdd={[10, 25, 50, 100]} />
 
               {!signedIn && (
                 <div className="giving-fields">
@@ -131,7 +130,7 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
               )}
 
               {message && <p className="giving-message" role="status">{message}</p>}
-              <LiquidMetalButton label={`Continue${summary ? ` — ${summary}` : ''}`} onClick={continueToPayment} disabled={!amountCents} />
+              <LiquidGlassButton interactive appearance="dark" className="w-full" disabled={!amountCents} onClick={continueToPayment}>Continue{summary ? ` — ${summary}` : ''}</LiquidGlassButton>
             </form>
           </motion.div>
         ) : (

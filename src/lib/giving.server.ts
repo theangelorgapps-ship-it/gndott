@@ -61,11 +61,12 @@ export async function fulfillDonation(db: D1Database, session: any) {
   const donation = await first<Donation>(`SELECT * FROM donations WHERE stripe_session_id=?`, session?.id || '')
   if (!donation) throw new CheckoutError('This donation could not be found.')
   verifyGivingPayment(session, donation)
-  if (donation.status === 'paid') return { ok: true as const, already: true }
+  const summary = { kind: donation.kind, frequency: donation.frequency, amountCents: donation.amount_cents, name: donation.name, id: donation.id, paidAt: donation.paid_at }
+  if (donation.status === 'paid') return { ok: true as const, already: true, donation: summary }
   const marked = await run(`UPDATE donations SET status='paid', paid_at=datetime('now') WHERE id=? AND status='pending'`, donation.id)
   if (marked?.meta?.changes) {
     // The thank-you goes out exactly once, on the pending → paid transition.
     try { await sendThankYou({ ...donation, status: 'paid' }) } catch (error) { console.warn('Giving thank-you email failed:', error instanceof Error ? error.message : 'send failed') }
   }
-  return { ok: true as const }
+  return { ok: true as const, donation: { ...summary, paidAt: new Date().toISOString() } }
 }

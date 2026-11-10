@@ -299,3 +299,77 @@
 @media (max-width: 480px) {
   .giving-fields { grid-template-columns: 1fr; }
 }
+
+/* Giving success ticket (ported ticket-confirmation-card, HaloBox dark). */
+.giving-success-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  place-content: center;
+  gap: 22px;
+  padding: 40px 18px;
+  background: #050505;
+}
+.giving-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+.giving-confetti span { position: absolute; width: 8px; height: 14px; border-radius: 2px; }
+.giving-ticket {
+  position: relative;
+  width: min(400px, 100%);
+  border-radius: 22px;
+  background: linear-gradient(170deg, #17181c, #101114);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ececf1;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  animation: giving-ticket-in 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  z-index: 10;
+}
+@keyframes giving-ticket-in { from { opacity: 0; transform: scale(0.94) translateY(14px); } to { opacity: 1; transform: none; } }
+.giving-ticket-cut {
+  position: absolute;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #050505;
+  transform: translateY(-50%);
+}
+.giving-ticket-cut.left { left: -15px; }
+.giving-ticket-cut.right { right: -15px; }
+.giving-ticket-head { padding: 34px 28px 6px; text-align: center; }
+.giving-ticket-check {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: rgba(255, 215, 0, 0.12);
+  color: #ffd700;
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.35), 0 0 30px rgba(255, 215, 0, 0.18);
+  animation: giving-ticket-in 0.5s 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+.giving-ticket-head h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+.giving-ticket-head p { margin: 8px 0 0; font-size: 0.92rem; color: #a3a3ad; }
+.giving-ticket-body { padding: 18px 28px 26px; display: flex; flex-direction: column; gap: 18px; }
+.giving-ticket-dash { border-top: 2px dashed rgba(255, 255, 255, 0.14); }
+.giving-ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.giving-ticket-grid p { margin: 0 0 3px; font-size: 0.66rem; letter-spacing: 0.09em; text-transform: uppercase; color: #8d8d97; }
+.giving-ticket-grid strong { font-size: 0.95rem; font-weight: 650; }
+.giving-ticket-amount { font-size: 1.25rem !important; color: #ffd700; }
+.giving-ticket-donor {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.giving-ticket-heart { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: rgba(255, 90, 90, 0.14); color: #ff8a8a; font-size: 19px; }
+.giving-ticket-donor strong { font-size: 0.95rem; }
+.giving-ticket-donor p { margin: 2px 0 0; font-size: 0.78rem; color: #9d9da7; line-height: 1.4; }
+.giving-barcode { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #d5d5dd; }
+.giving-barcode p { margin: 0; font-size: 0.72rem; letter-spacing: 0.34em; color: #8d8d97; }
+@media (prefers-reduced-motion: reduce) {
+  .giving-ticket, .giving-ticket-check { animation: none; }
+  .giving-confetti { display: none; }
+}

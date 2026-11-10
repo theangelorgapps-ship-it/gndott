@@ -13,6 +13,8 @@ import {
   purchasePayPerView, getFooterData,
 } from '../../../lib/api'
 import { first } from '../../../lib/db'
+import { getBibleBooks, getBibleChapter } from '../../../lib/bible'
+import { BIBLE_VERSIONS } from '../../../lib/bibleProvider'
 
 // Stable public REST surface for the mobile app.
 // Web pages call these same server functions through TanStack Start's hashed
@@ -120,6 +122,87 @@ async function handleGet(ctx: Ctx): Promise<Response> {
     case 'social-config': return json(await getSocialConfig())
     case 'reviews': return json(await getReviews({ data: num(q.get('id') ?? undefined) }))
     case 'footer': return json(await getFooterData())
+    case 'bible': {
+      // Scripture is immutable per translation, so successful responses are
+      // safe to cache at the edge for a week and on-device indefinitely.
+      const [, sub] = segs(ctx)
+      const immutable = { 'cache-control': 'public, max-age=86400, s-maxage=604800, immutable' }
+      try {
+        if (sub === 'versions') return json({ versions: BIBLE_VERSIONS }, { headers: immutable })
+        if (sub === 'books') {
+          const res: any = await getBibleBooks({ data: { version: q.get('version') ?? '' } })
+          return json(res, { status: res.error ? 502 : 200, headers: res.error ? {} : immutable })
+        }
+        if (sub === 'chapter') {
+          const res: any = await getBibleChapter({ data: { version: q.get('version') ?? '', book: q.get('book') ?? '', chapter: num(q.get('chapter') ?? undefined) } })
+          return json(res, { status: res.error ? 502 : 200, headers: res.error ? {} : immutable })
+        }
+        return json({ ok: false, error: 'Expected /bible/versions, /bible/books or /bible/chapter.' }, { status: 404 })
+      } catch {
+        return json({ ok: false, error: 'Invalid Bible request. Check version, book and chapter.' }, { status: 400 })
+      }
+    }
+    case 'stream': {
+      // GET /api/mobile/stream/<movie|teaching|video|episode>/<id>
+      // Entitlement-checked playback payload for the native (expo-video)
+      // player. Gating is delegated to the detail loaders so this can never
+      // leak a URL the detail endpoint would have stripped.
+      const [, type, rawId] = segs(ctx)
+      const id = num(rawId)
+      if (!type || !id) return json({ ok: false, error: 'Expected /stream/<movie|teaching|video|episode>/<id>.' }, { status: 400 })
+      // Native HLS needs the library's pull-zone host (Stream → API in the
+      // Bunny dashboard); admins set it as the `bunny_pull_zone` setting.
+      // Without it we still return embed + direct URLs as fallbacks.
+      const pullZone = await first<any>(`SELECT val FROM settings WHERE name = 'bunny_pull_zone'`).then(row => String(row?.val ?? '').trim()).catch(() => '')
+      const pullHost = /^[a-z0-9-]+\.b-cdn\.net$/i.test(pullZone) ? pullZone : null
+      const shape = (item: any, libraryId: string | null) => {
+        if (!item) return null
+        const videoId = typeof item.bunny_video_url === 'string' && item.bunny_video_url.trim() ? item.bunny_video_url.trim() : null
+        const directUrl = typeof item.video_url_input === 'string' && /^https:\/\//i.test(item.video_url_input) ? item.video_url_input : null
+        const base = { title: item.name ?? '', duration: item.duration ?? null, poster: item.thumbnail_url ?? item.poster_url ?? null }
+        if (!videoId && !directUrl) return { ...base, locked: true }
+        return {
+          ...base,
+          locked: false,
+          provider: videoId && libraryId ? 'bunny' : 'direct',
+          libraryId: videoId ? libraryId : null,
+          videoId,
+          hls: videoId && pullHost ? `https://${pullHost}/${videoId}/playlist.m3u8` : null,
+          seekSheetBase: videoId && pullHost ? `https://${pullHost}/${videoId}/seek/` : null,
+          embed: videoId && libraryId ? `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}` : null,
+          directUrl,
+          subtitles: item.enable_subtitle && typeof item.subtitle_file === 'string' && item.subtitle_file
+            ? [{ url: item.subtitle_file, language: String(item.subtitle_language || 'en') }]
+            : [],
+        }
+      }
+      if (type === 'movie' || type === 'sermon' || type === 'title') {
+        const data: any = await getMovie({ data: id }).catch(() => null)
+        const payload = shape(data?.movie, data?.bunnyLibraryId ?? null)
+        return payload ? json(payload) : json({ ok: false, error: 'Not found.' }, { status: 404 })
+      }
+      if (type === 'teaching' || type === 'tv-show' || type === 'show') {
+        const data: any = await getTvShow({ data: id }).catch(() => null)
+        const payload = shape(data?.show, data?.bunnyLibraryId ?? null)
+        return payload ? json(payload) : json({ ok: false, error: 'Not found.' }, { status: 404 })
+      }
+      if (type === 'video') {
+        const data: any = await getVideo({ data: id }).catch(() => null)
+        const payload = shape(data?.video, data?.bunnyLibraryId ?? null)
+        return payload ? json(payload) : json({ ok: false, error: 'Not found.' }, { status: 404 })
+      }
+      if (type === 'episode') {
+        const episode: any = await first(`SELECT * FROM episodes WHERE id = ? AND deleted_at IS NULL`, id)
+        if (!episode) return json({ ok: false, error: 'Not found.' }, { status: 404 })
+        const data: any = await getTvShow({ data: episode.entertainment_id }).catch(() => null)
+        // Gate through the parent's episode list; if gating stripped this
+        // episode (locked), report it locked rather than leaking the raw row.
+        const gated = (data?.episodes ?? []).find((e: any) => e.id === episode.id)
+        const payload = shape(gated ?? { name: episode.name, thumbnail_url: episode.thumbnail_url, poster_url: episode.poster_url, duration: episode.duration }, data?.bunnyLibraryId ?? null)
+        return json(payload)
+      }
+      return json({ ok: false, error: `Unknown stream type: ${type}` }, { status: 404 })
+    }
     default: return json({ ok: false, error: `Unknown endpoint: ${head ?? '(root)'}` }, { status: 404 })
   }
 }

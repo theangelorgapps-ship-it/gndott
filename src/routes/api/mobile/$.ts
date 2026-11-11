@@ -185,6 +185,7 @@ async function handleGet(ctx: Ctx): Promise<Response> {
           hls = directUrl
           seekSheetBase = directUrl.split('/playlist.m3u8')[0] + '/'
         }
+        const downloadBase = videoId ? (pullHost ? `https://${pullHost}/${videoId}` : hls ? hls.split('/playlist.m3u8')[0] : null) : null
         return {
           ...base,
           locked: false,
@@ -193,6 +194,11 @@ async function handleGet(ctx: Ctx): Promise<Response> {
           videoId,
           hls,
           seekSheetBase,
+          // Offline downloads (app-only): Bunny MP4 fallback renditions. Only
+          // present when entitled — locked items never carry a URL. Requires
+          // MP4 Fallback enabled on the Bunny library (Stream → library settings).
+          downloadUrl: downloadBase ? `${downloadBase}/play_720p.mp4` : null,
+          downloadUrlLow: downloadBase ? `${downloadBase}/play_480p.mp4` : null,
           embed: videoId && libraryId ? `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}` : null,
           directUrl,
           subtitles: item.enable_subtitle && typeof item.subtitle_file === 'string' && item.subtitle_file

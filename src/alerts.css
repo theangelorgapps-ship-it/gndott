@@ -1,0 +1,50 @@
+/* Transaction notification cards — the HeroUI alert layout, ported. */
+
+.alert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 720px;
+}
+
+.alert-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+
+.alert-indicator {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #b9b9c2;
+}
+
+.alert-success { border-color: rgba(122, 222, 160, 0.35); }
+.alert-success .alert-indicator { background: rgba(122, 222, 160, 0.12); color: #7edea0; }
+.alert-failed { border-color: rgba(255, 130, 130, 0.35); }
+.alert-failed .alert-indicator { background: rgba(255, 130, 130, 0.12); color: #ff9c9c; }
+
+.alert-content { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.alert-title { font-size: 0.95rem; font-weight: 650; color: var(--text); }
+.alert-description { font-size: 0.86rem; color: var(--muted, #a3a3ad); line-height: 1.5; }
+.alert-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #8d8d97;
+}
+.alert-amount { font-weight: 700; color: #e8e8ee; }

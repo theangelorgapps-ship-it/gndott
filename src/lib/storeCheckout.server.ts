@@ -86,11 +86,39 @@ export async function createStoreCheckout(db: D1Database, user: { id: number; em
     'metadata[checkout_id]': snapshot.id,
     'metadata[user_id]': String(snapshot.user_id),
     'metadata[quote_id]': snapshot.quote_id,
+    // Propagate onto the PaymentIntent so decline events can find the order.
+    'payment_intent_data[metadata][purpose]': 'halobox_store_order',
+    'payment_intent_data[metadata][checkout_id]': snapshot.id,
   })
   const session = await stripeRequest('/checkout/sessions', secret, transport, body, `halobox-store-${snapshot.id}`)
   const safeUrl = stripeCheckoutUrl(session)
   await db.prepare(`UPDATE store_checkouts SET stripe_session_id = ?, status = 'pending', updated_at = datetime('now') WHERE id = ? AND stripe_session_id IS NULL`).bind(session.id, snapshot.id).run()
   return { ok: true as const, checkoutUrl: safeUrl }
+}
+
+/** payment_intent.payment_failed for a store checkout (PI metadata propagated at session creation). */
+export async function failStoreOrderIntent(db: D1Database, intent: any) {
+  if (intent?.metadata?.purpose !== 'halobox_store_order') return
+  const snapshot = await db.prepare(`SELECT * FROM store_checkouts WHERE id = ?`).bind(String(intent.metadata.checkout_id || '')).first<StoreSnapshot>()
+  if (!snapshot || snapshot.status === 'paid') return
+  await db.prepare(`UPDATE store_checkouts SET status = 'failed', updated_at = datetime('now') WHERE id = ? AND status != 'paid'`).bind(snapshot.id).run()
+  const reason = intent.last_payment_error?.message || 'Your card was declined.'
+  const total = `${(snapshot.total_minor / 100).toFixed(2)} ${snapshot.currency}`
+  const { sendTransactional, notifyUser } = await import('./transactional.server')
+  try {
+    await sendTransactional(snapshot.email, 'Your order payment didn’t go through — GoodNews HaloBox', [
+      'Your store payment could not be completed.', '',
+      `Order total: ${total}. Reason: ${reason}.`, '',
+      'No money has left your account. Open your cart and check out again when ready.', '',
+      'The GoodNews HaloBox Team',
+    ].join('\n'))
+  } catch (error) { console.warn('Store failure email failed:', error instanceof Error ? error.message : 'send failed') }
+  await notifyUser(db, snapshot.user_id, {
+    kind: 'store', status: 'failed',
+    title: 'Order payment not completed',
+    message: `Your store payment of ${total} didn't go through. ${reason}`,
+    amountCents: snapshot.total_minor, currency: snapshot.currency,
+  })
 }
 
 function verifyStorePayment(session: any, snapshot: StoreSnapshot, userId?: number) {
@@ -120,6 +148,24 @@ export async function fulfillStoreOrder(db: D1Database, session: any, userId?: n
   const orderId = Number(result?.order?.id)
   if (!result?.order || !Number.isSafeInteger(orderId)) throw new CheckoutError('Your payment is received but the order could not be filed yet. Please contact support with your payment reference.')
   await db.prepare(`UPDATE store_checkouts SET status = 'paid', order_id = ?, updated_at = datetime('now') WHERE id = ?`).bind(orderId, snapshot.id).run()
+  // Transactional: order confirmation email + in-app success card.
+  const { sendTransactional, notifyUser } = await import('./transactional.server')
+  const total = `${(snapshot.total_minor / 100).toFixed(2)} ${snapshot.currency}`
+  try {
+    await sendTransactional(snapshot.email, `Order #${result.order.number ?? orderId} confirmed — GoodNews HaloBox`, [
+      `Thank you for your order!`, '',
+      `Order #${result.order.number ?? orderId} — ${total} — is confirmed and being prepared by uebertangel.org.`, '',
+      `Delivery to: ${address.first_name} ${address.last_name}, ${address.address_1}, ${address.city}, ${address.postcode}, ${address.country}`, '',
+      'You will receive fulfilment updates from the store.', '',
+      'The GoodNews HaloBox Team',
+    ].join('\n'))
+  } catch (error) { console.warn('Store order email failed:', error instanceof Error ? error.message : 'send failed') }
+  await notifyUser(db, snapshot.user_id, {
+    kind: 'store', status: 'success',
+    title: 'Order confirmed',
+    message: `Order #${result.order.number ?? orderId} (${total}) is confirmed and being prepared.`,
+    amountCents: snapshot.total_minor, currency: snapshot.currency,
+  })
   return { ok: true as const, orderId: result.order.id, orderNumber: result.order.number, orderStatus: result.order.status }
 }
 

@@ -4,7 +4,7 @@ import { ChevronLeft, HandHeart, Repeat, Sparkles, Check } from 'lucide-react'
 import { getGivingStatus, GIVING_KINDS, type GivingFrequency, type GivingKind } from '../lib/giving'
 import { GivingPayment, settleGivingPayment } from './GivingPayment'
 import { MoneyField } from './ui/money-field'
-import { LiquidGlassButton } from './ui/apple-tahoe-liquid-glass-button'
+import { AntiMetalButton } from './ui/anti-metal-button'
 import '../giving.css'
 
 const KIND_COPY: Record<GivingKind, { label: string; hint: string }> = {
@@ -83,7 +83,7 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
               <h3>Thank you for giving!</h3>
               <p>Your {KIND_COPY[done.kind as GivingKind]?.label.toLowerCase()} of ${(done.amountCents / 100).toFixed(2)}{done.frequency === 'monthly' ? ' every month' : ''} is confirmed.</p>
               <p className="giving-hint">A receipt and thank-you note are on their way to your email. Reference {done.id.slice(0, 8).toUpperCase()}.</p>
-              <LiquidGlassButton interactive appearance="dark" className="w-full" onClick={() => { setStep(1); setDone(null); setAmountCents(2500) }}>Amen — back to the video</LiquidGlassButton>
+              <AntiMetalButton label="Amen — back to the video" onClick={() => { setStep(1); setDone(null); setAmountCents(2500) }} />
             </div>
           </motion.div>
         ) : step === 1 ? (
@@ -130,7 +130,7 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
               )}
 
               {message && <p className="giving-message" role="status">{message}</p>}
-              <LiquidGlassButton interactive appearance="dark" className="w-full" disabled={!amountCents} onClick={continueToPayment}>Continue{summary ? ` — ${summary}` : ''}</LiquidGlassButton>
+              <AntiMetalButton label={`Continue${summary ? ` — ${summary}` : ''}`} disabled={!amountCents} onClick={continueToPayment} />
             </form>
           </motion.div>
         ) : (

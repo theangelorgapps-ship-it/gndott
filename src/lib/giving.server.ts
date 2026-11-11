@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers'
 import { first, run } from './db'
 import { CheckoutError } from './checkoutError'
+import { notifyUser, sendTransactional } from './transactional.server'
 import type { GivingKind } from './giving'
 
 // Server-only giving fulfilment. Webhook and success-page confirmation both
@@ -69,6 +70,12 @@ export async function fulfillDonation(db: D1Database, session: any) {
   if (marked?.meta?.changes) {
     // The thank-you goes out exactly once, on the pending → paid transition.
     try { await sendThankYou({ ...donation, status: 'paid' }) } catch (error) { console.warn('Giving thank-you email failed:', error instanceof Error ? error.message : 'send failed') }
+    await notifyUser(db, donation.user_id, {
+      kind: 'giving', status: 'success',
+      title: `${KIND_LABEL[donation.kind] ?? 'Gift'} received`,
+      message: `Thank you — your ${(KIND_LABEL[donation.kind] ?? 'gift').toLowerCase()} of $${(donation.amount_cents / 100).toFixed(2)}${donation.frequency === 'monthly' ? ' (monthly)' : ''} is confirmed.`,
+      amountCents: donation.amount_cents, currency: donation.currency,
+    })
   }
   return { ok: true as const, donation: { ...summary, paidAt: new Date().toISOString() } }
 }
@@ -80,9 +87,40 @@ async function markPaid(db: D1Database, donation: Donation) {
   const marked = await run(`UPDATE donations SET status='paid', paid_at=datetime('now') WHERE id=? AND status='pending'`, donation.id)
   if (marked?.meta?.changes) {
     try { await sendThankYou({ ...donation, status: 'paid' }) } catch (error) { console.warn('Giving thank-you email failed:', error instanceof Error ? error.message : 'send failed') }
+    await notifyUser(db, donation.user_id, {
+      kind: 'giving', status: 'success',
+      title: `${KIND_LABEL[donation.kind] ?? 'Gift'} received`,
+      message: `Thank you — your ${(KIND_LABEL[donation.kind] ?? 'gift').toLowerCase()} of $${(donation.amount_cents / 100).toFixed(2)}${donation.frequency === 'monthly' ? ' (monthly)' : ''} is confirmed.`,
+      amountCents: donation.amount_cents, currency: donation.currency,
+    })
     return true
   }
   return false
+}
+
+/** payment_intent.payment_failed: the donor gets a nudge email and a failed
+ *  transaction card in their notifications. */
+export async function failPaymentIntentEvent(db: D1Database, intent: any) {
+  if (intent?.metadata?.purpose !== 'halobox_giving') return
+  const donation = await first<Donation>(`SELECT * FROM donations WHERE id=?`, String(intent.metadata.donation_id || ''))
+  if (!donation || donation.stripe_payment_intent !== intent.id || donation.status === 'paid') return
+  const reason = intent.last_payment_error?.message || 'Your card was declined.'
+  const amount = `$${(donation.amount_cents / 100).toFixed(2)}`
+  try {
+    await sendTransactional(donation.email, 'Your giving didn’t go through — GoodNews HaloBox', [
+      `Dear ${donation.name},`, '',
+      `Your ${(KIND_LABEL[donation.kind] ?? 'gift').toLowerCase()} of ${amount} could not be completed: ${reason}`, '',
+      'No money has left your account. You can try again any time from the Giving tab while watching.', '',
+      'With gratitude,', 'The GoodNews HaloBox Team', '',
+      `Reference: ${donation.id}`,
+    ].join('\n'))
+  } catch (error) { console.warn('Giving failure email failed:', error instanceof Error ? error.message : 'send failed') }
+  await notifyUser(db, donation.user_id, {
+    kind: 'giving', status: 'failed',
+    title: 'Giving not completed',
+    message: `Your ${(KIND_LABEL[donation.kind] ?? 'gift').toLowerCase()} of ${amount} didn't go through. ${reason}`,
+    amountCents: donation.amount_cents, currency: donation.currency,
+  })
 }
 
 /** payment_intent.succeeded: one-time gifts confirm in-panel; this is the authoritative record. */

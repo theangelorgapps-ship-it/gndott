@@ -80,17 +80,19 @@ function ResourceCard({ product, contentType, contentId, viewerId }: { product: 
     <div className="resource-card">
       <div className="resource-art">
         <img src={product.image} alt={product.name} loading="lazy" />
+        <div className="resource-art-overlay">
+          <strong>{product.name}</strong>
+          <span className="resource-price">{storeMoney(product.price, product.currency, product.minorUnit)}</span>
+          {!product.inStock && <span className="resource-out">Out of stock</span>}
+        </div>
       </div>
       <div className="resource-card-body">
-        <strong>{product.name}</strong>
-        <span className="resource-price">{storeMoney(product.price, product.currency, product.minorUnit)}</span>
-        {!product.inStock && <span className="resource-out">Out of stock</span>}
         <div className="resource-actions">
           <button type="button" className="resource-buy" disabled={busy !== null || !product.inStock} onClick={() => void getNow()}>
-            <ShoppingBag size={16} /> {busy === 'buy' ? 'Checking…' : 'Get Now'}
+            <ShoppingBag size={15} /> {busy === 'buy' ? 'Checking…' : 'Get Now'}
           </button>
           <button type="button" className="resource-remind" disabled={busy !== null || reminded} onClick={() => void remindMe()}>
-            <BellRing size={16} /> {reminded ? 'Reminder set' : busy === 'remind' ? 'Saving…' : 'Remind Me'}
+            <BellRing size={15} /> {reminded ? 'Reminder set' : busy === 'remind' ? 'Saving…' : 'Remind Me'}
           </button>
         </div>
         {message && <p className="resource-message" role="status">{message}</p>}

@@ -398,3 +398,6 @@
 
 /* Keep the step badge clear of the panel's close button. */
 .giving-head, .giving-step2-head { padding-right: 52px; }
+
+/* Kind labels: no text shadow, ever. */
+.glass-giving-group label, .glass-giving-group label span { text-shadow: none; }

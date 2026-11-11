@@ -36,6 +36,11 @@
 .tv-player-tabs .tv-player-continue { margin-left: 4px; }
 .tv-player-panel { position: relative; padding: 24px 0 0; max-height: min(55dvh, 460px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .tv-immersive-player.panel-open .tv-player-bottom { background: linear-gradient(0deg, #000 0%, #000d 72%, #0000 100%); padding-top: 70px; }
+.tv-immersive-player.panel-open .tv-player-tabs { position: relative; }
+.tv-immersive-player.panel-open .tv-player-tabs::before,
+.tv-immersive-player.panel-open .tv-player-tabs::after { content: ""; position: absolute; left: -8px; right: -8px; height: 26px; pointer-events: none; z-index: -1; }
+.tv-immersive-player.panel-open .tv-player-tabs::before { bottom: 100%; background: linear-gradient(0deg, #00000066, #0000); }
+.tv-immersive-player.panel-open .tv-player-tabs::after { top: 100%; background: linear-gradient(180deg, #00000066, #0000); }
 .tv-immersive-player.panel-open .tv-player-scrim { background: #0006; opacity: 1; }
 .tv-player-panel-close { position: absolute; top: 14px; right: 0; display: grid; place-items: center; width: 44px; height: 44px; background: #ffffff14; border: 0; color: #fff; border-radius: 50%; cursor: pointer; z-index: 1; }
 .tv-player-info { display: grid; grid-template-columns: clamp(95px, 11vw, 145px) minmax(0, 1fr); grid-template-areas: "poster main" "actions actions"; gap: 24px; align-items: start; padding-right: 54px; }

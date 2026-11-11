@@ -28,6 +28,7 @@ import '../release2-experience.css'
 import '../release2-visual.css'
 import '../player-interaction.css'
 import '../discovery.css'
+import '../alerts.css'
 
 export const Route = createRootRoute({
   head: ({ matches }) => ({
@@ -168,7 +169,7 @@ function RootComponent() {
         <div className="site-header-blur" aria-hidden="true">{Array.from({ length: 6 }, (_, i) => <span key={i} className="site-header-blur-layer" />)}</div>
         <div className="site-header-bar">
           <Link to="/" className="brand" aria-label="GoodNews Halobox home">
-            <img src="/halo-ring-logo.avif?v=1" alt="GoodNews Halobox" width="48" height="48" />
+            <img src="/halo-ring-logo.avif?v=2" alt="GoodNews Halobox" width="48" height="48" />
             <span className="brand-word"><span>GoodNews</span><strong>Halobox</strong></span>
           </Link>
           <nav className="main-nav" aria-label="Primary navigation">
@@ -271,7 +272,7 @@ function SiteFooter({ footer }: { footer: { premium: any[]; latest: any[] } }) {
     <footer className="site-footer">
       <div className="footer-grid">
         <div className="footer-brand">
-          <img src="/halo-ring-logo.avif?v=1" alt="GoodNews Halobox" width="48" height="48" />
+          <img src="/halo-ring-logo.avif?v=2" alt="GoodNews Halobox" width="48" height="48" />
           <p className="tagline">GoodNews Halobox: Your Ultimate Destination for Unlimited Sermons, Shows and Teachings!</p>
           <div className="contact halo-contact"><a href="mailto:Hello@halobox.tv">Hello@halobox.tv</a><a href="tel:+14488770344">🇺🇸 +1 448 877 0344</a><a href="tel:+441244727242">🇬🇧 +44 1244 727242</a><a href="tel:+2638677211645">🇿🇼 +263 8677 211 645</a><a href="tel:+27872654913">🇿🇦 +27 872 654 913</a></div>
           <div className="socials">{SOCIALS.map((d, i) => <SocialIcon key={i} d={d} />)}</div>

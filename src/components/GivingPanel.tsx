@@ -4,7 +4,7 @@ import { ChevronLeft, HandHeart, Repeat, Sparkles, Check } from 'lucide-react'
 import { getGivingStatus, GIVING_KINDS, type GivingFrequency, type GivingKind } from '../lib/giving'
 import { GivingPayment, settleGivingPayment } from './GivingPayment'
 import { MoneyField } from './ui/money-field'
-import { AntiMetalButton } from './ui/anti-metal-button'
+import { GlowButton } from './ui/glow-button'
 import '../giving.css'
 
 const KIND_COPY: Record<GivingKind, { label: string; hint: string }> = {
@@ -83,7 +83,7 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
               <h3>Thank you for giving!</h3>
               <p>Your {KIND_COPY[done.kind as GivingKind]?.label.toLowerCase()} of ${(done.amountCents / 100).toFixed(2)}{done.frequency === 'monthly' ? ' every month' : ''} is confirmed.</p>
               <p className="giving-hint">A receipt and thank-you note are on their way to your email. Reference {done.id.slice(0, 8).toUpperCase()}.</p>
-              <AntiMetalButton label="Amen — back to the video" onClick={() => { setStep(1); setDone(null); setAmountCents(2500) }} />
+              <GlowButton label="Amen — back to the video" className="w-full" onClick={() => { setStep(1); setDone(null); setAmountCents(2500) }} />
             </div>
           </motion.div>
         ) : step === 1 ? (
@@ -92,10 +92,9 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
               <header className="giving-head">
                 <span className="giving-icon"><HandHeart size={20} /></span>
                 <div>
-                  <h3>Give</h3>
+                  <h3>Give <span className="giving-step-badge">Step 1 of 2</span></h3>
                   <p>{signedIn ? 'Give securely from your account.' : 'Your details stay with your donation record.'}</p>
                 </div>
-                <span className="giving-step-badge">Step 1 of 2</span>
               </header>
 
               <GivingKindPicker kind={kind} onChange={setKind} />
@@ -130,15 +129,14 @@ export function GivingPanel({ viewerId }: { viewerId: number | null }) {
               )}
 
               {message && <p className="giving-message" role="status">{message}</p>}
-              <AntiMetalButton label={`Continue${summary ? ` — ${summary}` : ''}`} disabled={!amountCents} onClick={continueToPayment} />
+              <GlowButton label={`Continue${summary ? ` — ${summary}` : ''}`} className="w-full" disabled={!amountCents} onClick={continueToPayment} />
             </form>
           </motion.div>
         ) : (
           <motion.div key="step-2" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25 }}>
             <div className="giving-step">
               <div className="giving-step2-head">
-                <button type="button" className="giving-back" onClick={() => { setStep(1); setMessage('') }}><ChevronLeft size={17} /> Back</button>
-                <span className="giving-step-badge">Step 2 of 2</span>
+                <button type="button" className="giving-back" onClick={() => { setStep(1); setMessage('') }}><ChevronLeft size={17} /> Back <span className="giving-step-badge">Step 2 of 2</span></button>
               </div>
               <h3 className="giving-step-title">Choose how to pay</h3>
               <p className="giving-hint">{KIND_COPY[kind].label}{monthly ? ' · Monthly' : ''} · {summary} USD{signedIn ? '' : ` · ${name.trim()}`}</p>

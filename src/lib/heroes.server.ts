@@ -12,6 +12,10 @@ export async function loadConfiguredHeroes(placement: string, child = false): Pr
       COALESCE(e.thumbnail_url,v.thumbnail_url) AS thumbnail_url, COALESCE(e.release_date,v.release_date) AS release_date,
       COALESCE(e.duration,v.duration) AS duration, COALESCE(e.movie_access,v.access) AS movie_access,
       COALESCE(e.trailer_url,v.trailer_url) AS trailer_url, e.bunny_trailer_url,
+      -- Series/teachings carry their video on episodes: fall back to the first
+      -- episode's Bunny video so every hero slide can play a preview.
+      COALESCE(NULLIF(e.bunny_video_url,''), NULLIF(v.bunny_video_url,''),
+        (SELECT ep2.bunny_video_url FROM episodes ep2 WHERE ep2.entertainment_id=e.id AND ep2.deleted_at IS NULL AND ep2.status=1 AND NULLIF(ep2.bunny_video_url,'') IS NOT NULL ORDER BY ep2.episode_number, ep2.id LIMIT 1)) AS bunny_video_url,
       CASE WHEN COALESCE(e.movie_access,v.access) = 'free' THEN COALESCE(e.video_url_input,v.video_url_input) ELSE NULL END AS video_url_input
     FROM banners b LEFT JOIN banner_designs d ON d.banner_id=b.id
     LEFT JOIN banner_order o ON o.banner_id=b.id

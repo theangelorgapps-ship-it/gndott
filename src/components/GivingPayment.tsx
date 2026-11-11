@@ -3,7 +3,7 @@ import { loadStripe, type Stripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { CreditCard, ShieldCheck } from 'lucide-react'
 import { confirmGivingPayment, createGivingIntent, listGivingCards, type GivingFrequency, type GivingKind } from '../lib/giving'
-import { AntiMetalButton } from './ui/anti-metal-button'
+import { GlowButton } from './ui/glow-button'
 
 // Step 2 of Giving: the transaction happens inside the player. One-time gifts
 // confirm a PaymentIntent; monthly partnerships confirm the first invoice of a
@@ -87,7 +87,7 @@ function PaymentForm({ prepared, summary, monthly, savedCards, onSuccess, onErro
         </div>
       )}
       <p className="giving-secure"><ShieldCheck size={15} /> Secure payment powered by Stripe{monthly ? '. Your partnership repeats monthly and can be cancelled any time.' : '.'}</p>
-      <AntiMetalButton label={busy ? 'Processing…' : monthly ? `Partner ${summary} / month` : `Give ${summary}`} disabled={!stripe || busy} aria-busy={busy} onClick={() => void pay()} />
+      <GlowButton label={busy ? 'Processing…' : monthly ? `Partner ${summary} / month` : `Give ${summary}`} className="w-full" disabled={!stripe || busy} aria-busy={busy} onClick={() => void pay()} />
     </div>
   )
 }

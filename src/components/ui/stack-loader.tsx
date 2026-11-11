@@ -61,7 +61,7 @@ function GlassLogoIntro({ onComplete }: { onComplete?: () => void }) {
           so its clicks stay inert. */}
       <div className="pointer-events-none absolute inset-0">
         <GlassIconReveal
-          logo="/halo-ring-mark.png"
+          logo="/halo-ring-mark.avif?v=2"
           label="HaloBox"
           look="dark"
           background={BG}

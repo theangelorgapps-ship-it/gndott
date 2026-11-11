@@ -57,7 +57,7 @@ export function BrandOpener() {
   return <dialog ref={dialog} className={`brand-opener${leaving ? ' is-leaving' : ''}`} aria-label="Welcome to GoodNews Halobox" onCancel={event => { event.preventDefault(); finish() }}>
     <button className="brand-opener-skip" type="button" onClick={finish} autoFocus>Skip intro</button>
     <div className="brand-opener-center">
-      {Reveal ? <Reveal className="brand-opener-reveal" logo="/halo-ring-logo.avif?v=1" label="GoodNews Halobox" look="dark" background="#000000" originalColors iconPlate={false} loop={false} tileSize={300} logoScale={.78} finalScale={1} onReady={ready} /> : <div className="brand-opener-reveal brand-opener-static"><img src="/halo-ring-logo.avif?v=1" alt="" /></div>}
+      {Reveal ? <Reveal className="brand-opener-reveal" logo="/halo-ring-logo.avif?v=2" label="GoodNews Halobox" look="dark" background="#000000" originalColors iconPlate={false} loop={false} tileSize={300} logoScale={.78} finalScale={1} onReady={ready} /> : <div className="brand-opener-reveal brand-opener-static"><img src="/halo-ring-logo.avif?v=2" alt="" /></div>}
       <p><span>GoodNews</span><strong>Halobox</strong></p>
     </div>
   </dialog>

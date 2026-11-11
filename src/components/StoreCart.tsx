@@ -83,7 +83,7 @@ function CartDrawer({ onClose }: { onClose: () => void }) {
   const items = cart?.items ?? []
   return <dialog ref={dialogRef} id="store-cart-preview" className="store-cart-drawer" aria-labelledby="cart-drawer-title" onCancel={onClose} onClick={event => { if (event.target === event.currentTarget) onClose() }}>
     <div className="store-cart-drawer-inner">
-      <header className="cart-drawer-header"><div><h2 id="cart-drawer-title">Your cart</h2><p>{cart?.items_count ?? 0} {(cart?.items_count ?? 0) === 1 ? 'resource' : 'resources'}</p><a className="cart-order-history" href="https://uebertangel.org/myaccount/" target="_blank" rel="noopener noreferrer">Order history ↗</a></div><button type="button" autoFocus aria-label="Close cart" onClick={onClose}><X size={22} /></button></header>
+      <header className="cart-drawer-header"><div><h2 id="cart-drawer-title">Your cart</h2><p>{cart?.items_count ?? 0} {(cart?.items_count ?? 0) === 1 ? 'resource' : 'resources'}</p><Link className="cart-order-history" to="/payment-history" onClick={onClose}>Order history</Link></div><button type="button" autoFocus aria-label="Close cart" onClick={onClose}><X size={22} /></button></header>
       <p className="cart-update-status" role="status" aria-atomic="true">{status && !error && <span><Check size={15} aria-hidden="true" />{status}</span>}</p>
       <div className="cart-drawer-body" aria-busy={busy}>
         {loading ? <p role="status">Loading your cart…</p> : items.length ? items.map((item: any) => {

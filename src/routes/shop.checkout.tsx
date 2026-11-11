@@ -3,13 +3,16 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Check, ChevronLeft, CreditCard, LockKeyhole, MapPin, Percent, ShieldCheck, ShoppingBag, Trash2, Truck, X } from 'lucide-react'
 import { useStoreCart } from '../components/StoreCart'
-import { quoteStoreCheckout, startStoreCheckout } from '../lib/store'
+import { quoteStoreCheckout, startStoreCheckout, listStoreAddresses } from '../lib/store'
 import { getSessionUser } from '../lib/api'
 import { storeMoney, storeText } from '../lib/storeTypes'
 
 export const Route = createFileRoute('/shop/checkout')({
   validateSearch: (search: Record<string, unknown>): { cancelled?: true } => ({ cancelled: search.cancelled === '1' ? true : undefined }),
-  loader: async () => ({ viewer: await getSessionUser() }),
+  loader: async () => {
+    const viewer = await getSessionUser()
+    return { viewer, addresses: viewer ? (await listStoreAddresses()).addresses : [] }
+  },
   component: Checkout,
 })
 
@@ -31,13 +34,25 @@ const STEPS = [
 ]
 
 function Checkout() {
-  const { viewer } = Route.useLoaderData()
+  const { viewer, addresses } = Route.useLoaderData()
   const { cancelled } = Route.useSearch()
   const { cart, busy, error, update, refresh } = useStoreCart()
   const [coupon, setCoupon] = useState(''), [message, setMessage] = useState(cancelled ? 'Checkout was cancelled — your cart is unchanged.' : '')
   const [currentStep, setCurrentStep] = useState(1)
   const [agreed, setAgreed] = useState(false)
-  const [address, setAddress] = useState<Address>(() => ({ ...EMPTY_ADDRESS, first_name: viewer?.first_name ?? '', last_name: viewer?.last_name ?? '' }))
+  const saved = addresses?.[0]
+  const [pickedAddress, setPickedAddress] = useState<string>(saved?.id ?? 'new')
+  const [address, setAddress] = useState<Address>(() => saved
+    ? { first_name: saved.first_name, last_name: saved.last_name, address_1: saved.address_1, address_2: saved.address_2, city: saved.city, state: saved.state, postcode: saved.postcode, country: saved.country, phone: saved.phone }
+    : { ...EMPTY_ADDRESS, first_name: viewer?.first_name ?? '', last_name: viewer?.last_name ?? '' })
+
+  function pickAddress(id: string) {
+    setPickedAddress(id)
+    setQuote(null)
+    const found = addresses?.find(a => a.id === id)
+    if (found) setAddress({ first_name: found.first_name, last_name: found.last_name, address_1: found.address_1, address_2: found.address_2, city: found.city, state: found.state, postcode: found.postcode, country: found.country, phone: found.phone })
+    else setAddress(current => ({ ...EMPTY_ADDRESS, first_name: current.first_name, last_name: current.last_name }))
+  }
   const [quote, setQuote] = useState<{ checkoutId: string; quote: Quote } | null>(null)
   const [quoting, setQuoting] = useState(false), [processing, setProcessing] = useState(false)
   const checkoutLock = useRef(false)
@@ -147,7 +162,14 @@ function Checkout() {
 
         {currentStep === 2 && <form className="checkout-card" onSubmit={event => { event.preventDefault(); void continueToPayment() }}>
           <h2 className="checkout-card-title"><MapPin size={19} /> Delivery information</h2>
-          <p className="checkout-note">Order confirmation and delivery updates go to <strong>{viewer.email}</strong>.</p>
+          <p className="checkout-note">Order confirmation and delivery updates go to <strong>{viewer.email}</strong>. Your address is remembered for next time.</p>
+          {!!addresses?.length && <div className="checkout-addresses" role="radiogroup" aria-label="Saved delivery addresses">
+            {addresses.map(a => <button type="button" key={a.id} role="radio" aria-checked={pickedAddress === a.id} className={`checkout-address-card${pickedAddress === a.id ? ' selected' : ''}`} onClick={() => pickAddress(a.id)}>
+              <strong>{a.first_name} {a.last_name}</strong>
+              <span>{a.address_1}{a.address_2 ? `, ${a.address_2}` : ''}, {a.city} {a.postcode}</span>
+            </button>)}
+            <button type="button" role="radio" aria-checked={pickedAddress === 'new'} className={`checkout-address-card checkout-address-new${pickedAddress === 'new' ? ' selected' : ''}`} onClick={() => pickAddress('new')}>+ Use a new address</button>
+          </div>}
           <div className="store-address-grid">
             {field('first_name', 'First name', { required: true })}
             {field('last_name', 'Last name', { required: true })}
@@ -159,9 +181,7 @@ function Checkout() {
             <label>Country<select value={address.country} disabled={busy || processing} onChange={event => { setAddress(current => ({ ...current, country: event.target.value })); setQuote(null) }}>{COUNTRIES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select></label>
             {field('phone', 'Phone (optional)', { type: 'tel' })}
           </div>
-          {!quote && <div className="checkout-card-actions">
-            <button type="button" className="btn btn-dark" disabled={busy || quoting || processing} onClick={() => void quoteNow()}>{quoting ? 'Calculating…' : 'Calculate delivery & total'}</button>
-          </div>}
+          {!quote && quoting && <p className="checkout-note" role="status">Calculating delivery & total…</p>}
           {quote && quote.quote.shipping_rates.length > 0 && <div className="store-shipping">
             <h3>Delivery method</h3>
             {quote.quote.shipping_rates.map(rate => <label key={rate.id} className={rate.selected ? 'selected' : ''}>
@@ -180,7 +200,7 @@ function Checkout() {
           <div className="checkout-review">
             <div><h3>Deliver to</h3><p>{address.first_name} {address.last_name}<br />{address.address_1}{address.address_2 ? `, ${address.address_2}` : ''}<br />{address.city}{address.state ? `, ${address.state}` : ''} {address.postcode}<br />{COUNTRIES.find(([code]) => code === address.country)?.[1]}</p></div>
             <div><h3>Delivery method</h3><p>{storeText(quote.quote.shipping_rates.find(rate => rate.selected)?.label || 'Standard')} — {quoteMoney(quote.quote.shipping_total)}</p></div>
-            <div><h3>Payment</h3><p><LockKeyhole size={14} /> Secure card payment via Stripe — Apple Pay and Google Pay appear automatically when your device supports them.</p></div>
+            <div><h3>Payment</h3><p><LockKeyhole size={14} /> Secure card payment via Stripe — Apple Pay and Google Pay appear automatically when your device supports them. Stripe can remember your card for faster checkout next time.</p></div>
           </div>
           <label className="checkout-terms"><input type="checkbox" checked={agreed} disabled={processing} onChange={event => setAgreed(event.target.checked)} />
             <span>I agree to the <Link to="/page/$slug" params={{ slug: 'terms-conditions' }} target="_blank">Terms & Conditions</Link> and <Link to="/page/$slug" params={{ slug: 'privacy-policy' }} target="_blank">Privacy Policy</Link>.</span>

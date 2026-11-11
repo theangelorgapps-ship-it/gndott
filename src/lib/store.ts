@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getCookie, setCookie, getRequestHeader, getRequestUrl, setResponseHeader } from '@tanstack/react-start/server'
-import { first } from './db'
+import { first, all, run } from './db'
 import { getActiveViewer } from './viewer.server'
 import { STORE_ORIGIN, isPhysicalProduct, storeText, type StoreProduct } from './storeTypes'
 const TOKEN = 'halobox_store_cart'
@@ -138,9 +138,39 @@ export const quoteStoreCheckout = createServerFn({ method: 'POST' })
       const mod = await import('./storeCheckout.server')
       const address = mod.cleanAddress(data.address)
       const { db } = await stripeConfiguration()
-      return { ok: true as const, ...(await mod.createStoreQuote(db, user, cart, address, data.shippingRate)) }
+      const quoted = await mod.createStoreQuote(db, user, cart, address, data.shippingRate)
+      // Remember the delivery address for next time; never fail a quote over it.
+      await rememberStoreAddress(user.id, address).catch(() => null)
+      return { ok: true as const, ...quoted }
     } catch (error) { console.warn('Store quote:', error instanceof Error ? error.message : 'failed'); return { ok: false as const, error: checkoutError(error) } }
   })
+
+// ---------- saved delivery addresses ----------
+
+export type StoreAddress = { id: string; first_name: string; last_name: string; address_1: string; address_2: string; city: string; state: string; postcode: string; country: string; phone: string }
+
+/** A signed-in viewer's remembered delivery addresses, most recently used first. */
+export const listStoreAddresses = createServerFn({ method: 'GET' }).handler(async () => {
+  setResponseHeader('Cache-Control', 'private, no-store')
+  const viewer = await getActiveViewer()
+  if (!viewer) return { addresses: [] as StoreAddress[] }
+  const addresses = await all<StoreAddress>(`SELECT id, first_name, last_name, address_1, address_2, city, state, postcode, country, phone FROM store_addresses WHERE user_id=? ORDER BY last_used_at DESC LIMIT 5`, viewer.userId).catch(() => [] as StoreAddress[])
+  return { addresses }
+})
+
+/** Quoting an order remembers the address; the same street+postcode+country
+ *  just moves to the front instead of duplicating. */
+async function rememberStoreAddress(userId: number, address: StoreAddress | Record<string, string>) {
+  const a = Object.fromEntries(['first_name','last_name','address_1','address_2','city','state','postcode','country','phone'].map(key => [key, String((address as any)[key] ?? '').trim()]))
+  if (!a.address_1 || !a.postcode) return
+  const existing = await first<any>(`SELECT id FROM store_addresses WHERE user_id=? AND LOWER(address_1)=LOWER(?) AND LOWER(postcode)=LOWER(?) AND LOWER(country)=LOWER(?)`, userId, a.address_1, a.postcode, a.country)
+  if (existing) {
+    await run(`UPDATE store_addresses SET first_name=?, last_name=?, address_2=?, city=?, state=?, phone=?, last_used_at=datetime('now') WHERE id=?`, a.first_name, a.last_name, a.address_2, a.city, a.state, a.phone, existing.id)
+    return
+  }
+  await run(`INSERT INTO store_addresses(id, user_id, first_name, last_name, address_1, address_2, city, state, postcode, country, phone) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    crypto.randomUUID(), userId, a.first_name, a.last_name, a.address_1, a.address_2, a.city, a.state, a.postcode, a.country, a.phone)
+}
 
 /** Pay a quoted cart with the shared Stripe configurator; the order is created after payment. */
 export const startStoreCheckout = createServerFn({ method: 'POST' })

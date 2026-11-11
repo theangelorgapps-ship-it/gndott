@@ -18,6 +18,7 @@ import { getBibleBooks, getBibleChapter } from '../../../lib/bible'
 import { BIBLE_VERSIONS } from '../../../lib/bibleProvider'
 import { getPlaybackProgress, recordWatchProgress } from '../../../lib/playback'
 import { getLibrary, saveLibraryNote, deleteLibraryNote } from '../../../lib/library'
+import { selectOwnedViewerProfile } from '../../../lib/viewer.server'
 import { getGivingStatus, createGivingIntent, createGivingCheckout } from '../../../lib/giving'
 
 // Stable public REST surface for the mobile app.
@@ -271,6 +272,9 @@ async function handlePost(ctx: Ctx): Promise<Response> {
       }
     case 'watchlist':
       if (second === 'toggle') return json(await toggleWatchlist({ data: body }))
+      break
+    case 'profiles':
+      if (second === 'select') return json(await selectOwnedViewerProfile(body?.profileId))
       break
     case 'me':
       if (second === 'progress') {

@@ -51,6 +51,7 @@ import { Route as AdminShopRouteImport } from './routes/admin.shop'
 import { Route as ApiHeroesRouteImport } from './routes/api/heroes'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe-webhook'
 import { Route as AuthProviderRouteImport } from './routes/auth.$provider'
+import { Route as AuthMobileCompleteRouteImport } from './routes/auth.mobile-complete'
 import { Route as CastIdRouteImport } from './routes/cast.$id'
 import { Route as ChannelIdRouteImport } from './routes/channel.$id'
 import { Route as MediaSplatRouteImport } from './routes/media/$'
@@ -282,6 +283,11 @@ const AuthProviderRoute = AuthProviderRouteImport.update({
   path: '/auth/$provider',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthMobileCompleteRoute = AuthMobileCompleteRouteImport.update({
+  id: '/auth/mobile-complete',
+  path: '/auth/mobile-complete',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CastIdRoute = CastIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -426,6 +432,7 @@ export interface FileRoutesByFullPath {
   '/api/heroes': typeof ApiHeroesRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/auth/$provider': typeof AuthProviderRouteWithChildren
+  '/auth/mobile-complete': typeof AuthMobileCompleteRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
@@ -489,6 +496,7 @@ export interface FileRoutesByTo {
   '/api/heroes': typeof ApiHeroesRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/auth/$provider': typeof AuthProviderRouteWithChildren
+  '/auth/mobile-complete': typeof AuthMobileCompleteRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
@@ -554,6 +562,7 @@ export interface FileRoutesById {
   '/api/heroes': typeof ApiHeroesRoute
   '/api/stripe-webhook': typeof ApiStripeWebhookRoute
   '/auth/$provider': typeof AuthProviderRouteWithChildren
+  '/auth/mobile-complete': typeof AuthMobileCompleteRoute
   '/cast/$id': typeof CastIdRoute
   '/channel/$id': typeof ChannelIdRoute
   '/media/$': typeof MediaSplatRoute
@@ -620,6 +629,7 @@ export interface FileRouteTypes {
     | '/api/heroes'
     | '/api/stripe-webhook'
     | '/auth/$provider'
+    | '/auth/mobile-complete'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
@@ -683,6 +693,7 @@ export interface FileRouteTypes {
     | '/api/heroes'
     | '/api/stripe-webhook'
     | '/auth/$provider'
+    | '/auth/mobile-complete'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
@@ -747,6 +758,7 @@ export interface FileRouteTypes {
     | '/api/heroes'
     | '/api/stripe-webhook'
     | '/auth/$provider'
+    | '/auth/mobile-complete'
     | '/cast/$id'
     | '/channel/$id'
     | '/media/$'
@@ -812,6 +824,7 @@ export interface RootRouteChildren {
   ApiHeroesRoute: typeof ApiHeroesRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   AuthProviderRoute: typeof AuthProviderRouteWithChildren
+  AuthMobileCompleteRoute: typeof AuthMobileCompleteRoute
   ChannelIdRoute: typeof ChannelIdRoute
   MediaSplatRoute: typeof MediaSplatRoute
   MovieIdRoute: typeof MovieIdRoute
@@ -1125,6 +1138,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthProviderRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/mobile-complete': {
+      id: '/auth/mobile-complete'
+      path: '/auth/mobile-complete'
+      fullPath: '/auth/mobile-complete'
+      preLoaderRoute: typeof AuthMobileCompleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cast/$id': {
       id: '/cast/$id'
       path: '/$id'
@@ -1347,6 +1367,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHeroesRoute: ApiHeroesRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   AuthProviderRoute: AuthProviderRouteWithChildren,
+  AuthMobileCompleteRoute: AuthMobileCompleteRoute,
   ChannelIdRoute: ChannelIdRoute,
   MediaSplatRoute: MediaSplatRoute,
   MovieIdRoute: MovieIdRoute,

@@ -92,8 +92,6 @@ export function TitlePreview({ title, trailerUrl, directVideoUrl, bunnyLibraryId
         // Embedded providers cannot report rejected audible play promises.
         // Start policy-safe and only enable sound from the visible user control.
         player.volume(.3); player.mute(true); player.play()
-        // Heroes open mid-service: seek to the requested start once ready.
-        if (startSeconds > 0) player.seek(startSeconds)
         setMuted(true)
         fallback = setTimeout(() => { if (active && !started) { player.mute(true); setMuted(true); player.play() } }, 1000)
       },

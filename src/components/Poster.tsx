@@ -357,7 +357,7 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
       <div className="hero-artwork" aria-hidden="true">
         {slides.map((item, index) => <HeroArtwork key={`${item.type}-${item.id}`} item={item} active={index === idx} priority={index === 0} />)}
       </div>
-      {!live && <TitlePreview key={`${hero.type}:${hero.id}`} title={hero.name} trailerUrl={hero.trailer_url || hero.trailerUrl} bunnyLibraryId={bunnyLibraryId} bunnyTrailerId={hero.bunny_trailer_url} bunnyVideoId={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.bunny_video_url : null} directVideoUrl={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.video_url_input : null} suspended={!pageVisible} startSeconds={75.4} />}
+      {!live && <TitlePreview key={`${hero.type}:${hero.id}`} title={hero.name} trailerUrl={hero.trailer_url || hero.trailerUrl} bunnyLibraryId={bunnyLibraryId} bunnyTrailerId={hero.bunny_trailer_url} bunnyVideoId={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.bunny_video_url : null} directVideoUrl={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.video_url_input : null} suspended={!pageVisible} startSeconds={80} />}
       {slides.map((item, index) => {
         const inLibrary = saved.includes(Number(item.id))
         const canSave = !live && !libraryFailed && !['/video', '/channel'].includes(baseFor(item))

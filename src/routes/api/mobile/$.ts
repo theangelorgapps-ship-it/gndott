@@ -12,7 +12,7 @@ import {
   requestOtp, verifyOtp, changePassword, subscribePlan, confirmStripeSession,
   purchasePayPerView, getFooterData,
 } from '../../../lib/api'
-import { getStoreProducts, getStoreCart, updateStoreCart, quoteStoreCheckout, startStoreCheckout } from '../../../lib/store'
+import { getStoreProducts, getStoreProduct, getStoreCart, updateStoreCart, quoteStoreCheckout, startStoreCheckout, listStoreAddresses } from '../../../lib/store'
 import { first } from '../../../lib/db'
 import { getBibleBooks, getBibleChapter } from '../../../lib/bible'
 import { BIBLE_VERSIONS } from '../../../lib/bibleProvider'
@@ -228,7 +228,9 @@ async function handleGet(ctx: Ctx): Promise<Response> {
     }
     case 'shop':
       if (second === 'products') return json(await getStoreProducts())
+      if (second === 'product') return json(await getStoreProduct({ data: num(q.get('id') ?? undefined) }))
       if (second === 'cart') return json(await getStoreCart())
+      if (second === 'addresses') return json(await listStoreAddresses())
       return json({ ok: false, error: `Unknown endpoint: shop/${second ?? ''}` }, { status: 404 })
     default: return json({ ok: false, error: `Unknown endpoint: ${head ?? '(root)'}` }, { status: 404 })
   }
@@ -291,6 +293,18 @@ async function handlePost(ctx: Ctx): Promise<Response> {
       if (second === 'checkout') {
         // Legacy hosted-checkout fallback (web preview / unsupported clients).
         return json(await createGivingCheckout({ data: body }))
+      }
+      break
+    case 'shop':
+      if (second === 'cart') return json(await updateStoreCart({ data: body }))
+      if (second === 'quote') {
+        // { address, shippingRate? } — WooCommerce computes shipping/tax and
+        // the address is remembered for next time. Editing invalidates it.
+        return json(await quoteStoreCheckout({ data: body }))
+      }
+      if (second === 'pay') {
+        // { checkoutId, requestKey, expectedTotalMinor } → Stripe hosted checkout.
+        return json(await startStoreCheckout({ data: body }))
       }
       break
     case 'reviews':

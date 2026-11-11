@@ -18,6 +18,7 @@ import { getBibleBooks, getBibleChapter } from '../../../lib/bible'
 import { BIBLE_VERSIONS } from '../../../lib/bibleProvider'
 import { getPlaybackProgress, recordWatchProgress } from '../../../lib/playback'
 import { getLibrary, saveLibraryNote, deleteLibraryNote } from '../../../lib/library'
+import { getGivingStatus, createGivingIntent, createGivingCheckout } from '../../../lib/giving'
 
 // Stable public REST surface for the mobile app.
 // Web pages call these same server functions through TanStack Start's hashed
@@ -114,6 +115,9 @@ async function handleGet(ctx: Ctx): Promise<Response> {
       }
       if (second === 'notes') return json(await getLibrary())
       return json({ ok: false, error: `Unknown endpoint: me/${second ?? ''}` }, { status: 404 })
+    case 'giving':
+      if (second === 'status') return json(await getGivingStatus())
+      return json({ ok: false, error: 'Expected /giving/status.' }, { status: 404 })
     case 'search': return json(await searchContent({ data: q.get('q') ?? '' }))
     case 'faq': return json(await getFaqs())
     case 'page': return json(await getPage({ data: q.get('slug') ?? '' }))
@@ -276,6 +280,18 @@ async function handlePost(ctx: Ctx): Promise<Response> {
         return json(await saveLibraryNote({ data: body }))
       }
       if (second === 'notes-delete') return json(await deleteLibraryNote({ data: body }))
+      break
+    case 'giving':
+      if (second === 'intent') {
+        // In-panel payment (native PaymentSheet / Payment Element). The server
+        // enforces the dedupe contract: remounting step 2 reuses the pending
+        // gift + intent; a new gift supersedes older pending rows.
+        return json(await createGivingIntent({ data: body }))
+      }
+      if (second === 'checkout') {
+        // Legacy hosted-checkout fallback (web preview / unsupported clients).
+        return json(await createGivingCheckout({ data: body }))
+      }
       break
     case 'reviews':
       if (second === 'submit') return json(await submitReview({ data: body }))

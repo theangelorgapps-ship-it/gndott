@@ -211,6 +211,17 @@ async function givingCustomer(db: D1Database, secret: string, user: { id: number
   return String(stored?.stripe_customer_id ?? created.id)
 }
 
+/** Subscription items need a real product id (inline product_data is rejected
+ *  there), so monthly partnerships price against one shared giving product. */
+async function givingProduct(secret: string) {
+  const list = await stripeGet('/products?active=true&limit=100', secret).catch(() => null)
+  const found = (list?.data ?? []).find((p: any) => p?.name === 'GoodNews HaloBox Giving')
+  if (/^prod_[a-zA-Z0-9]+$/.test(found?.id || '')) return String(found.id)
+  const created = await stripePost('/products', secret, new URLSearchParams({ name: 'GoodNews HaloBox Giving' }), 'halobox-giving-product-v1')
+  if (!/^prod_[a-zA-Z0-9]+$/.test(created.id || '')) throw new CheckoutError('Stripe could not complete this request. Please try again.')
+  return String(created.id)
+}
+
 /** Guests have no giving_customers link; reuse their previous customer record
  *  (local donation history first, then a Stripe email lookup) so a repeat
  *  guest partner shares one customer instead of one per gift. */
@@ -284,10 +295,11 @@ export const createGivingIntent = createServerFn({ method: 'POST' })
     // Monthly partnership: a subscription whose first invoice confirms in-panel.
     // Guests reuse their existing Stripe customer rather than one per gift.
     const monthlyCustomer = customer ?? await guestGivingCustomer(db, secret, donor, donationId)
+    const product = await givingProduct(secret)
     const body = new URLSearchParams({
       customer: monthlyCustomer,
       'items[0][price_data][currency]': 'usd',
-      'items[0][price_data][product_data][name]': 'Partnership (monthly) — GoodNews HaloBox',
+      'items[0][price_data][product]': product,
       'items[0][price_data][unit_amount]': String(data.amountCents),
       'items[0][price_data][recurring][interval]': 'month',
       payment_behavior: 'default_incomplete',

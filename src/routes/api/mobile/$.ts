@@ -13,7 +13,7 @@ import {
   purchasePayPerView, getFooterData,
 } from '../../../lib/api'
 import { getStoreProducts, getStoreProduct, getStoreCart, updateStoreCart, quoteStoreCheckout, startStoreCheckout, listStoreAddresses } from '../../../lib/store'
-import { first } from '../../../lib/db'
+import { first, run } from '../../../lib/db'
 import { getBibleBooks, getBibleChapter } from '../../../lib/bible'
 import { BIBLE_VERSIONS } from '../../../lib/bibleProvider'
 import { getPlaybackProgress, recordWatchProgress } from '../../../lib/playback'
@@ -307,6 +307,30 @@ async function handlePost(ctx: Ctx): Promise<Response> {
         return json(await startStoreCheckout({ data: body }))
       }
       break
+    case 'events': {
+      // Batched, aggregated app metrics (ticket 10). Events carry an anonymous
+      // install ID, not identity; the app's analytics opt-out means opted-out
+      // users simply never call this. Payloads are capped and validated.
+      const installId = String(body?.installId ?? '').slice(0, 64)
+      const events = Array.isArray(body?.events) ? body.events.slice(0, 100) : []
+      if (!/^[a-zA-Z0-9-]{8,64}$/.test(installId)) return json({ ok: false, error: 'Invalid install id' }, { status: 400 })
+      await run(`CREATE TABLE IF NOT EXISTS app_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        install_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        payload TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`).catch(() => null)
+      let accepted = 0
+      for (const event of events) {
+        const name = String(event?.name ?? '')
+        if (!/^[a-z][a-z0-9_]{1,40}$/.test(name)) continue
+        const payload = JSON.stringify(event?.payload ?? {}).slice(0, 2000)
+        await run(`INSERT INTO app_events (install_id, name, payload) VALUES (?, ?, ?)`, installId, name, payload).catch(() => null)
+        accepted += 1
+      }
+      return json({ ok: true, accepted })
+    }
     case 'reviews':
       if (second === 'submit') return json(await submitReview({ data: body }))
       break

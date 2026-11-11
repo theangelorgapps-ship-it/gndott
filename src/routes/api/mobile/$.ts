@@ -17,6 +17,7 @@ import { first } from '../../../lib/db'
 import { getBibleBooks, getBibleChapter } from '../../../lib/bible'
 import { BIBLE_VERSIONS } from '../../../lib/bibleProvider'
 import { getPlaybackProgress, recordWatchProgress } from '../../../lib/playback'
+import { getLibrary, saveLibraryNote, deleteLibraryNote } from '../../../lib/library'
 
 // Stable public REST surface for the mobile app.
 // Web pages call these same server functions through TanStack Start's hashed
@@ -111,6 +112,7 @@ async function handleGet(ctx: Ctx): Promise<Response> {
         const contentType = (q.get('type') ?? '').replace('tv-show', 'tvshow')
         return json(await getPlaybackProgress({ data: { contentType, contentId: num(q.get('id') ?? undefined) } as any }))
       }
+      if (second === 'notes') return json(await getLibrary())
       return json({ ok: false, error: `Unknown endpoint: me/${second ?? ''}` }, { status: 404 })
     case 'search': return json(await searchContent({ data: q.get('q') ?? '' }))
     case 'faq': return json(await getFaqs())
@@ -269,6 +271,11 @@ async function handlePost(ctx: Ctx): Promise<Response> {
         // Playback heartbeat: { contentType, contentId, position, duration, profileKey? }
         return json(await recordWatchProgress({ data: { ...body, contentType: String(body?.contentType ?? '').replace('tv-show', 'tvshow') } }))
       }
+      if (second === 'notes') {
+        // Upsert: { key: '<type>:<id>' or 'journal:<id>', title, html, profileKey? }
+        return json(await saveLibraryNote({ data: body }))
+      }
+      if (second === 'notes-delete') return json(await deleteLibraryNote({ data: body }))
       break
     case 'reviews':
       if (second === 'submit') return json(await submitReview({ data: body }))

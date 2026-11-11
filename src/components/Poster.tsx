@@ -14,6 +14,9 @@ import { Check, Info, Volume2, VolumeX, X } from 'lucide-react'
 export { img, DEFAULT_IMG }
 const ADVANCE_DELAY_MS = 8000
 const VIEWPORT_GUTTER = 12
+// Every hero preview source (Bunny embed, YouTube embed, direct file) shares
+// this one start offset so slides skip intros consistently.
+export const HERO_START_SECONDS = 80
 
 export function contentBase(type: unknown) {
   return type === 'teaching' ? '/teaching'
@@ -357,7 +360,7 @@ export function HeroSlider({ slides, baseFor, ctaLabel = 'Play', bunnyLibraryId,
       <div className="hero-artwork" aria-hidden="true">
         {slides.map((item, index) => <HeroArtwork key={`${item.type}-${item.id}`} item={item} active={index === idx} priority={index === 0} />)}
       </div>
-      {!live && <TitlePreview key={`${hero.type}:${hero.id}`} title={hero.name} trailerUrl={hero.trailer_url || hero.trailerUrl} bunnyLibraryId={bunnyLibraryId} bunnyTrailerId={hero.bunny_trailer_url} bunnyVideoId={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.bunny_video_url : null} directVideoUrl={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.video_url_input : null} suspended={!pageVisible} startSeconds={80} />}
+      {!live && <TitlePreview key={`${hero.type}:${hero.id}`} title={hero.name} trailerUrl={hero.trailer_url || hero.trailerUrl} bunnyLibraryId={bunnyLibraryId} bunnyTrailerId={hero.bunny_trailer_url} bunnyVideoId={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.bunny_video_url : null} directVideoUrl={hero.hasSubscriptionAccess !== false && ((hero.movie_access !== 'paid' && hero.access !== 'paid') || hero.myPurchase) ? hero.video_url_input : null} suspended={!pageVisible} startSeconds={HERO_START_SECONDS} />}
       {slides.map((item, index) => {
         const inLibrary = saved.includes(Number(item.id))
         const canSave = !live && !libraryFailed && !['/video', '/channel'].includes(baseFor(item))

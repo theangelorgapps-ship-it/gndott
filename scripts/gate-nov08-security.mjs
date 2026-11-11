@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 import ts from 'typescript'
+import sanitizeHtml from 'sanitize-html'
 import { sameOrigin } from '../src/lib/authCore.ts'
 import { authBaseURL } from '../src/lib/auth-origins.ts'
 import { requiresSubscription, subscriptionFields } from '../src/lib/subscriptionPolicy.ts'
@@ -52,7 +53,7 @@ const database={
  },
  async run(){mutations++;return{changes:1}}
 }
-const api=compile('src/lib/api.ts',{'./heroes.server':{loadConfiguredHeroes:async()=>[]},'@tanstack/react-start':factory,'./session.server':{getSession:async()=>session,clearSessionCookie:async()=>{}},'./db':database,'./recommendations':{buildRecommendationPayload:()=>({}),isMeaningfulWatch:()=>false,parseWatchSeconds:()=>0},'./viewer.server':{getActiveViewer:async()=>null},'./api-security':{playbackFields,positiveId,profileInput,publicHttpsUrl,readVastMedia},'./subscriptionPolicy':{requiresSubscription,subscriptionFields},'./entitlement.server':{subscriptionPlaybackAccess:async()=>subscriptionDevice,entitlementDatabase:()=>null},'./entitlement-core':{resolveEntitlement:async()=>subscription},'./people.server':{loadPersonalities:async()=>[],loadTitlePeople:async()=>[],loadTitleLocations:async()=>[],loadPersonalityDetail:async()=>null}})
+const api=compile('src/lib/api.ts',{'./content-html':compile('src/lib/content-html.ts',{'sanitize-html':{default:sanitizeHtml}}),'./heroes.server':{loadConfiguredHeroes:async()=>[]},'@tanstack/react-start':factory,'./session.server':{getSession:async()=>session,clearSessionCookie:async()=>{}},'./db':database,'./recommendations':{buildRecommendationPayload:()=>({}),buildMixedPopular:()=>[],isMeaningfulWatch:()=>false,parseWatchSeconds:()=>0},'./recommendations.server':{isChildViewer:async()=>false,loadRecommendationCandidates:async()=>[],loadRecommendationSignals:async()=>({})},'./viewing-history.server':{loadViewingHistory:async()=>[],viewingQuery:''},'./viewer.server':{getActiveViewer:async()=>null},'./api-security':{playbackFields,positiveId,profileInput,publicHttpsUrl,readVastMedia},'./subscriptionPolicy':{requiresSubscription,subscriptionFields},'./entitlement.server':{subscriptionPlaybackAccess:async()=>subscriptionDevice,entitlementDatabase:()=>null},'./entitlement-core':{resolveEntitlement:async()=>subscription},'./people.server':{loadPersonalities:async()=>[],loadTitlePeople:async()=>[],loadTitleLocations:async()=>[],loadPersonalityDetail:async()=>null}})
 assert.equal((await api.fetchVastMedia({data:'https://unconfigured.example.test/tag'})).ok,false)
 assert.equal(fetches,1,'Unconfigured caller-controlled URL must never invoke transport')
 assert.equal((await api.purchasePayPerView({data:{type:'movie',id:1,gateway:'cash'}})).ok,false)
@@ -102,5 +103,9 @@ if(adminRoot){
  assert.equal(writes,0)
  role='user';await assert.rejects(module.exports.adminDeleteContent({data:1}),/Admin access required/)
 }
+// Public content HTML must be sanitized before it reaches the viewer.
+const contentHtml=compile('src/lib/content-html.ts',{'sanitize-html':{default:sanitizeHtml}})
+assert(!/script|onerror|javascript:/i.test(contentHtml.sanitizePublicContentHtml('<p>ok</p><script>alert(1)</script><img src=x onerror="alert(2)"><a href="javascript:alert(3)">x</a>')),'sanitizePublicContentHtml must strip scripts, handlers and javascript: URLs')
+assert(contentHtml.sanitizePublicContentHtml('<p>ok</p>').includes('<p>ok</p>'))
 globalThis.fetch=realFetch
-console.log('NOV08_SECURITY_GATES_PASS: canonical realm origins, input limits, paid playback fields, server entitlement checks, no cash grant, configured HTTPS-only bounded VAST, CSRF, demo-admin writes denied; zero network/email')
+console.log('NOV08_SECURITY_GATES_PASS: canonical realm origins, input limits, paid playback fields, server entitlement checks, no cash grant, configured HTTPS-only bounded VAST, CSRF, content HTML sanitized, demo-admin writes denied; zero network/email')

@@ -226,9 +226,13 @@ export async function handleSubscriptionWebhook(request:Request) {
   // with its own secret, so try both before rejecting the signature.
   const giving=await database().prepare(`SELECT val FROM settings WHERE name='giving_stripe_webhook_secret' AND deleted_at IS NULL LIMIT 1`).first<{val:string}>().then(row=>String(row?.val??'').trim()).catch(()=> '')
   const secrets=[primary,...(giving?[giving]:[])]
+  // Read the body once: cloning per attempt tees the stream, and cancelling a
+  // tee branch whose sibling is never read can stall on backpressure.
+  let raw: string
+  try { raw = await boundedWebhookBody(request) } catch { return new Response('Invalid webhook.',{status:400}) }
   let event:any, verified=false, lastError:unknown
   for (const secret of secrets) {
-    try { event=await verifyStripeWebhook(await boundedWebhookBody(request.clone() as unknown as Request),request.headers.get('stripe-signature')||'',secret); verified=true; break }
+    try { event=await verifyStripeWebhook(raw,request.headers.get('stripe-signature')||'',secret); verified=true; break }
     catch (error) { lastError=error }
   }
   if (!verified) { void lastError; return new Response('Invalid webhook.',{status:400}) }

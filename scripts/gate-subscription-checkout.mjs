@@ -23,6 +23,7 @@ const helpers=load(read('src/lib/subscriptionCheckout.server.ts'),{
   'cloudflare:workers':{env},
   '@tanstack/react-start/server':{getRequestUrl:()=>new URL(requestUrl),getRequestHeader:key=>headers[key],setResponseHeader(){}},
   './viewer.server':{getActiveViewer:async()=>viewer},
+  './checkoutError':load(read('src/lib/checkoutError.ts'),{}),
 })
 const factory={createServerFn(){let validate=data=>data;return{validator(fn){validate=fn;return this},handler(fn){return(input={})=>fn({data:validate(input.data)})}}}}
 const apiSource=read('src/lib/api.ts')

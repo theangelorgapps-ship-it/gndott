@@ -84,7 +84,9 @@ export async function fulfillDonation(db: D1Database, session: any) {
 
 async function markPaid(db: D1Database, donation: Donation) {
   if (donation.status === 'paid') return false
-  const marked = await run(`UPDATE donations SET status='paid', paid_at=datetime('now') WHERE id=? AND status='pending'`, donation.id)
+  // A late webhook (async methods can settle after the 24 h pending sweep)
+  // must still complete the gift, so expired rows can flip to paid here.
+  const marked = await run(`UPDATE donations SET status='paid', paid_at=datetime('now') WHERE id=? AND status IN ('pending','expired')`, donation.id)
   if (marked?.meta?.changes) {
     try { await sendThankYou({ ...donation, status: 'paid' }) } catch (error) { console.warn('Giving thank-you email failed:', error instanceof Error ? error.message : 'send failed') }
     await notifyUser(db, donation.user_id, {

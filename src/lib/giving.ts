@@ -167,11 +167,27 @@ async function prepareDonation(data: GivingInput) {
     name: user ? ([user.first_name, user.last_name].filter(Boolean).join(' ') || data.name) : data.name,
     email: user ? String(user.email) : data.email,
   }
-  await run(
-    `INSERT INTO donations(id, user_id, name, email, phone, country, kind, frequency, amount_cents) VALUES(?,?,?,?,?,?,?,?,?)`,
-    donationId, donor.userId, donor.name, donor.email, user ? '' : data.phone, user ? '' : data.country, data.kind, data.frequency, data.amountCents,
-  )
   return { origin, db, secret, user, donationId, donor }
+}
+
+/** Same-donor pending gifts from abandoned step-2 visits expire after 24 h so
+ *  they stop counting as pending in admin and history views. */
+async function expireStalePendingDonations(db: D1Database) {
+  await run(`UPDATE donations SET status='expired' WHERE status='pending' AND created_at < datetime('now','-24 hours')`).catch(() => null)
+}
+
+const donorWhere = (user: { id: number } | null) => (user ? 'user_id=?' : 'LOWER(email)=LOWER(?)')
+const donorParam = (user: { id: number } | null, donor: { email: string }) => (user ? user.id : donor.email)
+
+/** A step-2 remount (Back → Continue, page refresh) used to mint a fresh
+ *  donation row + PaymentIntent every time. Instead, reuse the matching
+ *  pending gift created in the last hour when Stripe still holds a payable
+ *  intent/subscription for it. */
+async function findReusableDonation(db: D1Database, user: { id: number } | null, donor: { email: string }, data: GivingInput) {
+  return first<any>(
+    `SELECT * FROM donations WHERE status='pending' AND kind=? AND frequency=? AND amount_cents=? AND ${donorWhere(user)} AND created_at > datetime('now','-1 hour') ORDER BY created_at DESC LIMIT 1`,
+    data.kind, data.frequency, data.amountCents, donorParam(user, donor),
+  )
 }
 
 async function stripeGet(path: string, secret: string) {
@@ -195,11 +211,57 @@ async function givingCustomer(db: D1Database, secret: string, user: { id: number
   return String(stored?.stripe_customer_id ?? created.id)
 }
 
+/** Guests have no giving_customers link; reuse their previous customer record
+ *  (local donation history first, then a Stripe email lookup) so a repeat
+ *  guest partner shares one customer instead of one per gift. */
+async function guestGivingCustomer(db: D1Database, secret: string, donor: { name: string; email: string }, donationId: string) {
+  const local = await first<any>(`SELECT stripe_customer FROM donations WHERE LOWER(email)=LOWER(?) AND stripe_customer IS NOT NULL ORDER BY created_at DESC LIMIT 1`, donor.email).catch(() => null)
+  if (local && /^cus_[a-zA-Z0-9]+$/.test(String(local.stripe_customer ?? ''))) return String(local.stripe_customer)
+  const found = await stripeGet(`/customers?email=${encodeURIComponent(donor.email)}&limit=1`, secret).catch(() => null)
+  const foundId = found?.data?.[0]?.id
+  if (/^cus_[a-zA-Z0-9]+$/.test(foundId || '')) return String(foundId)
+  const created = await stripePost('/customers', secret, new URLSearchParams({ email: donor.email, name: donor.name }), `halobox-giving-guest-${donationId}`)
+  if (!/^cus_[a-zA-Z0-9]+$/.test(created.id || '')) throw new CheckoutError('Stripe could not complete this request. Please try again.')
+  return String(created.id)
+}
+
 export const createGivingIntent = createServerFn({ method: 'POST' })
   .validator(validateGivingInput)
   .handler(async ({ data }) => {
     const { origin, db, secret, user, donationId, donor } = await prepareDonation(data)
     const monthly = data.frequency === 'monthly'
+    await expireStalePendingDonations(db)
+    const returnUrl = `${origin}/giving-success`
+
+    // Remount reuse: return the still-payable intent/subscription of the
+    // matching pending gift instead of stacking a new row + Stripe object.
+    const reusable = await findReusableDonation(db, user, donor, data)
+    if (reusable) {
+      if (!monthly && reusable.stripe_payment_intent) {
+        const intent = await stripeGet(`/payment_intents/${encodeURIComponent(String(reusable.stripe_payment_intent))}`, secret).catch(() => null)
+        if (intent && !['canceled', 'succeeded'].includes(String(intent.status)) && typeof intent.client_secret === 'string') {
+          return { ok: true as const, donationId: String(reusable.id), clientSecret: intent.client_secret, returnUrl }
+        }
+      } else if (monthly && reusable.stripe_subscription_id) {
+        const subscription = await stripeGet(`/subscriptions/${encodeURIComponent(String(reusable.stripe_subscription_id))}?expand[]=latest_invoice.confirmation_secret`, secret).catch(() => null)
+        const clientSecret = subscription?.latest_invoice?.confirmation_secret?.client_secret
+        if (subscription?.status === 'incomplete' && typeof clientSecret === 'string') {
+          return { ok: true as const, donationId: String(reusable.id), clientSecret, returnUrl }
+        }
+      }
+      // The Stripe object is gone or finished — retire the row and start fresh.
+      await run(`UPDATE donations SET status='expired' WHERE id=? AND status='pending'`, reusable.id)
+    }
+    // Any older pending rows for this donor + gift type are superseded.
+    await run(
+      `UPDATE donations SET status='expired' WHERE status='pending' AND kind=? AND frequency=? AND ${donorWhere(user)}`,
+      data.kind, data.frequency, donorParam(user, donor),
+    )
+
+    await run(
+      `INSERT INTO donations(id, user_id, name, email, phone, country, kind, frequency, amount_cents) VALUES(?,?,?,?,?,?,?,?,?)`,
+      donationId, donor.userId, donor.name, donor.email, user ? '' : data.phone, user ? '' : data.country, data.kind, data.frequency, data.amountCents,
+    )
     const customer = await givingCustomer(db, secret, user, donor)
     const metadata = {
       'metadata[purpose]': 'halobox_giving', 'metadata[donation_id]': donationId,
@@ -217,11 +279,11 @@ export const createGivingIntent = createServerFn({ method: 'POST' })
       const intent = await stripePost('/payment_intents', secret, body, `halobox-giving-pi-${donationId}`)
       if (!/^pi_[a-zA-Z0-9]+$/.test(intent.id || '') || typeof intent.client_secret !== 'string') throw new CheckoutError('Stripe did not return a payment. Please try again.')
       await run(`UPDATE donations SET stripe_payment_intent=?, stripe_customer=? WHERE id=?`, intent.id, customer, donationId)
-      return { ok: true as const, donationId, clientSecret: intent.client_secret, returnUrl: `${origin}/giving-success` }
+      return { ok: true as const, donationId, clientSecret: intent.client_secret, returnUrl }
     }
     // Monthly partnership: a subscription whose first invoice confirms in-panel.
-    const monthlyCustomer = customer ?? (await stripePost('/customers', secret, new URLSearchParams({ email: donor.email, name: donor.name }), `halobox-giving-guest-${donationId}`)).id
-    if (!/^cus_[a-zA-Z0-9]+$/.test(monthlyCustomer || '')) throw new CheckoutError('Stripe could not complete this request. Please try again.')
+    // Guests reuse their existing Stripe customer rather than one per gift.
+    const monthlyCustomer = customer ?? await guestGivingCustomer(db, secret, donor, donationId)
     const body = new URLSearchParams({
       customer: monthlyCustomer,
       'items[0][price_data][currency]': 'usd',
@@ -237,7 +299,7 @@ export const createGivingIntent = createServerFn({ method: 'POST' })
     const clientSecret = subscription?.latest_invoice?.confirmation_secret?.client_secret
     if (!/^sub_[a-zA-Z0-9]+$/.test(subscription.id || '') || typeof clientSecret !== 'string') throw new CheckoutError('Stripe did not return a subscription. Please try again.')
     await run(`UPDATE donations SET stripe_subscription_id=?, stripe_customer=?, stripe_payment_intent=? WHERE id=?`, subscription.id, monthlyCustomer, subscription.latest_invoice?.payment_intent ?? null, donationId)
-    return { ok: true as const, donationId, clientSecret, returnUrl: `${origin}/giving-success` }
+    return { ok: true as const, donationId, clientSecret, returnUrl }
   })
 
 export const listGivingCards = createServerFn({ method: 'GET' }).handler(async () => {

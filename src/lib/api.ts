@@ -691,7 +691,7 @@ export const getTransactionLedger = createServerFn({ method: 'GET' }).handler(as
   if (!session) return null
   const [subscriptions, giving, purchases] = await Promise.all([
     all(`SELECT id, transaction_id, amount, payment_type, payment_status, created_at FROM subscriptions_transactions WHERE user_id = ? ORDER BY id DESC LIMIT 50`, session.uid).catch(() => []),
-    all(`SELECT id, kind, frequency, amount_cents, currency, status, created_at FROM donations WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`, session.uid).catch(() => []),
+    all(`SELECT id, kind, frequency, amount_cents, currency, status, created_at FROM donations WHERE user_id = ? AND status != 'expired' ORDER BY created_at DESC LIMIT 50`, session.uid).catch(() => []),
     all(`SELECT id, order_id, total_minor, currency, status, created_at FROM store_checkouts WHERE user_id = ? AND status IN ('paid','failed') ORDER BY created_at DESC LIMIT 50`, session.uid).catch(() => []),
   ])
   return { subscriptions, giving, purchases }

@@ -71,6 +71,7 @@ import { Route as VideoIdRouteImport } from './routes/video.$id'
 import { Route as VideosIdRouteImport } from './routes/videos_.$id'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiMobileSplatRouteImport } from './routes/api/mobile/$'
+import { Route as ApiWebhooksRevenuecatRouteImport } from './routes/api.webhooks.revenuecat'
 import { Route as AuthProviderCallbackRouteImport } from './routes/auth.$provider.callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -383,6 +384,11 @@ const ApiMobileSplatRoute = ApiMobileSplatRouteImport.update({
   path: '/api/mobile/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksRevenuecatRoute = ApiWebhooksRevenuecatRouteImport.update({
+  id: '/api/webhooks/revenuecat',
+  path: '/api/webhooks/revenuecat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthProviderCallbackRoute = AuthProviderCallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
@@ -452,6 +458,7 @@ export interface FileRoutesByFullPath {
   '/shop/': typeof ShopIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/mobile/$': typeof ApiMobileSplatRoute
+  '/api/webhooks/revenuecat': typeof ApiWebhooksRevenuecatRoute
   '/auth/$provider/callback': typeof AuthProviderCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -516,6 +523,7 @@ export interface FileRoutesByTo {
   '/shop': typeof ShopIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/mobile/$': typeof ApiMobileSplatRoute
+  '/api/webhooks/revenuecat': typeof ApiWebhooksRevenuecatRoute
   '/auth/$provider/callback': typeof AuthProviderCallbackRoute
 }
 export interface FileRoutesById {
@@ -582,6 +590,7 @@ export interface FileRoutesById {
   '/shop/': typeof ShopIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/mobile/$': typeof ApiMobileSplatRoute
+  '/api/webhooks/revenuecat': typeof ApiWebhooksRevenuecatRoute
   '/auth/$provider/callback': typeof AuthProviderCallbackRoute
 }
 export interface FileRouteTypes {
@@ -649,6 +658,7 @@ export interface FileRouteTypes {
     | '/shop/'
     | '/api/auth/$'
     | '/api/mobile/$'
+    | '/api/webhooks/revenuecat'
     | '/auth/$provider/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -713,6 +723,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/api/auth/$'
     | '/api/mobile/$'
+    | '/api/webhooks/revenuecat'
     | '/auth/$provider/callback'
   id:
     | '__root__'
@@ -778,6 +789,7 @@ export interface FileRouteTypes {
     | '/shop/'
     | '/api/auth/$'
     | '/api/mobile/$'
+    | '/api/webhooks/revenuecat'
     | '/auth/$provider/callback'
   fileRoutesById: FileRoutesById
 }
@@ -840,6 +852,7 @@ export interface RootRouteChildren {
   VideosIdRoute: typeof VideosIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiMobileSplatRoute: typeof ApiMobileSplatRoute
+  ApiWebhooksRevenuecatRoute: typeof ApiWebhooksRevenuecatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1278,6 +1291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMobileSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/revenuecat': {
+      id: '/api/webhooks/revenuecat'
+      path: '/api/webhooks/revenuecat'
+      fullPath: '/api/webhooks/revenuecat'
+      preLoaderRoute: typeof ApiWebhooksRevenuecatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/$provider/callback': {
       id: '/auth/$provider/callback'
       path: '/callback'
@@ -1383,6 +1403,7 @@ const rootRouteChildren: RootRouteChildren = {
   VideosIdRoute: VideosIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiMobileSplatRoute: ApiMobileSplatRoute,
+  ApiWebhooksRevenuecatRoute: ApiWebhooksRevenuecatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,7 +1,8 @@
 import { img } from '@/components/Poster'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Check, ShoppingBag, Truck, ShieldCheck } from 'lucide-react'
+import { Truck, ShieldCheck } from 'lucide-react'
+import { GlowButton } from '../components/ui/glow-button'
 import { getStoreProduct } from '../lib/store'
 import { StoreCartActions, useStoreCart } from '../components/StoreCart'
 import { StoreLoading, StorePurchaseBar } from '../components/StorePurchaseBar'
@@ -44,7 +45,7 @@ function ProductContent({ p }: { p: import('../lib/storeTypes').StoreProduct }) 
           <div className="store-purchase-summary"><strong>{storeText(p.name)}</strong><span>{!available ? 'Currently unavailable' : !complete ? 'Choose options above' : price}</span></div>
           <div className="store-purchase-controls">
             <label className="store-bar-quantity">Quantity<input aria-label="Quantity" type="number" min={1} max={20} step={1} disabled={busy || !available} value={quantity} onChange={event => { setAdded(false); setQuantity(Number(event.target.value)) }} /></label>
-            <button className="btn btn-primary" disabled={!canAdd} aria-describedby={!complete ? 'store-product-options-hint' : undefined}>{added ? <Check size={20} /> : <ShoppingBag size={20} />} {busy ? 'Please wait…' : !available ? 'Unavailable' : added ? 'Added to cart' : 'Add to cart'}</button>
+            <GlowButton type="submit" disabled={!canAdd} label={busy ? 'Please wait…' : !available ? 'Unavailable' : added ? 'Added to cart' : 'Add to cart'} />
             {!validQuantity && <span role="status" className="store-quantity-error">Choose 1–20.</span>}
           </div>
           <StoreCartActions />

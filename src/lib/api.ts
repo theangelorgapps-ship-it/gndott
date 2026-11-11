@@ -663,11 +663,14 @@ export const getReviews = createServerFn({ method: 'GET' })
 export const getAccountData = createServerFn({ method: 'GET' }).handler(async () => {
   const session = await getSession()
   if (!session) return null
-  const user = await first<any>(
-    `SELECT id, first_name, last_name, email, mobile, user_type, is_subscribe, created_at FROM users WHERE id = ?`,
-    session.uid,
-  )
-  const sharing = await subscriptionDashboard(entitlementDatabase(), session)
+  // User row and the sharing dashboard are independent — run them together.
+  const [user, sharing] = await Promise.all([
+    first<any>(
+      `SELECT id, first_name, last_name, email, mobile, user_type, is_subscribe, created_at FROM users WHERE id = ?`,
+      session.uid,
+    ),
+    subscriptionDashboard(entitlementDatabase(), session),
+  ])
   return { user, subscription: sharing.entitlement, devices: sharing.devices, sharing }
 })
 
@@ -679,6 +682,19 @@ export const getPaymentHistory = createServerFn({ method: 'GET' }).handler(async
      FROM subscriptions_transactions WHERE user_id = ? ORDER BY id DESC LIMIT 50`,
     session.uid,
   ).catch(() => [])
+})
+
+// Grouped money ledger for the account's Payment History: subscriptions,
+// giving (donations incl. monthly partnerships) and store purchases.
+export const getTransactionLedger = createServerFn({ method: 'GET' }).handler(async () => {
+  const session = await getSession()
+  if (!session) return null
+  const [subscriptions, giving, purchases] = await Promise.all([
+    all(`SELECT id, transaction_id, amount, payment_type, payment_status, created_at FROM subscriptions_transactions WHERE user_id = ? ORDER BY id DESC LIMIT 50`, session.uid).catch(() => []),
+    all(`SELECT id, kind, frequency, amount_cents, currency, status, created_at FROM donations WHERE user_id = ? ORDER BY created_at DESC LIMIT 50`, session.uid).catch(() => []),
+    all(`SELECT id, order_id, total_minor, currency, status, created_at FROM store_checkouts WHERE user_id = ? AND status IN ('paid','failed') ORDER BY created_at DESC LIMIT 50`, session.uid).catch(() => []),
+  ])
+  return { subscriptions, giving, purchases }
 })
 
 export const getProfiles = createServerFn({ method: 'GET' }).handler(async () => {

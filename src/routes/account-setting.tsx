@@ -7,6 +7,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { ArrowRight, Bookmark, Clock3, Crown, Mail, Monitor } from 'lucide-react'
 import { getAccountData } from '../lib/api'
 import { AccountShell, FlowLoadError, NeedsAuth } from '../components/Account'
+import '../alerts.css'
 
 export const Route = createFileRoute('/account-setting')({
   loader: () => getAccountData(),

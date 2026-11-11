@@ -48,3 +48,18 @@
   color: #8d8d97;
 }
 .alert-amount { font-weight: 700; color: #e8e8ee; }
+
+/* Payment history ledger sections. */
+.ledger { display: flex; flex-direction: column; gap: 34px; }
+.ledger-section h2 { font-size: clamp(19px, 1.6vw, 26px); margin: 0 0 14px; letter-spacing: -0.02em; }
+.ledger-empty { color: #9d9da7; font-size: 14px; margin: 0; }
+.ledger-section .admin-table { width: 100%; }
+
+/* Account surfaces: premium entrance — cards rise and settle, staggered. */
+@keyframes acct-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.acct-card, .tv-library-shortcuts > a, .ledger-section { animation: acct-in 0.45s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.acct-grid > .acct-card:nth-of-type(2) { animation-delay: 70ms; }
+.tv-library-shortcuts > a:nth-of-type(2) { animation-delay: 70ms; }
+.ledger-section:nth-of-type(2) { animation-delay: 70ms; }
+.ledger-section:nth-of-type(3) { animation-delay: 140ms; }
+@media (prefers-reduced-motion: reduce) { .acct-card, .tv-library-shortcuts > a, .ledger-section { animation: none; } }

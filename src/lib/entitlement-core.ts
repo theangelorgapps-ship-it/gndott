@@ -70,14 +70,16 @@ export async function revokeSubscriptionDevice(db:D1Database,actor:SubscriptionA
 export async function subscriptionDashboard(db:D1Database,actor:SubscriptionActor) {
  const entitlement=await resolveEntitlement(db,actor.uid)
  const isOwner=entitlement?.owner_user_id===actor.uid
- const ownMembership=await db.prepare('SELECT id FROM subscription_members WHERE member_user_id=? AND revoked_at IS NULL').bind(actor.uid).first<{id:string}>()
  // Owners see membership emails and device labels, never members' profiles,
  // library, session credentials or IP addresses. Members see only their devices.
- const members=await db.prepare(`SELECT id,invited_email,accepted_at,expires_at,seat,CASE WHEN member_user_id IS NULL AND expires_at<=unixepoch() THEN 'expired' WHEN ? IS NULL OR seat>=? THEN 'paused' WHEN accepted_at IS NOT NULL THEN 'active' ELSE 'invited' END AS state
- FROM subscription_members WHERE owner_user_id=? AND revoked_at IS NULL ORDER BY seat`).bind(isOwner?entitlement.subscription_id:null,isOwner?entitlement.user_limit:0,actor.uid).all<MembershipRow>()
- const devices=await db.prepare(`SELECT d.id,d.label,d.last_seen,d.user_id,CASE WHEN d.session_id=? THEN 1 ELSE 0 END AS current,
- CASE WHEN EXISTS(SELECT 1 FROM r2_active_subscription_devices a WHERE a.id=d.id) THEN 1 ELSE 0 END AS active
- FROM subscription_devices d JOIN ba_viewer_session bs ON bs.id=d.session_id
- WHERE d.revoked_at IS NULL AND (d.owner_user_id=? OR d.user_id=?) ORDER BY d.created_at,d.id`).bind(actor.sessionId,actor.uid,actor.uid).all<SubscriptionDeviceRow>()
+ const [ownMembership,members,devices]=await Promise.all([
+  db.prepare('SELECT id FROM subscription_members WHERE member_user_id=? AND revoked_at IS NULL').bind(actor.uid).first<{id:string}>(),
+  db.prepare(`SELECT id,invited_email,accepted_at,expires_at,seat,CASE WHEN member_user_id IS NULL AND expires_at<=unixepoch() THEN 'expired' WHEN ? IS NULL OR seat>=? THEN 'paused' WHEN accepted_at IS NOT NULL THEN 'active' ELSE 'invited' END AS state
+  FROM subscription_members WHERE owner_user_id=? AND revoked_at IS NULL ORDER BY seat`).bind(isOwner?entitlement.subscription_id:null,isOwner?entitlement.user_limit:0,actor.uid).all<MembershipRow>(),
+  db.prepare(`SELECT d.id,d.label,d.last_seen,d.user_id,CASE WHEN d.session_id=? THEN 1 ELSE 0 END AS current,
+  CASE WHEN EXISTS(SELECT 1 FROM r2_active_subscription_devices a WHERE a.id=d.id) THEN 1 ELSE 0 END AS active
+  FROM subscription_devices d JOIN ba_viewer_session bs ON bs.id=d.session_id
+  WHERE d.revoked_at IS NULL AND (d.owner_user_id=? OR d.user_id=?) ORDER BY d.created_at,d.id`).bind(actor.sessionId,actor.uid,actor.uid).all<SubscriptionDeviceRow>(),
+ ])
  return {entitlement:entitlement ? {name:entitlement.name,end_date:entitlement.end_date,status:'active' as const,user_limit:entitlement.user_limit,device_limit:entitlement.device_limit,role:isOwner?'owner' as const:'member' as const,membership_id:entitlement.membership_id}:null,ownMembershipId:ownMembership?.id??null,members:members.results,devices:devices.results}
 }

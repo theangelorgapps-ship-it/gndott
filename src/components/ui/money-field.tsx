@@ -93,7 +93,7 @@ export const MoneyField = forwardRef<HTMLInputElement, MoneyFieldProps>(function
           aria-valuemin={min / 100}
           aria-valuemax={max / 100}
           onChange={event => change(event.target.value)}
-          onFocus={() => { setFocused(true); setDraft(value === null ? '' : String(value / 100)) }}
+          onFocus={() => { setFocused(true); setDraft(value === null ? '' : `${display.whole.replace(/,/g, '')}.${display.fraction}`) }}
           onBlur={() => { setFocused(false); setTouched(true); setDraft(null) }}
           onKeyDown={event => {
             if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {

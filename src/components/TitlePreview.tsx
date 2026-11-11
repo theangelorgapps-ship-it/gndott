@@ -27,12 +27,14 @@ export function TitlePreview({ title, trailerUrl, directVideoUrl, bunnyLibraryId
   const [delayElapsed, setDelayElapsed] = useState(false)
   const [requestedPlay, setRequestedPlay] = useState(false)
   const youtube = youtubeId(trailerUrl)
-  const previewBunnyId = bunnyTrailerId || (!youtube && !directSource(trailerUrl) && !directSource(directVideoUrl) ? bunnyVideoId : null)
-  const bunny = bunnyLibraryId && previewBunnyId ? `https://iframe.mediadelivery.net/embed/${encodeURIComponent(bunnyLibraryId)}/${encodeURIComponent(previewBunnyId)}?autoplay=true&muted=true&loop=true&preload=true&controls=false&playsinline=true&responsive=true` : null
   const dedicatedDirect = directSource(trailerUrl)
-  // Only the parent can supply an entitled full source. Dedicated trailers keep their identity.
-  const direct = dedicatedDirect || (!bunny && !youtube ? directSource(directVideoUrl) : null)
-  const src = !direct ? bunny || (youtube ? `https://www.youtube.com/embed/${youtube}?autoplay=1&mute=1&controls=0&loop=1&playlist=${youtube}&rel=0&enablejsapi=1&playsinline=1` : null) : null
+  const previewBunnyId = bunnyTrailerId || (!youtube && !dedicatedDirect ? bunnyVideoId : null)
+  const bunny = bunnyLibraryId && previewBunnyId ? `https://iframe.mediadelivery.net/embed/${encodeURIComponent(bunnyLibraryId)}/${encodeURIComponent(previewBunnyId)}?autoplay=true&muted=true&loop=true&preload=true&controls=false&playsinline=true&responsive=true` : null
+  const src = dedicatedDirect ? null : bunny || (youtube ? `https://www.youtube.com/embed/${youtube}?autoplay=1&mute=1&controls=0&loop=1&playlist=${youtube}&rel=0&enablejsapi=1&playsinline=1` : null)
+  // Provider embeds render clean frames. A silent mid-stream seek on a raw
+  // HLS file can reveal torn frames before the next keyframe, so the full
+  // video URL is the last resort, not the first choice.
+  const direct = dedicatedDirect || (!src ? directSource(directVideoUrl) : null)
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)')

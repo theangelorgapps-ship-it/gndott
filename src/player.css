@@ -91,7 +91,18 @@
 .tv-immersive-player :is(button, input, a, textarea):focus-visible { outline: 3px solid var(--tv-blue); outline-offset: 3px; }
 .tv-immersive-player button:disabled, .tv-immersive-player input:disabled { opacity: .4; cursor: default; }
 .tv-title-preview { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
-.tv-title-preview :is(iframe, video) { width: 100%; height: 100%; object-fit: cover; border: 0; display: block; }
+.tv-title-preview { container-type: size; }
+.tv-title-preview :is(iframe, video) { border: 0; display: block; }
+.tv-title-preview video { width: 100%; height: 100%; object-fit: cover; }
+/* Iframes can't object-fit; size the 16:9 embed to cover the host, centred,
+   so portrait/odd-shaped heroes crop instead of letterboxing with bands. */
+.tv-title-preview iframe { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+@container (min-aspect-ratio: 16/9) {
+  .tv-title-preview iframe { width: 100%; height: auto; aspect-ratio: 16/9; }
+}
+@container (max-aspect-ratio: 16/9) {
+  .tv-title-preview iframe { height: 100%; width: auto; aspect-ratio: 16/9; }
+}
 .tv-title-hero > .tv-preview-toggle { position: absolute; top: calc(var(--header-h, 76px) + 16px); right: calc(var(--detail-gutter) + 58px); z-index: 3; pointer-events: auto; }
 .tv-title-shade { pointer-events: none; }
 @media (max-width: 759px) {

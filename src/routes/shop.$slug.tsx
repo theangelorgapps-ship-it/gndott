@@ -35,7 +35,7 @@ function ProductContent({ p }: { p: import('../lib/storeTypes').StoreProduct }) 
         <div className="store-gallery-dots">{p.images.map((image, dotIndex) => <button key={image.id} type="button" className={dotIndex === index ? 'active' : ''} aria-label={`Product image ${dotIndex + 1}`} onClick={() => setIndex(dotIndex)} />)}</div>
       </>}
     </div><div className="store-gallery-thumbs">{p.images.map((image, imageIndex) => <button key={image.id} type="button" aria-label={`Product image ${imageIndex + 1}`} aria-pressed={imageIndex === index} onClick={() => setIndex(imageIndex)}><img src={img(image.src)} alt="" /></button>)}</div></div>
-    <div className="store-product-information"><Link to="/shop">← All products</Link><span className="store-eyebrow">{storeText(p.categories[0]?.name)}</span><h1>{storeText(p.name)}</h1><p className="store-detail-price">{price}</p><p className="store-product-description">{storeText(p.short_description || p.description)}</p>
+    <div className="store-product-information"><Link to="/shop">← All products</Link><span className="store-eyebrow">{storeText(p.categories[0]?.name)}</span><h1>{storeText(p.name)}</h1>
       <form onSubmit={async event => {
         event.preventDefault()
         if (!canAdd) return
@@ -49,6 +49,7 @@ function ProductContent({ p }: { p: import('../lib/storeTypes').StoreProduct }) 
         })}</div></fieldset>)}
         {!complete && <p id="store-product-options-hint" className="muted">Choose your options to add this item.</p>}
         {error && <p role="alert">{error}</p>}
+        <p className="store-detail-price">{price}</p>
         <StorePurchaseBar product>
           <div className="store-purchase-summary"><strong>{storeText(p.name)}</strong><span>{!available ? 'Currently unavailable' : !complete ? 'Choose options above' : price}</span></div>
           <div className="store-purchase-controls">
@@ -60,7 +61,8 @@ function ProductContent({ p }: { p: import('../lib/storeTypes').StoreProduct }) 
         </StorePurchaseBar>
         {added && <p className="store-add-confirmation" role="status">Added to your cart.</p>}
       </form>
-      <div className="store-product-service"><p><Truck size={20} /> Shipping options and delivery cost at checkout</p><p><ShieldCheck size={20} /> Orders fulfilled by uebertangel.org</p></div><details><summary>About this product</summary><p className="store-product-description">{storeText(p.description)}</p></details>
+      <details className="store-product-about"><summary>About this product</summary><p className="store-product-description">{storeText(p.short_description || p.description)}</p></details>
+      <div className="store-product-service"><p><Truck size={20} /> Shipping options and delivery cost at checkout</p><p><ShieldCheck size={20} /> Orders fulfilled by uebertangel.org</p></div>
     </div>
   </section>
 }

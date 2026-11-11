@@ -16,6 +16,7 @@ import { getStoreProducts, getStoreCart, updateStoreCart, quoteStoreCheckout, st
 import { first } from '../../../lib/db'
 import { getBibleBooks, getBibleChapter } from '../../../lib/bible'
 import { BIBLE_VERSIONS } from '../../../lib/bibleProvider'
+import { getPlaybackProgress, recordWatchProgress } from '../../../lib/playback'
 
 // Stable public REST surface for the mobile app.
 // Web pages call these same server functions through TanStack Start's hashed
@@ -103,88 +104,14 @@ async function handleGet(ctx: Ctx): Promise<Response> {
       const lib = await first(`SELECT val FROM settings WHERE name = 'bunny_library_id'`).catch(() => null)
       return json({ episode, bunnyLibraryId: (lib as any)?.val ? String((lib as any).val) : null })
     }
-    case 'stream': {
-      // /api/mobile/stream/<movie|teaching|tv-show|video|episode>/<id>
-      // Entitlement-checked playback payload. Gating is inherited from the
-      // detail server functions (they strip playback fields when the viewer
-      // is not entitled) — never re-implemented here.
-      const type = second ?? ''
-      const id = num(segs(ctx)[2])
-      if (!id) return json({ ok: false, error: 'Missing content id' }, { status: 400 })
-      let content: any = null
-      let libraryId: string | null = null
-      if (type === 'movie') {
-        const d: any = await getMovie({ data: id })
-        content = d?.movie
-        libraryId = d?.bunnyLibraryId ?? null
-      } else if (type === 'teaching' || type === 'tv-show' || type === 'tvshow') {
-        const d: any = await getTvShow({ data: id })
-        content = d?.show
-        libraryId = d?.bunnyLibraryId ?? null
-      } else if (type === 'video') {
-        const d: any = await getVideo({ data: id })
-        content = d?.video
-        libraryId = d?.bunnyLibraryId ?? null
-      } else if (type === 'episode') {
-        const ep: any = await first(`SELECT * FROM episodes WHERE id = ? AND deleted_at IS NULL`, id)
-        if (ep?.entertainment_id) {
-          const d: any = await getTvShow({ data: Number(ep.entertainment_id) }).catch(() => null)
-          libraryId = d?.bunnyLibraryId ?? null
-          // Parent gating applies: paid parent without purchase hides sources.
-          const denied = (d?.show?.movie_access === 'paid' && !d?.myPurchase) || d?.show?.hasSubscriptionAccess === false
-          content = denied ? { ...ep, video_url_input: null, bunny_video_url: null, movie_access: 'paid' } : ep
-        } else {
-          content = ep
-        }
-        if (!libraryId) {
-          const lib = await first(`SELECT val FROM settings WHERE name = 'bunny_library_id'`).catch(() => null)
-          libraryId = (lib as any)?.val ? String((lib as any).val) : null
-        }
-      } else {
-        return json({ ok: false, error: `Unknown stream type: ${type}` }, { status: 404 })
-      }
-      if (!content) return json({ ok: false, error: 'Content not found' }, { status: 404 })
-
-      const directUrl = typeof content.video_url_input === 'string' && /\.(mp4|webm|ogg|m4v|m3u8)(?:[?#]|$)/i.test(content.video_url_input.trim())
-        ? content.video_url_input.trim()
-        : null
-      const videoId = typeof content.bunny_video_url === 'string' && content.bunny_video_url.trim() ? content.bunny_video_url.trim() : null
-      const paid = content.movie_access === 'paid' || content.access === 'paid'
-      // Paid content whose sources were stripped by gating is locked.
-      const locked = paid && !directUrl && !videoId
-
-      const zoneRow = await first(`SELECT val FROM settings WHERE name = 'bunny_pull_zone'`).catch(() => null)
-      const pullZone = (zoneRow as any)?.val
-        ? String((zoneRow as any).val).replace(/^https?:\/\//, '').replace(/\/+$/, '')
-        : null
-      let hls = !locked && videoId && pullZone ? `https://${pullZone}/${videoId}/playlist.m3u8` : null
-      let seekSheetBase = !locked && videoId && pullZone ? `https://${pullZone}/${videoId}/` : null
-      // Most titles already store the Bunny playlist as their direct URL —
-      // derive the HLS contract from it when no pull-zone setting exists.
-      if (!locked && !hls && directUrl && /:\/\/[^/]*\.b-cdn\.net\/[a-f0-9-]+\/playlist\.m3u8(?:[?#]|$)/i.test(directUrl)) {
-        hls = directUrl
-        seekSheetBase = directUrl.split('/playlist.m3u8')[0] + '/'
-      }
-      const embed = !locked && videoId && libraryId
-        ? `https://iframe.mediadelivery.net/embed/${encodeURIComponent(libraryId)}/${encodeURIComponent(videoId)}`
-        : null
-      const provider = locked ? null : hls ? 'bunny-hls' : directUrl ? 'direct' : embed ? 'bunny-embed' : null
-      return json({
-        locked,
-        provider,
-        libraryId: locked ? null : libraryId,
-        videoId: locked ? null : videoId,
-        hls,
-        seekSheetBase,
-        embed,
-        directUrl: locked ? null : directUrl,
-        subtitles: [],
-        title: content.name ?? null,
-        duration: content.duration ?? null,
-        poster: content.thumbnail_url ?? content.poster_url ?? null,
-      })
-    }
     case 'channel': return json(await getChannel({ data: num(second) }))
+    case 'me':
+      if (second === 'progress') {
+        // GET /api/mobile/me/progress?type=<movie|teaching|tv-show|video|episode>&id=<id>
+        const contentType = (q.get('type') ?? '').replace('tv-show', 'tvshow')
+        return json(await getPlaybackProgress({ data: { contentType, contentId: num(q.get('id') ?? undefined) } as any }))
+      }
+      return json({ ok: false, error: `Unknown endpoint: me/${second ?? ''}` }, { status: 404 })
     case 'search': return json(await searchContent({ data: q.get('q') ?? '' }))
     case 'faq': return json(await getFaqs())
     case 'page': return json(await getPage({ data: q.get('slug') ?? '' }))
@@ -243,14 +170,22 @@ async function handleGet(ctx: Ctx): Promise<Response> {
         const directUrl = typeof item.video_url_input === 'string' && /^https:\/\//i.test(item.video_url_input) ? item.video_url_input : null
         const base = { title: item.name ?? '', duration: item.duration ?? null, poster: item.thumbnail_url ?? item.poster_url ?? null }
         if (!videoId && !directUrl) return { ...base, locked: true }
+        let hls = videoId && pullHost ? `https://${pullHost}/${videoId}/playlist.m3u8` : null
+        let seekSheetBase = videoId && pullHost ? `https://${pullHost}/${videoId}/seek/` : null
+        // Most titles already store the Bunny playlist as their direct URL —
+        // derive the HLS contract from it when no pull-zone setting exists.
+        if (!hls && directUrl && /:\/\/[^/]*\.b-cdn\.net\/[a-f0-9-]+\/playlist\.m3u8(?:[?#]|$)/i.test(directUrl)) {
+          hls = directUrl
+          seekSheetBase = directUrl.split('/playlist.m3u8')[0] + '/'
+        }
         return {
           ...base,
           locked: false,
-          provider: videoId && libraryId ? 'bunny' : 'direct',
+          provider: hls ? 'bunny-hls' : videoId && libraryId ? 'bunny-embed' : 'direct',
           libraryId: videoId ? libraryId : null,
           videoId,
-          hls: videoId && pullHost ? `https://${pullHost}/${videoId}/playlist.m3u8` : null,
-          seekSheetBase: videoId && pullHost ? `https://${pullHost}/${videoId}/seek/` : null,
+          hls,
+          seekSheetBase,
           embed: videoId && libraryId ? `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}` : null,
           directUrl,
           subtitles: item.enable_subtitle && typeof item.subtitle_file === 'string' && item.subtitle_file
@@ -328,6 +263,12 @@ async function handlePost(ctx: Ctx): Promise<Response> {
       }
     case 'watchlist':
       if (second === 'toggle') return json(await toggleWatchlist({ data: body }))
+      break
+    case 'me':
+      if (second === 'progress') {
+        // Playback heartbeat: { contentType, contentId, position, duration, profileKey? }
+        return json(await recordWatchProgress({ data: { ...body, contentType: String(body?.contentType ?? '').replace('tv-show', 'tvshow') } }))
+      }
       break
     case 'reviews':
       if (second === 'submit') return json(await submitReview({ data: body }))

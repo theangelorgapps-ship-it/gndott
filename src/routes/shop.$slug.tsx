@@ -1,7 +1,7 @@
 import { img } from '@/components/Poster'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Truck, ShieldCheck } from 'lucide-react'
+import { Truck, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react'
 import { GlowButton } from '../components/ui/glow-button'
 import { getStoreProduct } from '../lib/store'
 import { StoreCartActions, useStoreCart } from '../components/StoreCart'
@@ -26,7 +26,15 @@ function ProductContent({ p }: { p: import('../lib/storeTypes').StoreProduct }) 
   const canAdd = !busy && available && complete && validQuantity
   const price = `${p.has_options ? 'From ' : ''}${storeMoney(p.prices.price, p.prices.currency_code, p.prices.currency_minor_unit)}`
   return <section className="store-product-detail" key={p.id}>
-    <div className="store-gallery"><div className="store-gallery-main"><img src={img(p.images[index]?.src)} alt={p.images[index]?.alt || storeText(p.name)} /></div><div className="store-gallery-thumbs">{p.images.map((image, imageIndex) => <button key={image.id} type="button" aria-label={`Product image ${imageIndex + 1}`} aria-pressed={imageIndex === index} onClick={() => setIndex(imageIndex)}><img src={img(image.src)} alt="" /></button>)}</div></div>
+    <div className="store-gallery"><div className="store-gallery-main"><img key={p.images[index]?.id ?? index} src={img(p.images[index]?.src)} alt={p.images[index]?.alt || storeText(p.name)} />
+      {p.images.length > 1 && <>
+        <div className="store-gallery-nav" aria-hidden="false">
+          <button type="button" aria-label="Previous product image" onClick={() => setIndex((index - 1 + p.images.length) % p.images.length)}><ChevronLeft size={17} /></button>
+          <button type="button" aria-label="Next product image" onClick={() => setIndex((index + 1) % p.images.length)}><ChevronRight size={17} /></button>
+        </div>
+        <div className="store-gallery-dots">{p.images.map((image, dotIndex) => <button key={image.id} type="button" className={dotIndex === index ? 'active' : ''} aria-label={`Product image ${dotIndex + 1}`} onClick={() => setIndex(dotIndex)} />)}</div>
+      </>}
+    </div><div className="store-gallery-thumbs">{p.images.map((image, imageIndex) => <button key={image.id} type="button" aria-label={`Product image ${imageIndex + 1}`} aria-pressed={imageIndex === index} onClick={() => setIndex(imageIndex)}><img src={img(image.src)} alt="" /></button>)}</div></div>
     <div className="store-product-information"><Link to="/shop">← All products</Link><span className="store-eyebrow">{storeText(p.categories[0]?.name)}</span><h1>{storeText(p.name)}</h1><p className="store-detail-price">{price}</p><p className="store-product-description">{storeText(p.short_description || p.description)}</p>
       <form onSubmit={async event => {
         event.preventDefault()

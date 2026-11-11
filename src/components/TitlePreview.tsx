@@ -28,7 +28,7 @@ export function TitlePreview({ title, trailerUrl, directVideoUrl, bunnyLibraryId
   const [requestedPlay, setRequestedPlay] = useState(false)
   const youtube = youtubeId(trailerUrl)
   const previewBunnyId = bunnyTrailerId || (!youtube && !directSource(trailerUrl) && !directSource(directVideoUrl) ? bunnyVideoId : null)
-  const bunny = bunnyLibraryId && previewBunnyId ? `https://iframe.mediadelivery.net/embed/${encodeURIComponent(bunnyLibraryId)}/${encodeURIComponent(previewBunnyId)}?autoplay=true&muted=true&loop=true&preload=true&controls=false&playsinline=true` : null
+  const bunny = bunnyLibraryId && previewBunnyId ? `https://iframe.mediadelivery.net/embed/${encodeURIComponent(bunnyLibraryId)}/${encodeURIComponent(previewBunnyId)}?autoplay=true&muted=true&loop=true&preload=true&controls=false&playsinline=true&responsive=true` : null
   const dedicatedDirect = directSource(trailerUrl)
   // Only the parent can supply an entitled full source. Dedicated trailers keep their identity.
   const direct = dedicatedDirect || (!bunny && !youtube ? directSource(directVideoUrl) : null)
